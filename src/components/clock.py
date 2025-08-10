@@ -9,28 +9,8 @@ class Clock(BaseComponent):
     Displays the current time and updates every second.
     """
 
-    def __init__(
-        self,
-        top: float | None = None,
-        v_middle: float | None = None,
-        bottom: float | None = None,
-        left: float | None = None,
-        h_middle: float | None = None,
-        right: float | None = None,
-        width: float = 0.4,
-        height: float = 0.2,
-    ):
-        super().__init__(
-            name="clock",
-            top=top,
-            v_middle=v_middle,
-            bottom=bottom,
-            left=left,
-            h_middle=h_middle,
-            right=right,
-            width=width,
-            height=height,
-        )
+    def __init__(self, *args, **kwargs):
+        super().__init__(name="clock", *args, **kwargs)
 
     def layout(self):
         """Returns the layout of the clock component."""

@@ -746,30 +746,16 @@ class ComplimentsJokes(BaseComponent):
 
     def __init__(
         self,
-        top: float | None = None,
-        v_middle: float | None = None,
-        bottom: float | None = None,
-        left: float | None = None,
-        h_middle: float | None = None,
-        right: float | None = None,
-        width: float = 0.5,
-        height: float = 0.25,
-        compliment_interval: int = 30,  # seconds
-        joke_interval: int = 60,  # seconds
+        *args,
+        interval: int = 30,  # seconds
+        **kwargs,
     ):
         super().__init__(
             name="compliments_jokes",
-            top=top,
-            v_middle=v_middle,
-            bottom=bottom,
-            left=left,
-            h_middle=h_middle,
-            right=right,
-            width=width,
-            height=height,
+            *args,
+            **kwargs,
         )
-        self.compliment_interval = compliment_interval * 1000  # Convert to milliseconds
-        self.joke_interval = joke_interval * 1000  # Convert to milliseconds
+        self.interval = interval * 1000  # Convert to milliseconds
 
     def layout(self):
         """Returns the layout of the compliments and jokes component."""
@@ -777,13 +763,8 @@ class ComplimentsJokes(BaseComponent):
             [
                 # Intervals for rotating content
                 dcc.Interval(
-                    id=f"{self.component_id}-compliment-interval",
-                    interval=self.compliment_interval,
-                    n_intervals=0,
-                ),
-                dcc.Interval(
-                    id=f"{self.component_id}-joke-interval",
-                    interval=self.joke_interval,
+                    id=f"{self.component_id}-interval",
+                    interval=self.interval,
                     n_intervals=0,
                 ),
                 # Display area
@@ -835,12 +816,11 @@ class ComplimentsJokes(BaseComponent):
         @app.callback(
             Output(f"{self.component_id}-display", "children"),
             [
-                Input(f"{self.component_id}-compliment-interval", "n_intervals"),
-                Input(f"{self.component_id}-joke-interval", "n_intervals"),
+                Input(f"{self.component_id}-interval", "n_intervals"),
             ],
             prevent_initial_call=False,
         )
-        def update_display(compliment_intervals, joke_intervals):
+        def update_display(_):
             """Update display with random content from any category with equal probability."""
             # Get random content from any category with equal probability
             content_type, content = self.get_random_content()

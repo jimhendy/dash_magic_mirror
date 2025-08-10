@@ -1,19 +1,8 @@
-from dataclasses import dataclass
-
 import httpx
 from dash import Input, Output, dcc, html
 from loguru import logger
 
 from components.base import BaseComponent
-
-
-@dataclass
-class StopPoint:
-    """Dataclass representing a TFL StopPoint."""
-
-    id: str
-    name: str
-    filter: dict | None = None  # Applied to arrivals data
 
 
 class TFL(BaseComponent):
@@ -28,31 +17,8 @@ class TFL(BaseComponent):
 
     API_URL = "https://api.tfl.gov.uk/StopPoint/{stop_id}/Arrivals"
 
-    def __init__(
-        self,
-        stops: list[StopPoint],
-        top: float | None = None,
-        v_middle: float | None = None,
-        bottom: float | None = None,
-        left: float | None = None,
-        h_middle: float | None = None,
-        right: float | None = None,
-        width: float = 0.25,
-        height: float = 0.4,
-        *,
-        justify_right: bool = False,
-    ):
-        super().__init__(
-            name="tfl",
-            top=top,
-            v_middle=v_middle,
-            bottom=bottom,
-            left=left,
-            h_middle=h_middle,
-            right=right,
-            width=width,
-            height=height,
-        )
+    def __init__(self, stops, *args, justify_right=False, **kwargs):
+        super().__init__(name="tfl", *args, **kwargs)
         self.stops = stops
         self.justify_right = justify_right
 
@@ -79,7 +45,11 @@ class TFL(BaseComponent):
                 # ),
                 html.Div(
                     id=f"{self.component_id}-arrivals",
-                    style={"display": "flex", "flexDirection": "column"},
+                    style={
+                        "display": "flex",
+                        "flexDirection": "column",
+                        "alignItems": "center",
+                    },
                 ),
             ],
             style={"color": "#FFFFFF"},
@@ -89,11 +59,11 @@ class TFL(BaseComponent):
         """Fetch the latest TFL data and update the component."""
         data = {}
         for stop in self.stops:
-            data[stop.name] = []
+            data[stop] = []
             try:
-                response = httpx.get(self.API_URL.format(stop_id=stop.id))
+                response = httpx.get(self.API_URL.format(stop_id=stop))
             except httpx.RequestError as e:
-                logger.error(f"Error fetching data for stop {stop.name}: {e}")
+                logger.error(f"Error fetching data for stop {stop}: {e}")
                 continue
             if response.is_success:
                 arrivals = response.json()
@@ -101,13 +71,12 @@ class TFL(BaseComponent):
                     # Sort the arrivals by expected arrival time
                     arrivals.sort(key=lambda x: x.get("expectedArrival", ""))
                     # Assume the first arrival is soonest
-                    data[stop.name] = arrivals[:5]  # Limit to 5 arrivals
+                    data[stop] = arrivals[:5]  # Limit to 5 arrivals
             else:
                 logger.error(
-                    f"Failed to fetch data for stop {stop.name}: {response.status_code} - {response.text}",
+                    f"Failed to fetch data for stop {stop}: {response.status_code} - {response.text}",
                 )
         logger.info(f"Fetched data for {len(data)} stops.")
-        logger.debug(f"Data: {data}")
         return data
 
     def add_callbacks(self, app):
@@ -142,23 +111,27 @@ class TFL(BaseComponent):
                         continue;
                     }}
                     
-                    // Create stop header
+                    // Create stop header using stationName from first arrival
                     const stopHeader = document.createElement('div');
                     stopHeader.style.marginBottom = '25px';
-                    
+
                     const stopTitle = document.createElement('h3');
-                    stopTitle.textContent = stopName;
+                    let stationName = stopName;
+                    if (arrivals.length > 0 && arrivals[0].stationName) {{
+                        stationName = arrivals[0].stationName;
+                    }}
+                    stopTitle.textContent = stationName;
                     stopTitle.style.cssText = `
                         color: #FFFFFF;
-                        fontSize: 1.8rem;
-                        fontWeight: 300;
+                        width: 100%;
+                        font-size: 1.8rem;
+                        font-weight: 300;
                         margin: 0 0 8px 0;
-                        letterSpacing: 0.5px;
-                        textAlign: center;
+                        letter-spacing: 0.5px;
+                        text-align: center;
                         justifyContent: ${{self.justify_right ? 'flex-end' : 'center'}};
-                        display: flex;
                     `;
-                    
+
                     const hr = document.createElement('hr');
                     hr.style.cssText = `
                         border: none;
@@ -166,10 +139,10 @@ class TFL(BaseComponent):
                         background: linear-gradient(90deg, transparent, #4A90E2, transparent);
                         margin: 0 0 20px 0;
                         width: 80%;
-                        marginLeft: auto;
-                        marginRight: auto;
+                        margin-left: auto;
+                        margin-right: auto;
                     `;
-                    
+
                     stopHeader.appendChild(stopTitle);
                     stopHeader.appendChild(hr);
                     container.appendChild(stopHeader);
@@ -209,17 +182,17 @@ class TFL(BaseComponent):
                         arrivalCard.style.cssText = `
                             opacity: ${{finalOpacity}};
                             padding: 12px 20px;
-                            marginBottom: 8px;
+                            margin-bottom: 8px;
                             background: rgba(255, 255, 255, 0.05);
-                            borderRadius: 8px;
+                            border-radius: 8px;
                             border: 1px solid rgba(74, 144, 226, 0.2);
-                            backdropFilter: blur(10px);
+                            backdrop-filter: blur(10px);
                             transition: all 0.3s ease;
-                            minWidth: 400px;
-                            maxWidth: 600px;
+                            min-width: 400px;
+                            max-width: 600px;
                             display: flex;
-                            alignItems: center;
-                            justifyContent: space-between;
+                            align-items: center;
+                            justify-content: space-between;
                         `;
                         
                         // Store arrival time as data attribute for real-time updates
@@ -231,11 +204,12 @@ class TFL(BaseComponent):
                         lineSpan.textContent = arrival.lineName || 'Unknown';
                         lineSpan.style.cssText = `
                             color: #4A90E2;
-                            fontWeight: 500;
-                            fontSize: 1.1rem;
-                            marginRight: 12px;
-                            minWidth: 60px;
+                            font-weight: 500;
+                            font-size: 1.1rem;
+                            margin-right: 12px;
+                            min-width: 60px;
                             display: inline-block;
+                            text-align: left;
                         `;
                         
                         // Destination
@@ -243,10 +217,11 @@ class TFL(BaseComponent):
                         destSpan.textContent = arrival.destinationName || 'Unknown Destination';
                         destSpan.style.cssText = `
                             color: #FFFFFF;
-                            fontSize: 1rem;
-                            fontWeight: 300;
+                            font-size: 1rem;
+                            font-weight: 300;
                             flex: 1;
-                            marginRight: 16px;
+                            margin-right: 16px;
+                            text-align: center;
                         `;
                         
                         // Time (with class for easy updating)
@@ -255,10 +230,10 @@ class TFL(BaseComponent):
                         timeSpan.classList.add('arrival-time');
                         timeSpan.style.cssText = `
                             color: ${{timeColor}};
-                            fontSize: 1rem;
-                            fontWeight: ${{timeWeight}};
-                            minWidth: 70px;
-                            textAlign: right;
+                            font-size: 1rem;
+                            font-weight: ${{timeWeight}};
+                            min-width: 70px;
+                            text-align: right;
                         `;
                         
                         arrivalCard.appendChild(lineSpan);
