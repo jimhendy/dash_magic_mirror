@@ -7,7 +7,31 @@ from loguru import logger
 from components.base import BaseComponent
 from utils.file_cache import cache_json
 
+API_URL = "https://api.tfl.gov.uk/StopPoint/{stop_id}/Arrivals"
 
+@cache_json(valid_lifetime=datetime.timedelta(seconds=30))
+def fetch_sopt_points(stops: list[str]) -> dict[str, str]:
+    data = {}
+    for stop in stops:
+        data[stop] = []
+        try:
+            response = httpx.get(API_URL.format(stop_id=stop))
+        except httpx.RequestError as e:
+            logger.error(f"Error fetching data for stop {stop}: {e}")
+            continue
+        if response.is_success:
+            arrivals = response.json()
+            if arrivals:
+                # Sort the arrivals by expected arrival time
+                arrivals.sort(key=lambda x: x.get("expectedArrival", ""))
+                # Assume the first arrival is soonest
+                data[stop] = arrivals[:5]  # Limit to 5 arrivals
+        else:
+            logger.error(
+                f"Failed to fetch data for stop {stop}: {response.status_code} - {response.text}",
+            )
+    logger.info(f"Fetched data for {len(data)} stops.")
+    return data
 class TFL(BaseComponent):
     """TFL component for the Magic Mirror application.
     Displays the next train times for a given station.
@@ -17,8 +41,6 @@ class TFL(BaseComponent):
     https://api.tfl.gov.uk/StopPoint/Search/<search_term>
     E.g. https://api.tfl.gov.uk/StopPoint/Search/Waterloo
     """
-
-    API_URL = "https://api.tfl.gov.uk/StopPoint/{stop_id}/Arrivals"
 
     def __init__(self, stops, *args, justify_right=False, **kwargs):
         super().__init__(name="tfl", *args, **kwargs)
@@ -55,30 +77,10 @@ class TFL(BaseComponent):
             style={"color": "#FFFFFF"},
         )
 
-    @cache_json(valid_lifetime=datetime.timedelta(seconds=30))
     def fetch(self) -> dict:
         """Fetch the latest TFL data and update the component."""
-        data = {}
-        for stop in self.stops:
-            data[stop] = []
-            try:
-                response = httpx.get(self.API_URL.format(stop_id=stop))
-            except httpx.RequestError as e:
-                logger.error(f"Error fetching data for stop {stop}: {e}")
-                continue
-            if response.is_success:
-                arrivals = response.json()
-                if arrivals:
-                    # Sort the arrivals by expected arrival time
-                    arrivals.sort(key=lambda x: x.get("expectedArrival", ""))
-                    # Assume the first arrival is soonest
-                    data[stop] = arrivals[:5]  # Limit to 5 arrivals
-            else:
-                logger.error(
-                    f"Failed to fetch data for stop {stop}: {response.status_code} - {response.text}",
-                )
-        logger.info(f"Fetched data for {len(data)} stops.")
-        return data
+        return fetch_sopt_points(self.stops)
+        
 
     def add_callbacks(self, app):
         @app.callback(

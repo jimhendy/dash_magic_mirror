@@ -17,8 +17,8 @@ load_dotenv(env_path)
 # Create component instances with configuration from environment
 COMPONENTS = [
     Clock(
-        v_center=True,
         h_center=True,
+        top="57%",
     ),
     GoogleCalendar(
         calendar_config=CalendarConfig(
