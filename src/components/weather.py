@@ -176,28 +176,7 @@ class Weather(BaseComponent):
                                 "height": "40%",
                                 "marginRight": "8px",
                             },
-                        )
-                        if current.get("icon")
-                        else DashIconify(
-                            icon="meteocons:partly-cloudy-day-fill",
-                            width=20,
-                            height=20,
-                            style={"marginRight": "8px", "color": "#FFD700"},
                         ),
-                        html.Span(
-                            weather_data.get("location", "Weather"),
-                            style={"fontWeight": "bold", "fontSize": "16px"},
-                        ),
-                    ],
-                    style={
-                        "marginBottom": "0",
-                        "display": "flex",
-                        "alignItems": "center",
-                    },
-                ),
-                # Current weather
-                html.Div(
-                    [
                         html.Div(
                             [
                                 html.Span(
@@ -232,37 +211,21 @@ class Weather(BaseComponent):
                                     ],
                                     style={
                                         "display": "flex",
+                                        "flexDirection": "column",
                                         "alignItems": "center",
-                                        "marginRight": "15px",
                                     },
-                                ),
-                                html.Div(
-                                    [
-                                        DashIconify(
-                                            icon="meteocons:humidity-fill",
-                                            width=self.icon_size,
-                                            height=self.icon_size,
-                                            style={
-                                                "marginRight": "4px",
-                                                "color": "#87CEEB",
-                                            },
-                                        ),
-                                        html.Span(
-                                            f"{current.get('humidity', 0)}%",
-                                            style={"fontSize": "14px"},
-                                        ),
-                                    ],
-                                    style={"display": "flex", "alignItems": "center"},
                                 ),
                             ],
                             style={
-                                "marginBottom": "10px",
-                                "opacity": "0.7",
+                                "marginBottom": "0",
                                 "display": "flex",
+                                "justifyContent": "space-between",
                                 "alignItems": "center",
+                                "width": "100%",
                             },
                         ),
                     ],
+                    style={"display": "flex", "alignItems": "center", "width": "100%"},
                 ),
                 # 3-day forecast
                 html.Div(

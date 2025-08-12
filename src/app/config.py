@@ -78,7 +78,7 @@ COMPONENTS = [
     Weather(
         postcode=os.environ.get("WEATHER_POSTCODE", "SW1A 1AA"),
         right="1%",
-        top="42%",
+        top="45%",
         maxWidth="35%",
         maxHeight="25%",
     ),

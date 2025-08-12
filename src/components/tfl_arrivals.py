@@ -128,7 +128,7 @@ class TFL(BaseComponent):
                     stopTitle.style.cssText = `
                         color: #FFFFFF;
                         width: 100%;
-                        font-size: 1.8rem;
+                        font-size: 1.5rem;
                         font-weight: 300;
                         margin: 0 0 8px 0;
                         letter-spacing: 0.5px;
