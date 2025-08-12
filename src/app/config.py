@@ -18,7 +18,7 @@ load_dotenv(env_path)
 COMPONENTS = [
     Clock(
         h_center=True,
-        top="57%",
+        top="50%",
     ),
     GoogleCalendar(
         calendar_config=CalendarConfig(
