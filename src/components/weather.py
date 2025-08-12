@@ -17,6 +17,7 @@ class Weather(BaseComponent):
     Uses WeatherAPI.com for weather data.
     Requires a free API key from https://www.weatherapi.com/signup.aspx
     """
+
     icon_size = 40
 
     def __init__(self, postcode: str, *args, **kwargs):
@@ -104,7 +105,7 @@ class Weather(BaseComponent):
             icon_url = current.get("condition", {}).get("icon", "")
             if icon_url.startswith("//"):
                 icon_url = "https:" + icon_url
-                
+
             processed["current"] = {
                 "temperature": round(current.get("temp_c", 0)),
                 "description": current.get("condition", {}).get("text", "Unknown"),
@@ -122,7 +123,7 @@ class Weather(BaseComponent):
                 icon_url = day_forecast.get("condition", {}).get("icon", "")
                 if icon_url.startswith("//"):
                     icon_url = "https:" + icon_url
-                    
+
                 processed["forecast"].append(
                     {
                         "day": self._format_day(day_data.get("date", ""), i + 1),
@@ -157,7 +158,6 @@ class Weather(BaseComponent):
         except:  # noqa: E722
             return f"Day {days_ahead}"
 
-
     def _render_weather(self, weather_data: dict) -> html.Div:
         """Render the weather component."""
         current = weather_data.get("current", {})
@@ -174,20 +174,26 @@ class Weather(BaseComponent):
                             style={
                                 "width": "40%",
                                 "height": "40%",
-                                "marginRight": "8px"
-                            }
-                        ) if current.get("icon") else DashIconify(
+                                "marginRight": "8px",
+                            },
+                        )
+                        if current.get("icon")
+                        else DashIconify(
                             icon="meteocons:partly-cloudy-day-fill",
                             width=20,
                             height=20,
-                            style={"marginRight": "8px", "color": "#FFD700"}
+                            style={"marginRight": "8px", "color": "#FFD700"},
                         ),
                         html.Span(
                             weather_data.get("location", "Weather"),
                             style={"fontWeight": "bold", "fontSize": "16px"},
                         ),
                     ],
-                    style={"marginBottom": "8px", "display": "flex", "alignItems": "center"},
+                    style={
+                        "marginBottom": "0",
+                        "display": "flex",
+                        "alignItems": "center",
+                    },
                 ),
                 # Current weather
                 html.Div(
@@ -208,32 +214,53 @@ class Weather(BaseComponent):
                         ),
                         html.Div(
                             [
-                                html.Div([
-                                    DashIconify(
-                                        icon="meteocons:raindrops-fill",
-                                        width=self.icon_size,
-                                        height= self.icon_size,
-                                        style={"marginRight": "4px", "color": "#4A90E2"}
-                                    ),
-                                    html.Span(
-                                        f"{current.get('rain_chance', 0)}%",
-                                        style={"fontSize": "14px"},
-                                    ),
-                                ], style={"display": "flex", "alignItems": "center", "marginRight": "15px"}),
-                                html.Div([
-                                    DashIconify(
-                                        icon="meteocons:humidity-fill",
-                                        width=self.icon_size,
-                                        height=self.icon_size,
-                                        style={"marginRight": "4px", "color": "#87CEEB"}
-                                    ),
-                                    html.Span(
-                                        f"{current.get('humidity', 0)}%",
-                                        style={"fontSize": "14px"},
-                                    ),
-                                ], style={"display": "flex", "alignItems": "center"}),
+                                html.Div(
+                                    [
+                                        DashIconify(
+                                            icon="meteocons:raindrops-fill",
+                                            width=self.icon_size,
+                                            height=self.icon_size,
+                                            style={
+                                                "marginRight": "4px",
+                                                "color": "#4A90E2",
+                                            },
+                                        ),
+                                        html.Span(
+                                            f"{current.get('rain_chance', 0)}%",
+                                            style={"fontSize": "14px"},
+                                        ),
+                                    ],
+                                    style={
+                                        "display": "flex",
+                                        "alignItems": "center",
+                                        "marginRight": "15px",
+                                    },
+                                ),
+                                html.Div(
+                                    [
+                                        DashIconify(
+                                            icon="meteocons:humidity-fill",
+                                            width=self.icon_size,
+                                            height=self.icon_size,
+                                            style={
+                                                "marginRight": "4px",
+                                                "color": "#87CEEB",
+                                            },
+                                        ),
+                                        html.Span(
+                                            f"{current.get('humidity', 0)}%",
+                                            style={"fontSize": "14px"},
+                                        ),
+                                    ],
+                                    style={"display": "flex", "alignItems": "center"},
+                                ),
                             ],
-                            style={"marginBottom": "10px", "opacity": "0.7", "display": "flex", "alignItems": "center"},
+                            style={
+                                "marginBottom": "10px",
+                                "opacity": "0.7",
+                                "display": "flex",
+                                "alignItems": "center",
+                            },
                         ),
                     ],
                 ),
@@ -251,38 +278,49 @@ class Weather(BaseComponent):
                                     },
                                 ),
                                 # Weather icon for each day
-                                html.Div([
-                                    html.Img(
-                                        src=day.get("icon", ""),
-                                        style={
-                                            "width": "40px",
-                                            "height": "40px",
-                                            "marginBottom": "2px"
-                                        }
-                                    ) if day.get("icon") else None
-                                ], style={"marginBottom": "2px"}),
+                                html.Div(
+                                    [
+                                        html.Img(
+                                            src=day.get("icon", ""),
+                                            style={
+                                                "width": "40px",
+                                                "height": "40px",
+                                                "marginBottom": "2px",
+                                            },
+                                        )
+                                        if day.get("icon")
+                                        else None,
+                                    ],
+                                    style={"marginBottom": "2px"},
+                                ),
                                 html.Div(
                                     f"{day['high']}°/{day['low']}°",
                                     style={"fontSize": "15px", "marginBottom": "1px"},
                                 ),
-                                html.Div([
-                                    DashIconify(
-                                        icon="meteocons:raindrops-fill",
-                                        width=self.icon_size,
-                                        height=self.icon_size,
-                                        style={"marginRight": "2px", "color": "#4A90E2"}
-                                    ),
-                                    html.Span(
-                                        f"{day['rain_chance']}%",
-                                        style={"fontSize": "13px"},
-                                    ),
-                                ], style={
-                                    "fontSize": "13px",
-                                    "opacity": "0.6",
-                                    "display": "flex",
-                                    "alignItems": "center",
-                                    "justifyContent": "center"
-                                }),
+                                html.Div(
+                                    [
+                                        DashIconify(
+                                            icon="meteocons:raindrops-fill",
+                                            width=self.icon_size,
+                                            height=self.icon_size,
+                                            style={
+                                                "marginRight": "2px",
+                                                "color": "#4A90E2",
+                                            },
+                                        ),
+                                        html.Span(
+                                            f"{day['rain_chance']}%",
+                                            style={"fontSize": "13px"},
+                                        ),
+                                    ],
+                                    style={
+                                        "fontSize": "13px",
+                                        "opacity": "0.6",
+                                        "display": "flex",
+                                        "alignItems": "center",
+                                        "justifyContent": "center",
+                                    },
+                                ),
                             ],
                             style={
                                 "display": "inline-block",

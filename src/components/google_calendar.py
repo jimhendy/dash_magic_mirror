@@ -245,7 +245,7 @@ class GoogleCalendar(BaseComponent):
                     else "1px solid rgba(255,255,255,0.15)",
                     "borderRadius": "8px",
                     "padding": "8px",
-                    "marginBottom": "6px",
+                    "marginBottom": "0",
                     "boxShadow": "0 2px 8px rgba(255,215,0,0.3)"
                     if event_is_today
                     else "none",

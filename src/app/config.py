@@ -18,7 +18,7 @@ load_dotenv(env_path)
 # Create component instances with configuration from environment
 COMPONENTS = [
     Clock(
-        h_center=True,
+        left="2%",
         top="50%",
     ),
     GoogleCalendar(
@@ -78,8 +78,8 @@ COMPONENTS = [
     Weather(
         postcode=os.environ.get("WEATHER_POSTCODE", "SW1A 1AA"),
         right="1%",
-        top="48%",
-        maxWidth="30%",
-        maxHeight="20%",
+        top="42%",
+        maxWidth="35%",
+        maxHeight="25%",
     ),
 ]
