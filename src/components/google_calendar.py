@@ -187,7 +187,6 @@ class GoogleCalendar(BaseComponent):
             event_cards = []
 
             for event in data:
-                print(event)
                 start_dict = event.get("start", {})
                 end_dict = event.get("end", {})
                 summary = event.get("summary", "No Title")

@@ -62,7 +62,7 @@ def fetch_rss_feed(name, url, limit=10):
                 )
         return items
     except Exception as e:
-        print(f"Error fetching {name}: {e}")
+        logger.error(f"Error fetching RSS feed {name} from {url}: {e}")
         return []
 
 
