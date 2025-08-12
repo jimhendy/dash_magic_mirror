@@ -3,6 +3,7 @@ import os
 
 import httpx
 from dash import Input, Output, dcc, html
+from dash_iconify import DashIconify
 from loguru import logger
 
 from components.base import BaseComponent
@@ -16,6 +17,7 @@ class Weather(BaseComponent):
     Uses WeatherAPI.com for weather data.
     Requires a free API key from https://www.weatherapi.com/signup.aspx
     """
+    icon_size = 40
 
     def __init__(self, postcode: str, *args, **kwargs):
         super().__init__(name="weather", *args, **kwargs)
@@ -85,7 +87,7 @@ class Weather(BaseComponent):
 
         except Exception as e:
             logger.error(f"Failed to fetch weather data: {e}")
-            return self._get_mock_data()
+            return {}
 
     def _process_weather_data(self, raw_data: dict) -> dict:
         """Process raw WeatherAPI data into our format."""
@@ -98,12 +100,17 @@ class Weather(BaseComponent):
         # Current weather
         current = raw_data.get("current", {})
         if current:
+            # Make sure icon URL has https protocol
+            icon_url = current.get("condition", {}).get("icon", "")
+            if icon_url.startswith("//"):
+                icon_url = "https:" + icon_url
+                
             processed["current"] = {
                 "temperature": round(current.get("temp_c", 0)),
                 "description": current.get("condition", {}).get("text", "Unknown"),
                 "humidity": current.get("humidity", 0),
                 "rain_chance": 0,  # Current weather doesn't have rain chance
-                "icon": current.get("condition", {}).get("icon", ""),
+                "icon": icon_url,
             }
 
         # Process forecast for next 3 days
@@ -111,6 +118,11 @@ class Weather(BaseComponent):
         for i, day_data in enumerate(forecast_days[1:4]):  # Skip today, get next 3 days
             day_forecast = day_data.get("day", {})
             if day_forecast:
+                # Make sure icon URL has https protocol
+                icon_url = day_forecast.get("condition", {}).get("icon", "")
+                if icon_url.startswith("//"):
+                    icon_url = "https:" + icon_url
+                    
                 processed["forecast"].append(
                     {
                         "day": self._format_day(day_data.get("date", ""), i + 1),
@@ -121,6 +133,7 @@ class Weather(BaseComponent):
                             "text",
                             "Unknown",
                         ),
+                        "icon": icon_url,
                     },
                 )
 
@@ -137,48 +150,13 @@ class Weather(BaseComponent):
     def _format_day(self, date_str: str, days_ahead: int) -> str:
         """Format day name for forecast."""
         try:
-            date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d")
             if days_ahead == 1:
                 return "Tomorrow"
+            date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d")
             return date_obj.strftime("%A")[:3]  # Mon, Tue, etc.
         except:  # noqa: E722
             return f"Day {days_ahead}"
 
-    def _get_mock_data(self) -> dict:
-        """Return mock data when API is unavailable."""
-        return {
-            "current": {
-                "temperature": 18,
-                "description": "Partly Cloudy",
-                "humidity": 65,
-                "rain_chance": 30,
-                "icon": "02d",
-            },
-            "forecast": [
-                {
-                    "day": "Tomorrow",
-                    "high": 20,
-                    "low": 12,
-                    "rain_chance": 10,
-                    "condition": "Clear",
-                },
-                {
-                    "day": "Wed",
-                    "high": 22,
-                    "low": 14,
-                    "rain_chance": 5,
-                    "condition": "Clear",
-                },
-                {
-                    "day": "Thu",
-                    "high": 19,
-                    "low": 11,
-                    "rain_chance": 60,
-                    "condition": "Rain",
-                },
-            ],
-            "location": self.postcode,
-        }
 
     def _render_weather(self, weather_data: dict) -> html.Div:
         """Render the weather component."""
@@ -190,13 +168,26 @@ class Weather(BaseComponent):
                 # Header with location
                 html.Div(
                     [
-                        html.Span("☀️ ", style={"fontSize": "16px"}),
+                        # Use current weather icon in header if available
+                        html.Img(
+                            src=current.get("icon", ""),
+                            style={
+                                "width": "40%",
+                                "height": "40%",
+                                "marginRight": "8px"
+                            }
+                        ) if current.get("icon") else DashIconify(
+                            icon="meteocons:partly-cloudy-day-fill",
+                            width=20,
+                            height=20,
+                            style={"marginRight": "8px", "color": "#FFD700"}
+                        ),
                         html.Span(
                             weather_data.get("location", "Weather"),
                             style={"fontWeight": "bold", "fontSize": "16px"},
                         ),
                     ],
-                    style={"marginBottom": "8px"},
+                    style={"marginBottom": "8px", "display": "flex", "alignItems": "center"},
                 ),
                 # Current weather
                 html.Div(
@@ -210,23 +201,39 @@ class Weather(BaseComponent):
                                 html.Br(),
                                 html.Span(
                                     current.get("description", "Unknown"),
-                                    style={"fontSize": "12px", "opacity": "0.8"},
+                                    style={"fontSize": "15px", "opacity": "0.8"},
                                 ),
                             ],
                             style={"marginBottom": "6px"},
                         ),
                         html.Div(
                             [
-                                html.Span(
-                                    f"💧 {current.get('rain_chance', 0)}%",
-                                    style={"fontSize": "12px", "marginRight": "10px"},
-                                ),
-                                html.Span(
-                                    f"💨 {current.get('humidity', 0)}%",
-                                    style={"fontSize": "12px"},
-                                ),
+                                html.Div([
+                                    DashIconify(
+                                        icon="meteocons:raindrops-fill",
+                                        width=self.icon_size,
+                                        height= self.icon_size,
+                                        style={"marginRight": "4px", "color": "#4A90E2"}
+                                    ),
+                                    html.Span(
+                                        f"{current.get('rain_chance', 0)}%",
+                                        style={"fontSize": "14px"},
+                                    ),
+                                ], style={"display": "flex", "alignItems": "center", "marginRight": "15px"}),
+                                html.Div([
+                                    DashIconify(
+                                        icon="meteocons:humidity-fill",
+                                        width=self.icon_size,
+                                        height=self.icon_size,
+                                        style={"marginRight": "4px", "color": "#87CEEB"}
+                                    ),
+                                    html.Span(
+                                        f"{current.get('humidity', 0)}%",
+                                        style={"fontSize": "14px"},
+                                    ),
+                                ], style={"display": "flex", "alignItems": "center"}),
                             ],
-                            style={"marginBottom": "10px", "opacity": "0.7"},
+                            style={"marginBottom": "10px", "opacity": "0.7", "display": "flex", "alignItems": "center"},
                         ),
                     ],
                 ),
@@ -238,19 +245,44 @@ class Weather(BaseComponent):
                                 html.Div(
                                     day["day"],
                                     style={
-                                        "fontSize": "11px",
+                                        "fontSize": "15px",
                                         "fontWeight": "bold",
                                         "marginBottom": "2px",
                                     },
                                 ),
+                                # Weather icon for each day
+                                html.Div([
+                                    html.Img(
+                                        src=day.get("icon", ""),
+                                        style={
+                                            "width": "40px",
+                                            "height": "40px",
+                                            "marginBottom": "2px"
+                                        }
+                                    ) if day.get("icon") else None
+                                ], style={"marginBottom": "2px"}),
                                 html.Div(
                                     f"{day['high']}°/{day['low']}°",
-                                    style={"fontSize": "11px", "marginBottom": "1px"},
+                                    style={"fontSize": "15px", "marginBottom": "1px"},
                                 ),
-                                html.Div(
-                                    f"💧{day['rain_chance']}%",
-                                    style={"fontSize": "10px", "opacity": "0.6"},
-                                ),
+                                html.Div([
+                                    DashIconify(
+                                        icon="meteocons:raindrops-fill",
+                                        width=self.icon_size,
+                                        height=self.icon_size,
+                                        style={"marginRight": "2px", "color": "#4A90E2"}
+                                    ),
+                                    html.Span(
+                                        f"{day['rain_chance']}%",
+                                        style={"fontSize": "13px"},
+                                    ),
+                                ], style={
+                                    "fontSize": "13px",
+                                    "opacity": "0.6",
+                                    "display": "flex",
+                                    "alignItems": "center",
+                                    "justifyContent": "center"
+                                }),
                             ],
                             style={
                                 "display": "inline-block",
