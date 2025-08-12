@@ -13,6 +13,7 @@ from googleapiclient.errors import HttpError
 from loguru import logger
 
 from components.base import BaseComponent
+from utils.file_cache import cache_json
 from utils.styles import COLORS
 
 
@@ -83,7 +84,7 @@ class GoogleCalendar(BaseComponent):
             [
                 dcc.Interval(
                     id=f"{self.component_id}-interval-fetch",
-                    interval=300_000,  # 5 minutes
+                    interval=60 * 5 * 1_000,  # 5 minutes
                 ),
                 dcc.Store(
                     id=f"{self.component_id}-store",
@@ -103,6 +104,7 @@ class GoogleCalendar(BaseComponent):
             style={"color": "#FFFFFF"},
         )
 
+    @cache_json(valid_lifetime=datetime.timedelta(hours=1))
     def fetch(self) -> list[dict]:
         creds = None
         if os.path.exists(self.TOKEN_FILE):
@@ -148,17 +150,11 @@ class GoogleCalendar(BaseComponent):
 
     def add_callbacks(self, app):
         @app.callback(
-            Output(f"{self.component_id}-store", "data"),
+            Output(f"{self.component_id}-events", "children"),
             Input(f"{self.component_id}-interval-fetch", "n_intervals"),
         )
-        def fetch_data(n_intervals):
-            return self.fetch()
-
-        @app.callback(
-            Output(f"{self.component_id}-events", "children"),
-            Input(f"{self.component_id}-store", "data"),
-        )
-        def render_events(data):
+        def render_events(_):
+            data = self.fetch()
             if not data or len(data) == 0:
                 return dmc.Text(
                     "No upcoming events.",
@@ -207,7 +203,10 @@ class GoogleCalendar(BaseComponent):
                 )
 
                 end_datetime_str = end_dict.get("dateTime", end_dict.get("date"))
-                raw_end_datetime = datetime_from_str(end_datetime_str, is_all_day=is_all_day)
+                raw_end_datetime = datetime_from_str(
+                    end_datetime_str,
+                    is_all_day=is_all_day,
+                )
                 end_datetime = get_corrected_end_date(
                     raw_end_datetime,
                     is_all_day=is_all_day,
@@ -258,7 +257,7 @@ class GoogleCalendar(BaseComponent):
                     if event_is_today or event_is_tomorrow
                     else COLORS["pure_white"]
                 )
-                date_color = COLORS["black"] if event_is_today else COLORS["soft_gray"]
+                date_color = title_color
 
                 # Create event
                 event_card = html.Div(
@@ -288,7 +287,10 @@ class GoogleCalendar(BaseComponent):
                                                     style={
                                                         "fontSize": "1.1rem",
                                                         "marginRight": "6px",
-                                                        "color": COLORS["warm_orange"],
+                                                        "color": COLORS["success_green"]
+                                                        if event_is_today
+                                                        or event_is_tomorrow
+                                                        else COLORS["warm_orange"],
                                                     },
                                                 ),
                                             ]

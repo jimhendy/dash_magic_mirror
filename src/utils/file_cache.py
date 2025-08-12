@@ -5,6 +5,8 @@ from functools import wraps
 from hashlib import md5
 from pathlib import Path
 
+from components.base import BaseComponent
+
 CACHE_PATH = Path.home() / ".cache" / "magic_mirror"
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
@@ -14,7 +16,9 @@ DT_FORMAT = "%Y%m%d-%H%M%S"
 def reproduce_hash(*args, **kwargs) -> str:
     """Generate a reproducible hash for the given arguments."""
     # Convert args and kwargs to a consistent string representation
-    combined_str = f"{args}{kwargs}"
+    args = [a for a in args if not isinstance(a, BaseComponent)]
+    combined_str = f"{args!r}{kwargs!r}"
+    print(combined_str)
     return md5(combined_str.encode("utf-8")).hexdigest()[:8]
 
 

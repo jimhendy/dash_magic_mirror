@@ -1,8 +1,11 @@
+import datetime
+
 import httpx
 from dash import Input, Output, dcc, html
 from loguru import logger
 
 from components.base import BaseComponent
+from utils.file_cache import cache_json
 
 
 class TFL(BaseComponent):
@@ -52,6 +55,7 @@ class TFL(BaseComponent):
             style={"color": "#FFFFFF"},
         )
 
+    @cache_json(valid_lifetime=datetime.timedelta(seconds=30))
     def fetch(self) -> dict:
         """Fetch the latest TFL data and update the component."""
         data = {}
@@ -191,7 +195,7 @@ class TFL(BaseComponent):
                         lineSpan.style.cssText = `
                             color: #4A90E2;
                             font-weight: 500;
-                            font-size: 1.1rem;
+                            font-size: 1rem;
                             margin-right: 5px;
                             display: inline-block;
                         `;
@@ -210,11 +214,11 @@ class TFL(BaseComponent):
                         
                         // Time (with class for easy updating)
                         const timeSpan = document.createElement('span');
-                        timeSpan.textContent = minutes > 0 ? `${{minutes}}m ${{seconds}}s` : `${{seconds}}s`;
+                        timeSpan.textContent = minutes > 0 ? `${{minutes}}m` : `${{seconds}}s`;
                         timeSpan.classList.add('arrival-time');
                         timeSpan.style.cssText = `
                             color: ${{timeColor}};
-                            font-size: 1rem;
+                            font-size: 1.4rem;
                             font-weight: ${{timeWeight}};
                             text-align: right;
                         `;
@@ -269,7 +273,7 @@ class TFL(BaseComponent):
                     // Update time display
                     const timeSpan = card.querySelector('.arrival-time');
                     if (timeSpan) {{
-                        timeSpan.textContent = minutes > 0 ? `${{minutes}}m ${{seconds}}s` : `${{seconds}}s`;
+                        timeSpan.textContent = minutes > 0 ? `${{minutes}}m` : `${{seconds}}s`;
                         
                         // Update color based on urgency
                         let timeColor = '#FFFFFF';
