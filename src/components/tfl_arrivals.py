@@ -9,6 +9,7 @@ from utils.file_cache import cache_json
 
 API_URL = "https://api.tfl.gov.uk/StopPoint/{stop_id}/Arrivals"
 
+
 @cache_json(valid_lifetime=datetime.timedelta(seconds=30))
 def fetch_sopt_points(stops: list[str]) -> dict[str, str]:
     data = {}
@@ -32,6 +33,8 @@ def fetch_sopt_points(stops: list[str]) -> dict[str, str]:
             )
     logger.info(f"Fetched data for {len(data)} stops.")
     return data
+
+
 class TFL(BaseComponent):
     """TFL component for the Magic Mirror application.
     Displays the next train times for a given station.
@@ -80,7 +83,6 @@ class TFL(BaseComponent):
     def fetch(self) -> dict:
         """Fetch the latest TFL data and update the component."""
         return fetch_sopt_points(self.stops)
-        
 
     def add_callbacks(self, app):
         @app.callback(

@@ -8,6 +8,7 @@ from components.google_calendar import CalendarConfig, GoogleCalendar
 from components.news import NewsFeed
 from components.sports import Sports
 from components.tfl_arrivals import TFL
+from components.weather import Weather
 
 # Load environment variables from .env file
 env_path = Path(__file__).parent.parent.parent / ".env"
@@ -73,5 +74,12 @@ COMPONENTS = [
         maxWidth="50%",
         minWidth="40%",
         maxHeight="50%",
+    ),
+    Weather(
+        postcode=os.environ.get("WEATHER_POSTCODE", "SW1A 1AA"),
+        right="1%",
+        top="48%",
+        maxWidth="30%",
+        maxHeight="20%",
     ),
 ]

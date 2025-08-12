@@ -65,19 +65,29 @@ A customizable magic mirror dashboard built with Dash and Python, featuring real
 The application uses environment variables for configuration. Copy `.env.example` to `.env` and customize:
 
 - **TFL Stops**: Configure up to 2 stops for left side and 2 stops for right side
+- **Weather**: Set your postcode and WeatherAPI key
 - **Component Positioning**: Fine-tune component positions and sizes
 - **Layout**: Adjust positioning using fractional coordinates (0.0 to 1.0)
 
-## TFL Stop IDs
+## API Setup
+
+### TFL Stop IDs
 
 To find your local transport stops:
 1. Visit https://api.tfl.gov.uk/StopPoint/Search/{your-area}
 2. Find your stop and note the `id` field
 3. Update your `.env` file with the stop ID and a display name
 
+### Weather API
+
+1. Get a free API key from [WeatherAPI.com](https://www.weatherapi.com/signup.aspx)
+2. Add your API key to `.env` as `WEATHER_API_KEY`
+3. Set your postcode in `WEATHER_POSTCODE` (e.g., "SW1A 1AA")
+
 ## Features
 
 - **Real-time TFL arrivals** with countdown timers
+- **Weather forecast** with current conditions and 3-day outlook
 - **Live clock** with date display  
 - **Rotating compliments and jokes** with 1000+ items
 - **Flexible positioning** system with fractional coordinates

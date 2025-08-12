@@ -419,7 +419,7 @@ class Sports(BaseComponent):
                             date_display = "TODAY"
                         else:
                             date_display = date_obj.strftime("%a %d %b")
-                    except:
+                    except:  # noqa: E722
                         date_display = fx.get("date_time_raw", "")[:20]
 
                 # Style based on whether it's today

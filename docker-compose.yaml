@@ -10,7 +10,7 @@ services:
       - PYTHONUNBUFFERED=1
     volumes:
       # Mount credentials directory (make sure to create .env file)
-      - ./credentials:/app/credentials:ro
+      - ./credentials:/app/credentials
       # Optional: mount .env file if you have one
       - ./.env:/app/.env:ro
       # Persistent cache directory

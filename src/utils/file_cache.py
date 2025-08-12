@@ -13,6 +13,7 @@ CACHE_PATH.mkdir(parents=True, exist_ok=True)
 DT_FORMAT = "%Y%m%d-%H%M%S"
 _CACHED_FUNCTION_NAMES = set()
 
+
 def reproduce_hash(*args, **kwargs) -> str:
     """Generate a reproducible hash for the given arguments."""
     # Convert args and kwargs to a consistent string representation
@@ -25,7 +26,6 @@ def cache_json(valid_lifetime: datetime.timedelta) -> Callable:
     """Decorator to cache the result of a function to a file for a specified duration."""
 
     def decorator(func: Callable) -> Callable:
-
         cache_key = f"{func.__module__}.{func.__name__}"
 
         if cache_key in _CACHED_FUNCTION_NAMES:
