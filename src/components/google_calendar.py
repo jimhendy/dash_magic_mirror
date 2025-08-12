@@ -2,7 +2,9 @@ import datetime
 import os
 from dataclasses import dataclass
 
+import dash_mantine_components as dmc
 from dash import Input, Output, dcc, html
+from dash_iconify import DashIconify
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -11,12 +13,59 @@ from googleapiclient.errors import HttpError
 from loguru import logger
 
 from components.base import BaseComponent
+from utils.styles import COLORS
 
 
 @dataclass
 class CalendarConfig:
     calendar_ids: list[str]
     max_events: int = 10
+
+
+def datetime_from_str(datetime_str: str, *, is_all_day: bool) -> datetime.datetime:
+    """Convert ISO datetime string to datetime object."""
+    if is_all_day:
+        return datetime.datetime.fromisoformat(datetime_str + "T00:00:00")
+    return datetime.datetime.fromisoformat(datetime_str.replace("Z", "+00:00"))
+
+
+def format_datetime(date_obj: datetime.datetime, *, is_all_day: bool) -> str:
+    """Format date/time for display."""
+    if is_all_day:
+        # For all-day events, show only the date
+        return date_obj.strftime("%a %d %b")
+    return date_obj.strftime("%a %d %b %H:%M")
+
+
+def is_today(date_obj: datetime.datetime) -> bool:
+    """Check if event is today."""
+    return date_obj.date() <= datetime.date.today()
+
+
+def is_tomorrow(date_obj: datetime.datetime) -> bool:
+    """Check if event is tomorrow."""
+    return date_obj.date() == (datetime.date.today() + datetime.timedelta(days=1))
+
+
+def is_multi_day(start: datetime.datetime, end: datetime.datetime | None) -> bool:
+    """Check if event spans multiple days."""
+    if not end:
+        return False
+    return start.date() != end.date()
+
+
+def get_corrected_end_date(
+    end: datetime.datetime | None,
+    *,
+    is_all_day: bool,
+) -> datetime.datetime | None:
+    """Get corrected end date for all-day events."""
+    if not end:
+        return None
+    if is_all_day:
+        # Subtract 1 day from all-day event end dates
+        end -= datetime.timedelta(days=1)
+    return end
 
 
 class GoogleCalendar(BaseComponent):
@@ -42,7 +91,13 @@ class GoogleCalendar(BaseComponent):
                 ),
                 html.Div(
                     id=f"{self.component_id}-events",
-                    style={"display": "flex", "flexDirection": "column"},
+                    style={
+                        "display": "flex",
+                        "flexDirection": "column",
+                        "alignItems": "stretch",
+                        "gap": "6px",
+                        "width": "100%",
+                    },
                 ),
             ],
             style={"color": "#FFFFFF"},
@@ -99,90 +154,185 @@ class GoogleCalendar(BaseComponent):
         def fetch_data(n_intervals):
             return self.fetch()
 
-        # Assign a color to each calendarId (fixed palette)
-
-        app.clientside_callback(
-            f"""
-            function(data, n_intervals) {{
-                const container = document.getElementById('{self.component_id}-events');
-                const calendarColors = [
-                    '#4A90E2', // blue
-                    '#FF6B6B', // red
-                    '#FFD93D', // yellow
-                    '#6BCF7F', // green
-                    '#A259FF', // purple
-                    '#FFB86C', // orange
-                    '#00B8D9', // teal
-                    '#FF5CA7', // pink
-                ];
-                if (!container) return window.dash_clientside.no_update;
-                container.innerHTML = '';
-                if (!data || !Array.isArray(data) || data.length === 0) {{
-                    const empty = document.createElement('div');
-                    empty.textContent = 'No upcoming events.';
-                    empty.style.textAlign = 'center';
-                    empty.style.opacity = 0.7;
-                    container.appendChild(empty);
-                    return window.dash_clientside.no_update;
-                }}
-                // Build a unique list of calendarIds in order of appearance
-                const calendarIdOrder = [];
-                data.forEach(ev => {{
-                    if (ev.calendarId && !calendarIdOrder.includes(ev.calendarId)) {{
-                        calendarIdOrder.push(ev.calendarId);
-                    }}
-                }});
-                for (let i = 0; i < data.length; i++) {{
-                    const event = data[i];
-                    const start = event.start.dateTime || event.start.date;
-                    const summary = event.summary || 'No Title';
-                    const calendarId = event.calendarId || '';
-                    const colorIdx = Math.max(0, calendarIdOrder.indexOf(calendarId)) % calendarColors.length;
-                    const dotColor = calendarColors[colorIdx];
-                    const eventDiv = document.createElement('div');
-                    eventDiv.style.cssText = `
-                        padding: 10px 16px;
-                        margin-bottom: 8px;
-                        background: rgba(255,255,255,0.07);
-                        border-radius: 7px;
-                        border: 1px solid rgba(74,144,226,0.18);
-                        font-size: 1.1rem;
-                        display: flex;
-                        flex-direction: row;
-                        align-items: center;
-                        justify-content: space-between;
-                    `;
-                    // Colored dot
-                    const dot = document.createElement('span');
-                    dot.style.display = 'inline-block';
-                    dot.style.width = '14px';
-                    dot.style.height = '14px';
-                    dot.style.borderRadius = '50%';
-                    dot.style.background = dotColor;
-                    dot.style.marginRight = '12px';
-                    dot.title = calendarId;
-                    // Time
-                    const timeSpan = document.createElement('span');
-                    timeSpan.textContent = start.replace('T', ' ').replace(/:00(\\.\\d+)?Z?$/, '');
-                    timeSpan.style.color = '#4A90E2';
-                    timeSpan.style.fontWeight = '500';
-                    timeSpan.style.marginRight = '12px';
-                    // Summary
-                    const summarySpan = document.createElement('span');
-                    summarySpan.textContent = summary;
-                    summarySpan.style.flex = '1';
-                    summarySpan.style.color = '#FFFFFF';
-                    summarySpan.style.fontWeight = '400';
-                    eventDiv.appendChild(dot);
-                    eventDiv.appendChild(timeSpan);
-                    eventDiv.appendChild(summarySpan);
-                    container.appendChild(eventDiv);
-                }}
-                return window.dash_clientside.no_update;
-            }}
-            """,
+        @app.callback(
             Output(f"{self.component_id}-events", "children"),
             Input(f"{self.component_id}-store", "data"),
-            Input(f"{self.component_id}-interval-fetch", "n_intervals"),
-            prevent_initial_call=True,
         )
+        def render_events(data):
+            if not data or len(data) == 0:
+                return dmc.Text(
+                    "No upcoming events.",
+                    size="sm",
+                    c="dimmed",
+                    ta="center",
+                )
+
+            # Calendar colors for different calendars
+            calendar_colors = [
+                COLORS["primary_blue"],
+                COLORS["alert_red"],
+                COLORS["warm_orange"],
+                COLORS["success_green"],
+                COLORS["accent_gold"],
+                COLORS["soft_gray"],
+            ]
+
+            # Build calendar ID order for consistent coloring
+            calendar_id_order = []
+            for event in data:
+                calendar_id = event.get("calendarId", "")
+                if calendar_id and calendar_id not in calendar_id_order:
+                    calendar_id_order.append(calendar_id)
+
+            event_cards = []
+
+            for event in data:
+                print(event)
+                start_dict = event.get("start", {})
+                end_dict = event.get("end", {})
+                summary = event.get("summary", "No Title")
+                calendar_id = event.get("calendarId", "")
+
+                is_all_day = "dateTime" not in start_dict
+                is_birthday = "birthday" in summary.lower()
+
+                start_datetime_str = start_dict.get(
+                    "dateTime",
+                    start_dict.get(
+                        "date",
+                    ),
+                )
+                start_datetime = datetime_from_str(
+                    start_datetime_str,
+                    is_all_day=is_all_day,
+                )
+
+                end_datetime_str = end_dict.get("dateTime", end_dict.get("date"))
+                raw_end_datetime = datetime_from_str(end_datetime_str, is_all_day=is_all_day)
+                end_datetime = get_corrected_end_date(
+                    raw_end_datetime,
+                    is_all_day=is_all_day,
+                )
+
+                event_is_today = is_today(start_datetime)
+                event_is_tomorrow = is_tomorrow(start_datetime)
+
+                # Get calendar color
+                color_idx = (
+                    calendar_id_order.index(calendar_id)
+                    if calendar_id in calendar_id_order
+                    else 0
+                )
+                dot_color = calendar_colors[color_idx % len(calendar_colors)]
+
+                # Format date display
+                date_text = format_datetime(start_datetime, is_all_day=is_all_day)
+
+                # Add end date for multi-day events
+                if is_multi_day(start_datetime, end_datetime):
+                    end_text = format_datetime(end_datetime, is_all_day=is_all_day)
+                    date_text += f" → {end_text}"
+
+                # Card styling based on whether it's today
+                card_style = {
+                    "background": COLORS["alert_red"]
+                    if event_is_today
+                    else (
+                        COLORS["softer_red"]
+                        if event_is_tomorrow
+                        else COLORS["dark_gray"]
+                    ),
+                    "border": f"2px solid {COLORS['accent_gold']}"
+                    if event_is_today
+                    else "1px solid rgba(255,255,255,0.15)",
+                    "borderRadius": "8px",
+                    "padding": "8px",
+                    "marginBottom": "6px",
+                    "boxShadow": "0 2px 8px rgba(255,215,0,0.3)"
+                    if event_is_today
+                    else "none",
+                }
+
+                # Text colors
+                title_color = (
+                    COLORS["black"]
+                    if event_is_today or event_is_tomorrow
+                    else COLORS["pure_white"]
+                )
+                date_color = COLORS["black"] if event_is_today else COLORS["soft_gray"]
+
+                # Create event
+                event_card = html.Div(
+                    [
+                        # Header with calendar dot and title
+                        html.Div(
+                            [
+                                html.Div(
+                                    [
+                                        # Calendar color dot
+                                        html.Div(
+                                            style={
+                                                "width": "12px",
+                                                "height": "12px",
+                                                "borderRadius": "50%",
+                                                "background": dot_color,
+                                                "marginRight": "8px",
+                                                "flexShrink": "0",
+                                            },
+                                            title=calendar_id,
+                                        ),
+                                        # Birthday icon if applicable
+                                        *(
+                                            [
+                                                DashIconify(
+                                                    icon="mdi:cake-variant",
+                                                    style={
+                                                        "fontSize": "1.1rem",
+                                                        "marginRight": "6px",
+                                                        "color": COLORS["warm_orange"],
+                                                    },
+                                                ),
+                                            ]
+                                            if is_birthday
+                                            else []
+                                        ),
+                                        # Event title
+                                        html.Span(
+                                            summary,
+                                            style={
+                                                "fontWeight": "600",
+                                                "fontSize": "1.1rem",
+                                                "color": title_color,
+                                                "overflow": "hidden",
+                                                "textOverflow": "ellipsis",
+                                                "whiteSpace": "nowrap",
+                                                "lineHeight": "1.1",
+                                                "flex": "1",
+                                            },
+                                        ),
+                                    ],
+                                    style={
+                                        "display": "flex",
+                                        "alignItems": "center",
+                                        "overflow": "hidden",
+                                    },
+                                ),
+                            ],
+                            style={"marginBottom": "4px"},
+                        ),
+                        # Date/time row
+                        html.Div(
+                            date_text,
+                            style={
+                                "fontSize": "0.9rem",
+                                "color": date_color,
+                                "lineHeight": "1.1",
+                            },
+                        ),
+                    ],
+                    style=card_style,
+                )
+
+                event_cards.append(event_card)
+
+            return event_cards

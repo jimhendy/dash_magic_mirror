@@ -40,9 +40,6 @@ class TFL(BaseComponent):
                     id=f"{self.component_id}-interval-fetch",
                     interval=90_000,  # Fetch new data every minute
                 ),
-                # DashSocketIO(
-                #     id=f"{self.component_id}-socketio",
-                # ),
                 html.Div(
                     id=f"{self.component_id}-arrivals",
                     style={
@@ -113,14 +110,13 @@ class TFL(BaseComponent):
                     
                     // Create stop header using stationName from first arrival
                     const stopHeader = document.createElement('div');
-                    stopHeader.style.marginBottom = '25px';
 
                     const stopTitle = document.createElement('h3');
-                    let stationName = stopName;
+                    let stationName = stopName.replace(/ Rail Station$/, '');
                     if (arrivals.length > 0 && arrivals[0].stationName) {{
                         stationName = arrivals[0].stationName;
                     }}
-                    stopTitle.textContent = stationName;
+                    stopTitle.textContent = stationName.replace(/ Rail Station/, '');
                     stopTitle.style.cssText = `
                         color: #FFFFFF;
                         width: 100%;
@@ -135,9 +131,9 @@ class TFL(BaseComponent):
                     const hr = document.createElement('hr');
                     hr.style.cssText = `
                         border: none;
-                        height: 1px;
+                        height: 0.0625rem;
                         background: linear-gradient(90deg, transparent, #4A90E2, transparent);
-                        margin: 0 0 20px 0;
+                        margin: 0 0 5px 0;
                         width: 80%;
                         margin-left: auto;
                         margin-right: auto;
@@ -160,8 +156,8 @@ class TFL(BaseComponent):
                         const seconds = timeDiff % 60;
                         
                         // Calculate opacity
-                        const baseOpacity = 1 - (i * 0.15);
-                        const timeOpacity = Math.max(0.3, Math.min(1, (30 * 60 - timeDiff) / (25 * 60)));
+                        const baseOpacity = 1 - (i * 0.05);
+                        const timeOpacity = Math.max(0.6, Math.min(1, (30 * 60 - timeDiff) / (25 * 60)));
                         const finalOpacity = Math.max(0.2, baseOpacity * timeOpacity);
                         
                         // Time urgency styling
@@ -181,18 +177,8 @@ class TFL(BaseComponent):
                         const arrivalCard = document.createElement('div');
                         arrivalCard.style.cssText = `
                             opacity: ${{finalOpacity}};
-                            padding: 12px 20px;
-                            margin-bottom: 8px;
-                            background: rgba(255, 255, 255, 0.05);
-                            border-radius: 8px;
-                            border: 1px solid rgba(74, 144, 226, 0.2);
-                            backdrop-filter: blur(10px);
-                            transition: all 0.3s ease;
-                            min-width: 400px;
-                            max-width: 600px;
                             display: flex;
                             align-items: center;
-                            justify-content: space-between;
                         `;
                         
                         // Store arrival time as data attribute for real-time updates
@@ -206,22 +192,20 @@ class TFL(BaseComponent):
                             color: #4A90E2;
                             font-weight: 500;
                             font-size: 1.1rem;
-                            margin-right: 12px;
-                            min-width: 60px;
+                            margin-right: 5px;
                             display: inline-block;
-                            text-align: left;
                         `;
                         
                         // Destination
                         const destSpan = document.createElement('span');
-                        destSpan.textContent = arrival.destinationName || 'Unknown Destination';
+                        // Remove the suffix " Rail Station" if it exists
+                        destSpan.textContent = (arrival.destinationName || 'Unknown Destination').replace(/ Rail Station$/, '');
                         destSpan.style.cssText = `
                             color: #FFFFFF;
                             font-size: 1rem;
                             font-weight: 300;
                             flex: 1;
-                            margin-right: 16px;
-                            text-align: center;
+                            margin-right: 5px;
                         `;
                         
                         // Time (with class for easy updating)
@@ -232,7 +216,6 @@ class TFL(BaseComponent):
                             color: ${{timeColor}};
                             font-size: 1rem;
                             font-weight: ${{timeWeight}};
-                            min-width: 70px;
                             text-align: right;
                         `;
                         
@@ -245,7 +228,7 @@ class TFL(BaseComponent):
                     // Add spacing between stops
                     if (Object.keys(data).indexOf(stopName) < Object.keys(data).length - 1) {{
                         const spacer = document.createElement('div');
-                        spacer.style.height = '40px';
+                        spacer.style.height = '1.5rem';
                         container.appendChild(spacer);
                     }}
                 }}
@@ -307,7 +290,7 @@ class TFL(BaseComponent):
                     
                     // Hide arrivals that have passed (negative time)
                     if (timeDiff <= 0) {{
-                        card.style.opacity = '0.1';
+                        card.style.opacity = '0.5';
                         card.style.filter = 'grayscale(100%)';
                     }}
                 }});

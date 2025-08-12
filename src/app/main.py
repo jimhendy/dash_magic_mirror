@@ -2,6 +2,7 @@ import dash_mantine_components as dmc
 from dash import Dash, html
 
 from app.config import COMPONENTS
+from utils.styles import COMPACT_STYLES
 
 app = Dash(__name__, suppress_callback_exceptions=True)
 app.title = "Magic Mirror"
@@ -9,15 +10,7 @@ app.title = "Magic Mirror"
 app.layout = dmc.MantineProvider(
     html.Div(
         id="magic-mirror-container",
-        style={
-            "position": "relative",
-            "width": "100vw",
-            "height": "100vh",
-            "backgroundColor": "#000000",
-            "color": "#FFFFFF",
-            "fontFamily": "Arial, sans-serif",
-            "overflow": "hidden",
-        },
+        style=COMPACT_STYLES["base_container"],
         children=[
             html.Div(
                 comp.layout(),

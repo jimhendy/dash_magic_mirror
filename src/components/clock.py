@@ -1,7 +1,7 @@
-import dash_mantine_components as dmc
 from dash import Input, Output, dcc, html
 
 from components.base import BaseComponent
+from utils.styles import COLORS
 
 
 class Clock(BaseComponent):
@@ -20,10 +20,14 @@ class Clock(BaseComponent):
                     id=f"{self.component_id}-interval",
                     interval=1_000,  # Update every second
                 ),
-                dmc.Text(  # Slightly dimmed date text above the time
+                html.Div(  # Slightly dimmed date text above the time
                     id=f"{self.component_id}-date",
-                    c="dimmed",  # Dimmed color for the date
-                    style={"fontSize": "1.2rem"},  # Smaller font size for date
+                    style={
+                        "fontSize": "1.5rem",
+                        "color": COLORS["soft_gray"],
+                        "textAlign": "center",
+                        "marginBottom": "0.5rem",
+                    },
                 ),
                 html.Div(
                     [
@@ -31,17 +35,18 @@ class Clock(BaseComponent):
                             id=f"{self.component_id}-hour-minute",
                             style={
                                 "fontSize": "6rem",
-                                "color": "#FFFFFF",
                                 "fontWeight": "bold",
+                                "color": COLORS["pure_white"],
                                 "lineHeight": "1",
                             },
                         ),
-                        dmc.Text(
+                        html.Div(
                             id=f"{self.component_id}-seconds",
-                            c="#999999",  # Dimmed color for timezone
                             style={
                                 "fontSize": "1.2rem",
-                            },  # Smaller font size for seconds
+                                "color": COLORS["dimmed_gray"],
+                                "marginLeft": "0.5rem",
+                            },
                         ),
                     ],
                     style={

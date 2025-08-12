@@ -12,7 +12,11 @@ class BaseComponent(ABC):
     """
 
     def __init__(
-        self, name: str, v_center: bool = False, h_center: bool = False, **kwargs,
+        self,
+        name: str,
+        v_center: bool = False,
+        h_center: bool = False,
+        **kwargs,
     ):
         self.name = name
         self._id = uuid.uuid4().hex
@@ -21,12 +25,17 @@ class BaseComponent(ABC):
             "position": "absolute",
             **kwargs,
         }
+
+        transforms = []
         if v_center:
             self.css_position["top"] = "50%"
-            self.css_position["transform"] = "translateY(-50%)"
+            transforms.append("translateY(-50%)")
         if h_center:
             self.css_position["left"] = "50%"
-            self.css_position["transform"] = "translateX(-50%)"
+            transforms.append("translateX(-50%)")
+
+        if transforms:
+            self.css_position["transform"] = " ".join(transforms)
 
     @property
     def component_id(self) -> str:

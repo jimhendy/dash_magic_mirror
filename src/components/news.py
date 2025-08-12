@@ -1,3 +1,4 @@
+import datetime
 import re
 import xml.etree.ElementTree as ET
 
@@ -6,6 +7,7 @@ from dash import Input, Output, dcc, html
 from loguru import logger
 
 from components.base import BaseComponent
+from utils.file_cache import cache_json
 
 FEEDS = {
     "BBC News": "https://feeds.bbci.co.uk/news/rss.xml",
@@ -103,6 +105,7 @@ class NewsFeed(BaseComponent):
             style={"color": "#FFFFFF"},
         )
 
+    @cache_json(valid_lifetime=datetime.timedelta(hours=60))
     def fetch(self):
         try:
             return fetch_all_news(limit_per_feed=self.limit_per_feed)
@@ -155,11 +158,9 @@ class NewsFeed(BaseComponent):
                     padding: 10px 16px;
                     margin-bottom: 8px;
                     background: rgba(255,255,255,0.07);
-                    border-radius: 7px;
-                    border: 1px solid rgba(74,144,226,0.18);
                     font-size: 1.1rem;
                     display: flex;
-                    flex-direction: column;
+                    flex-direction: row;
                     text-align: center;
                     justify-content: center;
                     align-items: center;
@@ -170,6 +171,7 @@ class NewsFeed(BaseComponent):
                 title.style.fontWeight = '500';
                 title.style.marginBottom = '4px';
                 newsDiv.appendChild(title);
+                /*
                 if (item.description) {{
                     const desc = document.createElement('span');
                     desc.textContent = item.description;
@@ -178,12 +180,13 @@ class NewsFeed(BaseComponent):
                     desc.style.fontSize = '0.95rem';
                     newsDiv.appendChild(desc);
                 }}
+                */
                 if (item.source) {{
                     const source = document.createElement('span');
                     source.textContent = item.source;
                     source.style.color = '#FFD93D';
                     source.style.fontSize = '0.9rem';
-                    source.style.marginTop = '2px';
+                    source.style.marginLeft = '12px';
                     newsDiv.appendChild(source);
                 }}
                 container.appendChild(newsDiv);

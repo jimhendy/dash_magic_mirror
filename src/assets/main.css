@@ -1,0 +1,258 @@
+/* Magic Mirror Global Styles - Optimized for Pi Zero */
+
+/* Global reset and base styles */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+
+
+/* Compact typography classes */
+.text-xs { font-size: 0.7rem; line-height: 1.0; }
+.text-sm { font-size: 0.8rem; line-height: 1.0; }
+.text-base { font-size: 0.9rem; line-height: 1.1; }
+.text-lg { font-size: 1.0rem; line-height: 1.1; }
+.text-xl { font-size: 1.1rem; line-height: 1.1; }
+.text-2xl { font-size: 1.3rem; line-height: 1.1; }
+.text-3xl { font-size: 1.5rem; line-height: 1.0; }
+
+/* Spacing utilities */
+.p-0 { padding: 0; }
+.p-1 { padding: 0.2rem; }
+.p-2 { padding: 0.4rem; }
+.p-3 { padding: 0.6rem; }
+.p-4 { padding: 0.8rem; }
+
+.m-0 { margin: 0; }
+.m-1 { margin: 0.2rem; }
+.m-2 { margin: 0.4rem; }
+.mb-1 { margin-bottom: 0.2rem; }
+.mb-2 { margin-bottom: 0.4rem; }
+.mr-1 { margin-right: 0.2rem; }
+.mr-2 { margin-right: 0.4rem; }
+
+.gap-1 { gap: 0.2rem; }
+.gap-2 { gap: 0.4rem; }
+.gap-3 { gap: 0.6rem; }
+
+/* Layout utilities */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-row { flex-direction: row; }
+.items-center { align-items: center; }
+.items-end { align-items: flex-end; }
+.justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+.justify-between { justify-content: space-between; }
+
+/* Text alignment */
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+.magic-mirror-container {
+    font-family: 'Arial', sans-serif;
+    background: #000;
+    color: #fff;
+    overflow: hidden;
+    line-height: 1.1; /* Reduced from default 1.5 */
+}
+
+/* Component-specific styles */
+.magic-mirror-card {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 0.4rem;
+    padding: 0.6rem;
+    margin-bottom: 0.3rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.magic-mirror-card-prominent {
+    background: rgba(255, 255, 255, 0.12);
+    border: 2px solid rgba(74, 144, 226, 0.4);
+    border-radius: 0.4rem;
+    padding: 0.6rem;
+    margin-bottom: 0.3rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Calendar specific */
+.calendar-event {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(74, 144, 226, 0.3);
+    border-radius: 0.4rem;
+    padding: 0.5rem;
+    margin-bottom: 0.2rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    text-align: right;
+}
+
+.calendar-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    direction: rtl;
+    line-height: 1.0;
+    background-color: ;
+}
+
+.calendar-date-row {
+    padding-right: 1.2rem;
+    font-size: 0.8rem;
+    color: #4A90E2;
+    font-weight: 500;
+    text-align: right;
+    line-height: 1.0;
+    margin-top: 0.1rem;
+}
+
+.birthday-icon {
+    font-size: 0.9rem;
+    margin-right: 0.2rem;
+    flex-shrink: 0;
+    line-height: 1.0;
+}
+
+/* Sports specific */
+.sports-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 0.5rem;
+    padding: 0.6rem;
+    margin-bottom: 0.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.sports-card.today {
+    background: rgba(255, 215, 0, 0.15);
+    border: 2px solid #FFD700;
+    box-shadow: 0 2px 6px rgba(255, 215, 0, 0.3);
+}
+
+.sports-header {
+    display: flex;
+    align-items: center;
+    font-size: 0.8rem;
+    letter-spacing: 0.3px;
+    margin-bottom: 0.1rem;
+    line-height: 1.0;
+}
+
+.sports-match {
+    font-size: 1.0rem;
+    font-weight: 500;
+    line-height: 1.1;
+}
+
+.sports-match.today {
+    font-weight: 600;
+    color: #FFD700;
+}
+
+.sports-competition {
+    font-size: 0.7rem;
+    opacity: 0.85;
+    font-style: italic;
+    line-height: 1.0;
+}
+
+
+/* TFL specific */
+.tfl-arrival {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    line-height: 1.0;
+}
+
+.tfl-arrival:last-child {
+    border-bottom: none;
+}
+
+.tfl-line {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.tfl-destination {
+    font-size: 0.8rem;
+    flex: 1;
+    margin-left: 0.5rem;
+    line-height: 1.0;
+}
+
+.tfl-time {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #4A90E2;
+}
+
+/* News specific */
+.news-item {
+    margin-bottom: 0.4rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    line-height: 1.1;
+}
+
+.news-item:last-child {
+    border-bottom: none;
+}
+
+.news-title {
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.1;
+}
+
+.news-source {
+    font-size: 0.7rem;
+    opacity: 0.7;
+    margin-top: 0.1rem;
+    line-height: 1.0;
+}
+
+/* Compliments specific */
+.compliment-text {
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: 400;
+    line-height: 1.2;
+    font-style: italic;
+    opacity: 0.9;
+}
+
+/* Utility classes for colors */
+.text-blue { color: #4A90E2; }
+.text-gold { color: #FFD700; }
+.text-orange { color: #FFA500; }
+.text-red { color: #FF6B35; }
+.text-green { color: #32CD32; }
+.text-white { color: #FFFFFF; }
+.text-gray { color: #CCCCCC; }
+
+/* Opacity utilities */
+.opacity-50 { opacity: 0.5; }
+.opacity-70 { opacity: 0.7; }
+.opacity-85 { opacity: 0.85; }
+.opacity-90 { opacity: 0.9; }
+
+/* Border utilities */
+.border-transparent { border-color: transparent; }
+.border-blue { border-color: rgba(74, 144, 226, 0.3); }
+.border-gold { border-color: #FFD700; }
+
+/* Background utilities */
+.bg-transparent { background: transparent; }
+.bg-white-5 { background: rgba(255, 255, 255, 0.05); }
+.bg-white-10 { background: rgba(255, 255, 255, 0.10); }
+.bg-gold-15 { background: rgba(255, 215, 0, 0.15); }
