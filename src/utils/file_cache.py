@@ -11,14 +11,13 @@ CACHE_PATH = Path.home() / ".cache" / "magic_mirror"
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
 DT_FORMAT = "%Y%m%d-%H%M%S"
-
+_CACHED_FUNCTION_NAMES = set()
 
 def reproduce_hash(*args, **kwargs) -> str:
     """Generate a reproducible hash for the given arguments."""
     # Convert args and kwargs to a consistent string representation
     args = [a for a in args if not isinstance(a, BaseComponent)]
     combined_str = f"{args!r}{kwargs!r}"
-    print(combined_str)
     return md5(combined_str.encode("utf-8")).hexdigest()[:8]
 
 
@@ -26,6 +25,13 @@ def cache_json(valid_lifetime: datetime.timedelta) -> Callable:
     """Decorator to cache the result of a function to a file for a specified duration."""
 
     def decorator(func: Callable) -> Callable:
+
+        cache_key = f"{func.__module__}.{func.__name__}"
+
+        if cache_key in _CACHED_FUNCTION_NAMES:
+            raise ValueError(f"Function {cache_key} is already cached.")
+        _CACHED_FUNCTION_NAMES.add(cache_key)
+
         @wraps(func)
         def wrapper(*args, **kwargs) -> dict:
             """Wrapper function that checks for a cached result and returns it if valid,
@@ -33,7 +39,7 @@ def cache_json(valid_lifetime: datetime.timedelta) -> Callable:
             """
             # Ensure the cache directory exists
             arg_hash = reproduce_hash(*args, **kwargs)
-            cache_file_name = f"{func.__name__}_{arg_hash}_{{write_time}}.json"
+            cache_file_name = f"{cache_key}_{arg_hash}_{{write_time}}.json"
             now = datetime.datetime.now(tz=datetime.UTC)
             # Find the most recent valid cache file
             cache_files = {
