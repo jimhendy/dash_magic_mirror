@@ -149,11 +149,6 @@ wheels = [
 ]
 
 [[package]]
-name = "dash-socketio"
-version = "1.0.1"
-source = { git = "https://github.com/jimhendy/dash_socketio#e6db57c6feef7ff33563f4fa3177fc1050bc9817" }
-
-[[package]]
 name = "flask"
 version = "3.1.1"
 source = { registry = "https://pypi.org/simple" }
@@ -395,7 +390,6 @@ dependencies = [
     { name = "dash" },
     { name = "dash-iconify" },
     { name = "dash-mantine-components" },
-    { name = "dash-socketio" },
     { name = "google-api-python-client" },
     { name = "google-auth-httplib2" },
     { name = "google-auth-oauthlib" },
@@ -415,7 +409,6 @@ requires-dist = [
     { name = "dash", specifier = ">=3.2.0" },
     { name = "dash-iconify", specifier = ">=0.1.2" },
     { name = "dash-mantine-components", specifier = ">=2.1.0" },
-    { name = "dash-socketio", git = "https://github.com/jimhendy/dash_socketio" },
     { name = "google-api-python-client", specifier = ">=2.178.0" },
     { name = "google-auth-httplib2", specifier = ">=0.2.0" },
     { name = "google-auth-oauthlib", specifier = ">=1.2.2" },

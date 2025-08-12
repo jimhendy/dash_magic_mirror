@@ -4,6 +4,8 @@ A customizable magic mirror dashboard built with Dash and Python, featuring real
 
 ## Setup
 
+### Local Development
+
 1. **Install dependencies:**
    ```bash
    uv sync
@@ -25,6 +27,38 @@ A customizable magic mirror dashboard built with Dash and Python, featuring real
    ```bash
    uv run src/app/main.py
    ```
+
+### Docker Deployment
+
+1. **Configure your environment:**
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edit `.env` with your TFL stop IDs and other configuration.
+
+2. **Build and run with Docker Compose:**
+   ```bash
+   docker-compose up -d
+   ```
+   
+   The application will be available at http://localhost:8050
+
+3. **View logs:**
+   ```bash
+   docker-compose logs -f magic-mirror
+   ```
+
+4. **Stop the application:**
+   ```bash
+   docker-compose down
+   ```
+
+**Note:** The Docker setup includes:
+- Automatic restart on failure
+- Persistent cache storage
+- Health checks
+- Read-only mounting of configuration files
 
 ## Configuration
 

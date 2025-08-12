@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  magic-mirror:
+    build: .
+    ports:
+      - "8050:8050"
+    environment:
+      # Default environment variables
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mount credentials directory (make sure to create .env file)
+      - ./credentials:/app/credentials:ro
+      # Optional: mount .env file if you have one
+      - ./.env:/app/.env:ro
+      # Persistent cache directory
+      - ./magic-mirror-cache:/root/.cache/magic_mirror
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8050/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
