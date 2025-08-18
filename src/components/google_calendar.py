@@ -235,9 +235,14 @@ class GoogleCalendar(BaseComponent):
                     date_text += f" → {end_text}"
 
                 # Card styling - clean and minimal with subtle gradient
-                border_color = COLORS["accent_gold"] if event_is_today else (
-                    COLORS["dimmed_gray"] if event_is_tomorrow else
-                    "rgba(255,255,255,0.08)"
+                border_color = (
+                    COLORS["accent_gold"]
+                    if event_is_today
+                    else (
+                        COLORS["dimmed_gray"]
+                        if event_is_tomorrow
+                        else "rgba(255,255,255,0.08)"
+                    )
                 )
                 card_style = {
                     "border": f"1px solid {border_color}",

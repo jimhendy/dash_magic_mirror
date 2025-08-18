@@ -126,13 +126,15 @@ class TFL(BaseComponent):
             # Clean station name
             station_name = arrival.get("stationName", "Unknown Station")
             station_name = station_name.replace(" Rail Station", "").replace(
-                " Underground Station", "",
+                " Underground Station",
+                "",
             )
 
             # Clean destination name
             destination = arrival.get("destinationName", "Unknown Destination")
             destination = destination.replace(" Rail Station", "").replace(
-                " Underground Station", "",
+                " Underground Station",
+                "",
             )
 
             # Line name

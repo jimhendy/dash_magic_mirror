@@ -430,7 +430,8 @@ class Sports(BaseComponent):
                                     [
                                         DashIconify(
                                             icon=fx.get(
-                                                "sport_icon", "mdi:help-circle",
+                                                "sport_icon",
+                                                "mdi:help-circle",
                                             ),
                                             style={
                                                 "fontSize": "1.2rem",

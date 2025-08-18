@@ -246,7 +246,8 @@ class Weather(BaseComponent):
                                     id=f"{self.component_id}-tomorrow-temperature",
                                     children=[
                                         html.Div(
-                                            self._tomorrow_day(), className="text-ml",
+                                            self._tomorrow_day(),
+                                            className="text-ml",
                                         ),
                                     ],
                                     style={"display": "flex", "alignItems": "baseline"},
