@@ -96,12 +96,13 @@ class GoogleCalendar(BaseComponent):
                         "display": "flex",
                         "flexDirection": "column",
                         "alignItems": "stretch",
-                        "gap": "6px",
+                        "gap": "8px",
                         "width": "100%",
+                        "color": COLORS["pure_white"],
+                        "fontFamily": "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif",
                     },
                 ),
             ],
-            style={"color": "#FFFFFF"},
         )
 
     @cache_json(valid_lifetime=datetime.timedelta(hours=1))
@@ -156,21 +157,24 @@ class GoogleCalendar(BaseComponent):
         def render_events(_):
             data = self.fetch()
             if not data or len(data) == 0:
-                return dmc.Text(
-                    "No upcoming events.",
-                    size="sm",
-                    c="dimmed",
-                    ta="center",
+                return html.Div(
+                    "No upcoming events",
+                    style={
+                        "fontSize": "1.2rem",
+                        "color": COLORS["soft_gray"],
+                        "textAlign": "center",
+                        "padding": "2rem",
+                    },
                 )
 
             # Calendar colors for different calendars
             calendar_colors = [
                 COLORS["primary_blue"],
-                COLORS["alert_red"],
                 COLORS["warm_orange"],
                 COLORS["success_green"],
                 COLORS["accent_gold"],
                 COLORS["soft_gray"],
+                COLORS["dimmed_gray"],
             ]
 
             # Build calendar ID order for consistent coloring
@@ -231,55 +235,37 @@ class GoogleCalendar(BaseComponent):
                     end_text = format_datetime(end_datetime, is_all_day=is_all_day)
                     date_text += f" → {end_text}"
 
-                # Card styling based on whether it's today
+                # Card styling - clean and minimal with subtle gradient
                 card_style = {
-                    "background": COLORS["alert_red"]
-                    if event_is_today
-                    else (
-                        COLORS["softer_red"]
-                        if event_is_tomorrow
-                        else COLORS["dark_gray"]
-                    ),
-                    "border": f"2px solid {COLORS['accent_gold']}"
-                    if event_is_today
-                    else "1px solid rgba(255,255,255,0.15)",
+                    "background": "linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06))" if event_is_today 
+                                 else "linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
+                    "border": f"1px solid {COLORS['accent_gold']}" if event_is_today else "1px solid rgba(255,255,255,0.08)",
                     "borderRadius": "8px",
-                    "padding": "8px",
+                    "padding": "2px 4px",
                     "marginBottom": "0",
-                    "boxShadow": "0 2px 8px rgba(255,215,0,0.3)"
-                    if event_is_today
-                    else "none",
+                    "backdropFilter": "blur(10px)",
                 }
-
-                # Text colors
-                title_color = (
-                    COLORS["black"]
-                    if event_is_today or event_is_tomorrow
-                    else COLORS["pure_white"]
-                )
-                date_color = title_color
-
-                # Create event
+                # Text colors - clean and readable
+                title_color = COLORS["pure_white"]
                 event_card = html.Div(
                     [
-                        # Header with calendar dot and title
                         html.Div(
-                            [
+                            className="test-m centered-content",
+                            children=[
                                 html.Div(
                                     [
-                                        # Calendar color dot
                                         html.Div(
                                             style={
-                                                "width": "12px",
-                                                "height": "12px",
+                                                "width": "10px",
+                                                "height": "10px",
                                                 "borderRadius": "50%",
                                                 "background": dot_color,
-                                                "marginRight": "8px",
+                                                "marginRight": "10px",
                                                 "flexShrink": "0",
+                                                "opacity": "0.8",
                                             },
                                             title=calendar_id,
                                         ),
-                                        # Birthday icon if applicable
                                         *(
                                             [
                                                 DashIconify(
@@ -287,27 +273,21 @@ class GoogleCalendar(BaseComponent):
                                                     style={
                                                         "fontSize": "1.1rem",
                                                         "marginRight": "6px",
-                                                        "color": COLORS["success_green"]
-                                                        if event_is_today
-                                                        or event_is_tomorrow
-                                                        else COLORS["warm_orange"],
+                                                        "color": COLORS["warm_orange"],
                                                     },
                                                 ),
-                                            ]
-                                            if is_birthday
-                                            else []
+                                            ] if is_birthday else []
                                         ),
-                                        # Event title
                                         html.Span(
                                             summary,
                                             style={
-                                                "fontWeight": "600",
+                                                "fontWeight": "bold" if event_is_today else "500",
                                                 "fontSize": "1.1rem",
                                                 "color": title_color,
                                                 "overflow": "hidden",
                                                 "textOverflow": "ellipsis",
                                                 "whiteSpace": "nowrap",
-                                                "lineHeight": "1.1",
+                                                "lineHeight": "1.2",
                                                 "flex": "1",
                                             },
                                         ),
@@ -316,18 +296,27 @@ class GoogleCalendar(BaseComponent):
                                         "display": "flex",
                                         "alignItems": "center",
                                         "overflow": "hidden",
+                                        "flex": "1",
+                                    },
+                                ),
+                                html.Div(
+                                    date_text,
+                                    style={
+                                        "fontSize": "1rem",
+                                        "color": COLORS["warm_orange"],
+                                        "fontWeight": "500",
+                                        "marginLeft": "16px",
+                                        "whiteSpace": "nowrap",
+                                        "textAlign": "right",
                                     },
                                 ),
                             ],
-                            style={"marginBottom": "4px"},
-                        ),
-                        # Date/time row
-                        html.Div(
-                            date_text,
                             style={
-                                "fontSize": "0.9rem",
-                                "color": date_color,
-                                "lineHeight": "1.1",
+                                "display": "flex",
+                                "alignItems": "center",
+                                "justifyContent": "space-between",
+                                "width": "100%",
+                                "gap": "8px",
                             },
                         ),
                     ],

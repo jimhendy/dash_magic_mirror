@@ -23,7 +23,7 @@ class Clock(BaseComponent):
                 html.Div(  # Slightly dimmed date text above the time
                     id=f"{self.component_id}-date",
                     style={
-                        "fontSize": "1.5rem",
+                        "fontSize": "1.4rem",
                         "color": COLORS["soft_gray"],
                         "textAlign": "center",
                         "marginBottom": "0.5rem",
@@ -34,7 +34,7 @@ class Clock(BaseComponent):
                         html.Div(
                             id=f"{self.component_id}-hour-minute",
                             style={
-                                "fontSize": "6rem",
+                                "fontSize": "5rem",
                                 "fontWeight": "bold",
                                 "color": COLORS["pure_white"],
                                 "lineHeight": "1",

@@ -1,6 +1,6 @@
 # Magic Mirror Dashboard
 
-A customizable magic mirror dashboard built with Dash and Python, featuring real-time London Transport (TFL) arrivals, clock, and rotating compliments/jokes.
+A modern, customizable magic mirror dashboard built with Dash and Python. Features a clean single-line layout with real-time data from multiple sources including London Transport arrivals, weather, calendar events, sports fixtures, and news feeds.
 
 ## Setup
 
@@ -62,21 +62,77 @@ A customizable magic mirror dashboard built with Dash and Python, featuring real
 
 ## Configuration
 
-The application uses environment variables for configuration. Copy `.env.example` to `.env` and customize:
+The application uses environment variables and `src/app/config.py` for configuration. 
 
-- **TFL Stops**: Configure up to 2 stops for left side and 2 stops for right side
-- **Weather**: Set your postcode and WeatherAPI key
-- **Component Positioning**: Fine-tune component positions and sizes
-- **Layout**: Adjust positioning using fractional coordinates (0.0 to 1.0)
+### Component Configuration
+
+All components can be enabled/disabled and configured with header icons and titles in `src/app/config.py`:
+
+```python
+# Component definitions with header icons and titles
+COMPONENTS = {
+    "clock": {
+        "enabled": True,
+        "component": ClockComponent(),
+        "header_icon": "tabler:clock",
+        "header_title": "Time"
+    },
+    "weather": {
+        "enabled": True, 
+        "component": WeatherComponent(),
+        "header_icon": "tabler:cloud",
+        "header_title": "Weather"
+    },
+    "google_calendar": {
+        "enabled": True,
+        "component": GoogleCalendarComponent(),
+        "header_icon": "tabler:calendar",
+        "header_title": "Calendar"
+    },
+    "tfl_arrivals": {
+        "enabled": True,
+        "component": TFLArrivalsComponent(), 
+        "header_icon": "tabler:train",
+        "header_title": "Transport"
+    },
+    "sports": {
+        "enabled": True,
+        "component": SportsComponent(),
+        "header_icon": "tabler:ball-football",
+        "header_title": "Sports"
+    },
+    "news": {
+        "enabled": True,
+        "component": NewsComponent(),
+        "header_icon": "tabler:news", 
+        "header_title": "News"
+    },
+    "compliments_jokes": {
+        "enabled": True,
+        "component": ComplimentsJokesComponent(),
+        "header_icon": "tabler:mood-smile",
+        "header_title": "Daily Inspiration"
+    }
+}
+```
+
+### Environment Variables
+
+Copy `.env.example` to `.env` and customize:
+
+- **TFL Stops**: Configure transport stop IDs and display names
+- **Weather**: Set your postcode and WeatherAPI key  
+- **Google Calendar**: Configure calendar integration (optional)
+- **Layout**: Adjust component positioning and sizing
 
 ## API Setup
 
 ### TFL Stop IDs
 
-To find your local transport stops:
+To find your local London transport stops:
 1. Visit https://api.tfl.gov.uk/StopPoint/Search/{your-area}
 2. Find your stop and note the `id` field
-3. Update your `.env` file with the stop ID and a display name
+3. Update your `.env` file with the stop ID and display name
 
 ### Weather API
 
@@ -84,14 +140,148 @@ To find your local transport stops:
 2. Add your API key to `.env` as `WEATHER_API_KEY`
 3. Set your postcode in `WEATHER_POSTCODE` (e.g., "SW1A 1AA")
 
+### Google Calendar (Optional)
+
+1. Set up Google Calendar API credentials
+2. Place `google_calendar_credentials.json` in the `credentials/` folder
+3. The component will automatically integrate calendar events
+
+### Sports & News
+
+- Sports fixtures are fetched from BBC Sport
+- News feeds use RSS sources (configurable in component)
+- Both work out-of-the-box without additional API keys
+
 ## Features
 
-- **Real-time TFL arrivals** with countdown timers
-- **Weather forecast** with current conditions and 3-day outlook
-- **Live clock** with date display  
-- **Rotating compliments and jokes** with 1000+ items
-- **Flexible positioning** system with fractional coordinates
-- **Responsive design** optimized for magic mirror displays
+### Core Components
+
+- **🕐 Live Clock** - Real-time display with date formatting
+- **🌤️ Weather Forecast** - Current conditions and 3-day outlook with WeatherAPI integration
+- **📅 Google Calendar** - Upcoming events with smart date formatting and birthday icons
+- **🚇 TFL Transport** - Real-time London public transport arrivals with color-coded timing
+- **⚽ Sports Fixtures** - Upcoming matches across multiple sports with team information
+- **📰 News Feed** - Rotating headlines from RSS sources with 8-second intervals
+- **💭 Compliments & Jokes** - Rotating positive messages and humor (1000+ items)
+
+### Design Features
+
+- **Unified Visual Language** - Consistent single-line card layouts across all components
+- **Modern Glass Effect** - Gradient backgrounds with backdrop filters for elegant depth
+- **Responsive Typography** - Inter/Roboto font stacks with consistent sizing hierarchy
+- **Color-Coded Information** - Red for urgent items, golden accents for active events
+- **Visual Separators** - Icon-based dividers between component sections
+- **Flexible Positioning** - Fractional coordinate system for precise layout control
+
+### Technical Features
+
+- **Smart Caching System** - File-based API rate limiting with configurable lifetimes
+- **Component Architecture** - Modular design with BaseComponent inheritance
+- **Auto-Refresh** - Real-time updates without manual intervention
+- **Health Monitoring** - Built-in health checks for Docker deployment
+- **Error Resilience** - Graceful handling of API failures and network issues
+
+## Architecture & Design
+
+### Component System
+
+The Magic Mirror uses a modular component architecture with consistent design patterns:
+
+#### BaseComponent Abstract Class
+
+All components inherit from `BaseComponent` in `src/components/base.py`:
+
+```python
+class BaseComponent(ABC):
+    def __init__(self, header_icon: str = None, header_title: str = None):
+        self.header_icon = header_icon
+        self.header_title = header_title
+    
+    @abstractmethod
+    def layout(self) -> html.Div:
+        """Return the component's layout."""
+        pass
+    
+    @abstractmethod  
+    def register_callbacks(self, app):
+        """Register component-specific callbacks."""
+        pass
+```
+
+#### Consistent Design Language
+
+All components follow the same visual patterns:
+
+- **Single-line layouts** - Information organized horizontally for clean presentation
+- **Card-based design** - Each item in a consistent card with 8px border radius
+- **Consistent spacing** - 8px gaps between items, 12px 14px padding within cards
+- **Unified typography** - 1.2rem headers, 1.1rem main content, 0.9rem secondary info
+- **Color consistency** - COLORS palette from `utils.styles` used throughout
+- **Glass effect** - Gradient backgrounds with subtle transparency
+
+#### Visual Separators
+
+Components are visually separated using icon-based dividers:
+
+```python
+def create_separator(icon: str, title: str) -> html.Div:
+    return html.Div([
+        DashIconify(icon=icon, width=20, color=COLORS['text']),
+        html.Span(title, style={"marginLeft": "8px", "fontSize": "1rem"})
+    ], style={
+        "display": "flex", "alignItems": "center",
+        "marginBottom": "12px", "color": COLORS['text']
+    })
+```
+
+### Layout System
+
+- **Percentage-based heights** - Each component gets allocated screen real estate
+- **Flexbox containers** - Responsive layouts that adapt to content
+- **Single-column flow** - Components stacked vertically with separators
+- **Gradient backgrounds** - Modern glass effect throughout the interface
+
+### Component Capabilities
+
+#### Clock Component (`clock.py`)
+- Real-time display with automatic updates
+- Formatted date and time with weekday
+- Compact single-line presentation
+
+#### Weather Component (`weather.py`)
+- Current conditions with temperature and "feels like"
+- 3-day forecast with weather icons
+- WeatherAPI.com integration with error handling
+
+#### Google Calendar Component (`google_calendar.py`)
+- Upcoming events with smart date formatting
+- Birthday detection with cake icons
+- Single-line layout with event title left, date/time right
+- Golden accents for today's events
+
+#### TFL Arrivals Component (`tfl_arrivals.py`)
+- Real-time London transport arrivals
+- Multiple station support with unified display
+- Color-coded timing (red for <2min, normal for longer)
+- Station name + line displayed with arrival times
+
+#### Sports Component (`sports.py`)
+- Multi-sport fixture support (Football, Rugby, Cricket, Tennis, F1)
+- Today's matches highlighted with enhanced styling
+- Team information with competition context
+- BBC Sport integration for reliable data
+
+#### News Component (`news.py`)
+- Rotating headlines with 8-second intervals
+- RSS feed integration (BBC News by default)
+- Source attribution for each headline
+- Smooth transitions between stories
+
+#### Compliments & Jokes Component (`compliments_jokes.py`)
+- 1000+ positive messages and jokes
+- Time-based rotation for fresh content
+- Mood-lifting content to start the day
+- Local content (no API dependencies)
 
 ## Component Development & Rate Limiting
 
@@ -125,9 +315,11 @@ def fetch(self) -> dict:
 Different components use appropriate cache lifetimes based on data update frequency:
 
 - **TFL Arrivals**: `30 seconds` - Real-time transport data changes frequently
+- **Weather**: `30 minutes` - Weather conditions update periodically
 - **Google Calendar**: `1 hour` - Calendar events don't change often during the day
 - **Sports**: `6 hours` - Match schedules are relatively static
-- **News**: `60 hours` - Less frequent updates needed
+- **News**: `15 minutes` - News headlines update regularly
+- **Compliments/Jokes**: No caching - Static local content
 
 ### **CRITICAL: Component Rate Limiting Requirements**
 

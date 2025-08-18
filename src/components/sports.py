@@ -168,7 +168,7 @@ def _extract_competition(fixture_text: str) -> str:
             "sign in to view",
         ]:
             return ""
-        return competition
+        return competition.removesuffix(" Hide non-televised fixtures")
     return ""
 
 
@@ -325,10 +325,9 @@ def fetch_all_fixtures() -> dict[str, Any]:
 
 
 class Sports(BaseComponent):
-    def __init__(self, *args, fetch_minutes: int = 360, show_limit: int = 5, **kwargs):
+    def __init__(self, *args, fetch_minutes: int = 360, **kwargs):
         super().__init__(name="sports", *args, **kwargs)
         self.fetch_minutes = fetch_minutes
-        self.show_limit = show_limit
 
     def layout(self):
         return html.Div(
@@ -345,25 +344,13 @@ class Sports(BaseComponent):
                         "display": "flex",
                         "flexDirection": "column",
                         "alignItems": "stretch",
-                        "justifyContent": "flex-start",
-                        "gap": "0",
+                        "gap": "8px",
                         "width": "100%",
-                        "height": "100%",
-                        "padding": "0",
-                        "boxSizing": "border-box",
-                        "fontSize": "1rem",
-                        "overflow": "auto",
+                        "color": COLORS["pure_white"],
+                        "fontFamily": "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif",
                     },
                 ),
             ],
-            id=f"{self.component_id}-root",
-            style={
-                "position": "relative",
-                "width": "100%",
-                "height": "100%",
-                "color": "#FFFFFF",
-                "fontFamily": "Arial, sans-serif",
-            },
         )
 
     def add_callbacks(self, app):
@@ -387,9 +374,15 @@ class Sports(BaseComponent):
         def _render_list(data):
             if not data or "sports" not in data:
                 return html.Div(
-                    "No fixtures",
-                    style={"opacity": 0.5, "fontSize": "0.8rem"},
+                    "No upcoming fixtures",
+                    style={
+                        "fontSize": "1.2rem",
+                        "color": COLORS["soft_gray"],
+                        "textAlign": "center",
+                        "padding": "2rem",
+                    },
                 )
+            
             all_fixtures: list[dict[str, Any]] = []
             for sport_key, items in data["sports"].items():
                 if isinstance(items, list):
@@ -400,11 +393,16 @@ class Sports(BaseComponent):
 
             if not all_fixtures:
                 return html.Div(
-                    "No fixtures",
-                    style={"opacity": 0.5, "fontSize": "0.8rem"},
+                    "No upcoming fixtures",
+                    style={
+                        "fontSize": "1.2rem",
+                        "color": COLORS["soft_gray"],
+                        "textAlign": "center",
+                        "padding": "2rem",
+                    },
                 )
-            limited = all_fixtures[: self.show_limit]
-            rows = []
+            limited = all_fixtures
+            fixture_cards = []
             today = datetime.date.today()
 
             for fx in limited:
@@ -422,122 +420,109 @@ class Sports(BaseComponent):
                     except:  # noqa: E722
                         date_display = fx.get("date_time_raw", "")[:20]
 
-                # Style based on whether it's today
-                card_style = {
-                    "background": COLORS["accent_gold"]
-                    if is_today
-                    else COLORS["dark_gray"],
-                    "border": f"2px solid {COLORS['accent_gold']}"
-                    if is_today
-                    else "1px solid rgba(255,255,255,0.15)",
-                    "borderRadius": "8px",
-                    "padding": "3px",
-                    "display": "flex",
-                    "flexDirection": "column",
-                    "gap": "4px",
-                    "marginBottom": "6px",
-                    "boxShadow": "0 2px 8px rgba(255,215,0,0.3)"
-                    if is_today
-                    else "none",
-                }
-
-                rows.append(
-                    html.Div(
-                        [
-                            html.Div(
-                                [
-                                    html.Div(
-                                        [
-                                            DashIconify(
-                                                icon=fx.get(
-                                                    "sport_icon",
-                                                    "mdi:unknown",
-                                                ),
+                # Create fixture card with single-line layout
+                fixture_card = html.Div(
+                    [
+                        html.Div(
+                            [
+                                # Left side: sport icon, teams, and competition
+                                html.Div(
+                                    [
+                                        DashIconify(
+                                            icon=fx.get("sport_icon", "mdi:help-circle"),
+                                            style={
+                                                "fontSize": "1.2rem",
+                                                "marginRight": "10px",
+                                                "color": fx.get("sport_icon_color", COLORS["primary_blue"]),
+                                                "flexShrink": "0",
+                                            },
+                                        ),
+                                        html.Span(
+                                            f"{fx.get('home', '?')} vs {fx.get('away', '?')}",
+                                            style={
+                                                "fontWeight": "bold" if is_today else "500",
+                                                "fontSize": "0.9rem",
+                                                "color": COLORS["pure_white"],
+                                                "marginRight": "5px",
+                                                "flex": "1",
+                                            },
+                                        ),
+                                        *(
+                                            [html.Span(
+                                                fx.get("competition", ""),
                                                 style={
-                                                    "fontSize": "1.2rem",
-                                                    "marginRight": "0.5rem",
-                                                    "color": fx.get(
-                                                        "sport_icon_color",
-                                                        "#FFFFFF",
-                                                    ),
+                                                    "fontSize": "0.7rem",
+                                                    "color": COLORS["soft_gray"],
+                                                    "fontStyle": "italic",
+                                                    "marginRight": "5px",
                                                 },
-                                            ),
-                                            html.Span(
-                                                fx.get("sport_name", ""),
+                                            )] if fx.get("competition") else []
+                                        ),
+                                        *(
+                                            [html.Span(
+                                                fx.get("channel", ""),
                                                 style={
-                                                    "fontWeight": 700,
-                                                    "color": "#FFD700"
-                                                    if is_today
-                                                    else "#4A90E2",
+                                                    "fontSize": "0.9rem",
+                                                    "color": COLORS["success_green"],
+                                                    "marginRight": "5px",
                                                 },
-                                            ),
-                                            html.Span(
-                                                date_display,
-                                                style={
-                                                    "fontWeight": 600
-                                                    if is_today
-                                                    else 400,
-                                                    "color": "#FFD700"
-                                                    if is_today
-                                                    else "inherit",
-                                                },
-                                            ),
-                                            html.Span(
-                                                fx.get("time", ""),
-                                                style={
-                                                    "color": "#FF6B35"
-                                                    if is_today
-                                                    else "#FFA500",
-                                                    "fontWeight": 600
-                                                    if is_today
-                                                    else 400,
-                                                },
-                                            ),
-                                        ],
-                                        style={
-                                            "display": "flex",
-                                            "alignItems": "left",
-                                            "justifyContent": "space-between",
-                                        },
-                                    ),
-                                    # Add channel if available
-                                    *(
-                                        [
-                                            html.Span(
-                                                fx.get("channel", "")[:25],
-                                                style={"color": "#32CD32"},
-                                            ),
-                                        ]
-                                        if fx.get("channel")
-                                        else []
-                                    ),
-                                ],
-                                style={
-                                    "fontSize": "0.9rem",
-                                    "letterSpacing": "0.5px",
-                                    "marginBottom": "3px",
-                                },
-                            ),
-                            html.Div(
-                                f"{fx.get('home', '?')} vs {fx.get('away', '?')}",
-                                style={
-                                    "fontSize": "1.2rem",
-                                    "fontWeight": 600 if is_today else 500,
-                                    "color": "#FFD700" if is_today else "inherit",
-                                    "lineHeight": "1.3",
-                                },
-                            ),
-                            html.Div(
-                                fx.get("competition", ""),
-                                style={
-                                    "fontSize": "0.8rem",
-                                    "opacity": 0.85,
-                                    "fontStyle": "italic",
-                                    "color": "#FFD700" if is_today else "inherit",
-                                },
-                            ),
-                        ],
-                        style=card_style,
-                    ),
+                                            )] if fx.get("channel") else []
+                                        ),
+                                    ],
+                                    style={
+                                        "display": "flex",
+                                        "alignItems": "center",
+                                        "overflow": "hidden",
+                                        "flex": "1",
+                                    },
+                                ),
+                                # Right side: date and time
+                                html.Div(
+                                    [
+                                        html.Span(
+                                            date_display,
+                                            style={
+                                                "fontSize": "0.95rem",
+                                                "color": COLORS["accent_gold"] if is_today else COLORS["soft_gray"],
+                                                "fontWeight": "bold" if is_today else "400",
+                                                "marginRight": "8px",
+                                            },
+                                        ),
+                                        html.Span(
+                                            fx.get("time", ""),
+                                            style={
+                                                "fontSize": "1rem",
+                                                "color": COLORS["warm_orange"],
+                                                "fontWeight": "500",
+                                            },
+                                        ),
+                                    ],
+                                    style={
+                                        "display": "flex",
+                                        "alignItems": "center",
+                                        "whiteSpace": "nowrap",
+                                        "textAlign": "right",
+                                    },
+                                ),
+                            ],
+                            style={
+                                "display": "flex",
+                                "alignItems": "center",
+                                "justifyContent": "space-between",
+                                "width": "100%",
+                                "gap": "8px",
+                            },
+                        ),
+                    ],
+                    style={
+                        "border": f"1px solid {COLORS['accent_gold']}" if is_today else "1px solid rgba(255,255,255,0.08)",
+                        "borderRadius": "8px",
+                        "padding": "2px 4px",
+                        "marginBottom": "0",
+                        "backdropFilter": "blur(10px)",
+                    },
                 )
-            return rows
+                
+                fixture_cards.append(fixture_card)
+            
+            return fixture_cards

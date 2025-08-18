@@ -5,6 +5,7 @@ import httpx
 from dash import Input, Output, dcc, html
 from dash_iconify import DashIconify
 from loguru import logger
+import dash_mantine_components as dmc
 
 from components.base import BaseComponent
 from utils.file_cache import cache_json
@@ -18,12 +19,12 @@ class Weather(BaseComponent):
     Requires a free API key from https://www.weatherapi.com/signup.aspx
     """
 
-    icon_size = 40
+    icon_size = "7rem"
 
-    def __init__(self, postcode: str, *args, **kwargs):
+    def __init__(self, postcode: str, api_key: str, *args, **kwargs):
         super().__init__(name="weather", *args, **kwargs)
         self.postcode = postcode.upper().replace(" ", "")
-        self.api_key = os.environ.get("WEATHER_API_KEY")
+        self.api_key = api_key
         self.base_url = "http://api.weatherapi.com/v1"
 
         if not self.api_key:
@@ -44,7 +45,7 @@ class Weather(BaseComponent):
                     style={
                         "color": "#FFFFFF",
                         "fontSize": "14px",
-                        "fontFamily": "Arial, sans-serif",
+                        "fontFamily": "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif",
                         "textAlign": "center",
                     },
                 ),
@@ -60,7 +61,8 @@ class Weather(BaseComponent):
         )
         def update_weather(_):
             try:
-                weather_data = self.fetch()
+                api_data = self.fetch()
+                weather_data = self._process_weather_data(api_data)
                 return self._render_weather(weather_data)
             except Exception as e:
                 logger.error(f"Error updating weather: {e}")
@@ -83,223 +85,165 @@ class Weather(BaseComponent):
             response = httpx.get(forecast_url, params=params, timeout=10)
             response.raise_for_status()
 
-            weather_data = response.json()
-            return self._process_weather_data(weather_data)
+            return response.json()
 
         except Exception as e:
             logger.error(f"Failed to fetch weather data: {e}")
             return {}
 
+    @staticmethod
+    def _icon_url(icon: str) -> str:
+        """Construct the full URL for the weather icon."""
+        if icon.startswith("//"):
+            icon = "https:" + icon
+        return icon
+
+    @staticmethod
+    def _extract_day_details(day_dict: dict) -> dict:
+        """Extract API details from the day's forecast."""
+        details = {
+            "high": round(day_dict.get("maxtemp_c", 0)),
+            "low": round(day_dict.get("mintemp_c", 0)),
+            "description": day_dict.get("condition", {}).get("text", "Unknown"),
+            "rain_chance": day_dict.get("daily_chance_of_rain", 0),
+            "icon": Weather._icon_url(day_dict.get("condition", {}).get("icon", "")),
+        }
+        return details
+    
+    @staticmethod
+    def _extract_current_details(current_dict: dict) -> dict:
+        """Extract API details from the current weather."""
+        details = {
+            "temperature": round(current_dict.get("temp_c", 0)),
+            "condition": current_dict.get("condition", {}).get("text", "Unknown"),
+            "icon": Weather._icon_url(current_dict.get("condition", {}).get("icon", "")),
+        }
+        return details
+
     def _process_weather_data(self, raw_data: dict) -> dict:
         """Process raw WeatherAPI data into our format."""
-        processed = {
-            "current": {},
-            "forecast": [],
+        forecast_days = raw_data.get("forecast", {}).get("forecastday", [])
+        return {
+            "current": self._extract_current_details(raw_data.get("current", {})),
+            "today": self._extract_day_details(forecast_days[0].get("day", {})),
+            "tomorrow": self._extract_day_details(forecast_days[1].get("day", {})),
             "location": raw_data.get("location", {}).get("name", self.postcode),
         }
+    
+    @staticmethod
+    def _high_low_rain(day_data: dict) -> html.Div:
+        high = day_data.get("high", "?")
+        low = day_data.get("low", "?")
+        rain = day_data.get("rain_chance", "?")
 
-        # Current weather
-        current = raw_data.get("current", {})
-        if current:
-            # Make sure icon URL has https protocol
-            icon_url = current.get("condition", {}).get("icon", "")
-            if icon_url.startswith("//"):
-                icon_url = "https:" + icon_url
+        return html.Div(
+            style={
+                "display": "flex",
+                "justifyContent": "space-between"
+            },
+            className="text-ms",
+            children=[
+                html.Div(
+                    [
+                        DashIconify(icon="mdi:arrow-up", color="red", style={"marginRight": "0.5rem"}),
+                        html.Div(high),
+                        html.Div("°C", className="degrees"),
+                    ],
+                    className="centered-content"
+                ),
+                html.Div(
+                    [
+                        DashIconify(icon="mdi:arrow-down", color="#5f9fff", style={"marginRight": "0.5rem"}),
+                        html.Div(low),
+                        html.Div("°C", className="degrees"),
+                    ],
+                    className="centered-content"
+                ),
+                html.Div(
+                    [
+                        DashIconify(icon="mdi:weather-rainy", color="white", style={"marginRight": "0.5rem"}),
+                        html.Div(rain),
+                        html.Div("%", className="degrees"),
+                    ],
+                    className="centered-content"
+                ),
+            ]
+        )
 
-            processed["current"] = {
-                "temperature": round(current.get("temp_c", 0)),
-                "description": current.get("condition", {}).get("text", "Unknown"),
-                "humidity": current.get("humidity", 0),
-                "rain_chance": 0,  # Current weather doesn't have rain chance
-                "icon": icon_url,
-            }
-
-        # Process forecast for next 3 days
-        forecast_days = raw_data.get("forecast", {}).get("forecastday", [])
-        for i, day_data in enumerate(forecast_days[1:4]):  # Skip today, get next 3 days
-            day_forecast = day_data.get("day", {})
-            if day_forecast:
-                # Make sure icon URL has https protocol
-                icon_url = day_forecast.get("condition", {}).get("icon", "")
-                if icon_url.startswith("//"):
-                    icon_url = "https:" + icon_url
-
-                processed["forecast"].append(
-                    {
-                        "day": self._format_day(day_data.get("date", ""), i + 1),
-                        "high": round(day_forecast.get("maxtemp_c", 0)),
-                        "low": round(day_forecast.get("mintemp_c", 0)),
-                        "rain_chance": day_forecast.get("daily_chance_of_rain", 0),
-                        "condition": day_forecast.get("condition", {}).get(
-                            "text",
-                            "Unknown",
-                        ),
-                        "icon": icon_url,
-                    },
-                )
-
-        # If we have today's data, use it for rain chance
-        if forecast_days:
-            today_forecast = forecast_days[0].get("day", {})
-            processed["current"]["rain_chance"] = today_forecast.get(
-                "daily_chance_of_rain",
-                0,
-            )
-
-        return processed
-
-    def _format_day(self, date_str: str, days_ahead: int) -> str:
-        """Format day name for forecast."""
-        try:
-            if days_ahead == 1:
-                return "Tomorrow"
-            date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%d")
-            return date_obj.strftime("%A")[:3]  # Mon, Tue, etc.
-        except:  # noqa: E722
-            return f"Day {days_ahead}"
+    @staticmethod
+    def _tomorrow_day() -> str:
+        today = datetime.date.today()
+        tomorrow = today + datetime.timedelta(days=1)
+        return tomorrow.strftime("%a")
 
     def _render_weather(self, weather_data: dict) -> html.Div:
-        """Render the weather component."""
+        """Render the weather component in Today/Tomorrow format."""
         current = weather_data.get("current", {})
-        forecast = weather_data.get("forecast", [])
+        today = weather_data.get("today", {})
+        tomorrow = weather_data.get("tomorrow", {})
 
         return html.Div(
             [
-                # Header with location
                 html.Div(
-                    [
-                        # Use current weather icon in header if available
-                        html.Img(
-                            src=current.get("icon", ""),
-                            style={
-                                "width": "40%",
-                                "height": "40%",
-                                "marginRight": "8px",
-                            },
-                        ),
-                        html.Div(
-                            [
-                                html.Span(
-                                    f"{current.get('temperature', '--')}°C",
-                                    style={"fontSize": "24px", "fontWeight": "bold"},
-                                ),
-                                html.Br(),
-                                html.Span(
-                                    current.get("description", "Unknown"),
-                                    style={"fontSize": "15px", "opacity": "0.8"},
-                                ),
-                            ],
-                            style={"marginBottom": "6px"},
-                        ),
+                    id=f"{self.component_id}-current-weather",
+                    style={"width": "48%"},
+                    children=[
                         html.Div(
                             [
                                 html.Div(
-                                    [
-                                        DashIconify(
-                                            icon="meteocons:raindrops-fill",
-                                            width=self.icon_size,
-                                            height=self.icon_size,
-                                            style={
-                                                "marginRight": "4px",
-                                                "color": "#4A90E2",
-                                            },
-                                        ),
-                                        html.Span(
-                                            f"{current.get('rain_chance', 0)}%",
-                                            style={"fontSize": "14px"},
-                                        ),
+                                    id=f"{self.component_id}-current-temperature",
+                                    children=[
+                                        html.Div(current.get("temperature", "?"), className="text-l"),
+                                        html.Div("°C", className="text-m degrees"),
                                     ],
-                                    style={
-                                        "display": "flex",
-                                        "flexDirection": "column",
-                                        "alignItems": "center",
-                                    },
+                                    style={"display": "flex", "alignItems": "baseline"},
                                 ),
+                                dmc.Image(src=current.get("icon", ""), w=self.icon_size, h=self.icon_size),
                             ],
-                            style={
-                                "marginBottom": "0",
-                                "display": "flex",
-                                "justifyContent": "space-between",
-                                "alignItems": "center",
-                                "width": "100%",
-                            },
+                            className="centered-content gap-m",
                         ),
+                        self._high_low_rain(today),
                     ],
-                    style={"display": "flex", "alignItems": "center", "width": "100%"},
                 ),
-                # 3-day forecast
+                # Vertical line to separate current and tomorrow weather
+                # Cool gradient from black to white and back to black in non-linear fashion
                 html.Div(
-                    [
-                        html.Div(
-                            [
-                                html.Div(
-                                    day["day"],
-                                    style={
-                                        "fontSize": "15px",
-                                        "fontWeight": "bold",
-                                        "marginBottom": "2px",
-                                    },
-                                ),
-                                # Weather icon for each day
-                                html.Div(
-                                    [
-                                        html.Img(
-                                            src=day.get("icon", ""),
-                                            style={
-                                                "width": "40px",
-                                                "height": "40px",
-                                                "marginBottom": "2px",
-                                            },
-                                        )
-                                        if day.get("icon")
-                                        else None,
-                                    ],
-                                    style={"marginBottom": "2px"},
-                                ),
-                                html.Div(
-                                    f"{day['high']}°/{day['low']}°",
-                                    style={"fontSize": "15px", "marginBottom": "1px"},
-                                ),
-                                html.Div(
-                                    [
-                                        DashIconify(
-                                            icon="meteocons:raindrops-fill",
-                                            width=self.icon_size,
-                                            height=self.icon_size,
-                                            style={
-                                                "marginRight": "2px",
-                                                "color": "#4A90E2",
-                                            },
-                                        ),
-                                        html.Span(
-                                            f"{day['rain_chance']}%",
-                                            style={"fontSize": "13px"},
-                                        ),
-                                    ],
-                                    style={
-                                        "fontSize": "13px",
-                                        "opacity": "0.6",
-                                        "display": "flex",
-                                        "alignItems": "center",
-                                        "justifyContent": "center",
-                                    },
-                                ),
-                            ],
-                            style={
-                                "display": "inline-block",
-                                "margin": "0 8px",
-                                "textAlign": "center",
-                                "verticalAlign": "top",
-                                "minWidth": "40px",
-                            },
-                        )
-                        for day in forecast[:3]
-                    ],
+                    "\u00A0",  # Non-breaking space to give the div content
                     style={
-                        "borderTop": "1px solid rgba(255,255,255,0.2)",
-                        "paddingTop": "8px",
-                        "marginTop": "8px",
-                    },
+                        #"height": "100%",
+                        "minHeight": "80px",  # Ensure minimum height
+                        "background": "linear-gradient(180deg, #000000 0%, #ffffff 50%, #000000 100%)",
+                        "width": "2px",
+                        "alignSelf": "stretch",  # Make it stretch to fill parent height
+                        "borderRadius": "1px",
+                    }
                 ),
+                # Tomorrow
+                html.Div(
+                    id=f"{self.component_id}-tomorrow-weather",
+                    style={"width": "48%"},
+                    children=[
+                        html.Div(
+                            [
+                                html.Div(
+                                    id=f"{self.component_id}-tomorrow-temperature",
+                                    children=[
+                                        html.Div(self._tomorrow_day(), className="text-ml"),
+                                    ],
+                                    style={"display": "flex", "alignItems": "baseline"},
+                                ),
+                                dmc.Image(src=tomorrow.get("icon", ""), w=self.icon_size, h=self.icon_size),
+                            ],
+                            className="centered-content",
+                        ),
+                        self._high_low_rain(tomorrow),
+                    ],
+                )
             ],
+            id=f"{self.component_id}-render-container-div",
+            className="centered-content",
+            style={
+                "width": "100%",
+                "justifyContent": "space-between"
+            }
         )

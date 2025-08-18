@@ -16,13 +16,14 @@ class BaseComponent(ABC):
         name: str,
         v_center: bool = False,
         h_center: bool = False,
+        separator: bool = False,
         **kwargs,
     ):
         self.name = name
         self._id = uuid.uuid4().hex
+        self.separator = separator
 
         self.css_position = {
-            "position": "absolute",
             **kwargs,
         }
 

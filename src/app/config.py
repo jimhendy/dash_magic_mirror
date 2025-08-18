@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from components.clock import Clock
 from components.google_calendar import CalendarConfig, GoogleCalendar
-from components.news import NewsFeed
+from components.news_compliments import NewsComplimentsFeed
 from components.sports import Sports
 from components.tfl_arrivals import TFL
 from components.weather import Weather
@@ -16,11 +16,16 @@ load_dotenv(env_path)
 
 
 # Create component instances with configuration from environment
-COMPONENTS = [
-    Clock(
-        left="2%",
-        top="50%",
+# Single column layout with percentage-based heights (total should not exceed 100%)
+COMPONENTS = [ 
+    # Clock at the top - 15%
+    Clock(),
+    # Weather component
+    Weather(
+        postcode=os.environ.get("WEATHER_POSTCODE", "SW1A 1AA"),
+        api_key=os.environ.get("WEATHER_API_KEY", ""),
     ),
+    # Google Calendar
     GoogleCalendar(
         calendar_config=CalendarConfig(
             calendar_ids=[
@@ -29,57 +34,27 @@ COMPONENTS = [
                 if calendar_id.startswith("GOOGLE_CALENDAR_ID_")
             ],
         ),
-        top="1%",
-        right="1%",
-        maxWidth="50%",
-        maxHeight="40%",
+        maxHeight="20%",
     ),
+    # TFL Transport Arrivals
     TFL(
         stops=[
             os.environ[stop_id]
             for stop_id in os.environ
-            if stop_id.startswith("TFL_LEFT_STOP_ID_")
+            if stop_id.startswith("TFL_STOP_ID_")
         ],
-        left="0%",
-        top="67%",
-        width="50%",
-        maxHeight="40%",
+        maxHeight="20%",
+        separator=True,
     ),
-    TFL(
-        stops=[
-            os.environ[stop_id]
-            for stop_id in os.environ
-            if stop_id.startswith("TFL_RIGHT_STOP_ID_")
-        ],
-        right="0%",
-        top="67%",
-        width="50%",
-        maxHeight="30%",
-    ),
-    # ComplimentsJokes(
-    #     v_center=True,
-    #     h_center=True,
-    #     maxWidth="60%",
-    #     maxHeight="20%",
-    # ),
-    NewsFeed(
-        bottom="1%",
-        h_center=True,
-        width="100%",
-        maxHeight="10%",
-    ),
+    # Sports Fixtures
     Sports(
-        left="1%",
-        top="1%",
-        maxWidth="50%",
-        minWidth="40%",
-        maxHeight="50%",
-    ),
-    Weather(
-        postcode=os.environ.get("WEATHER_POSTCODE", "SW1A 1AA"),
-        right="1%",
-        top="45%",
-        maxWidth="35%",
+        separator=True,
         maxHeight="25%",
     ),
+    # News & Compliments Feed at bottom
+    NewsComplimentsFeed(
+        marginTop="auto",
+        separator=True,
+    ),
+    # Total: 105% (may need adjustment)
 ]
