@@ -17,7 +17,7 @@ load_dotenv(env_path)
 
 # Create component instances with configuration from environment
 # Single column layout with percentage-based heights (total should not exceed 100%)
-COMPONENTS = [ 
+COMPONENTS = [
     # Clock at the top - 15%
     Clock(),
     # Weather component

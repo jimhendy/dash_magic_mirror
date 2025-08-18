@@ -26,10 +26,12 @@ def fetch_all_arrivals(stops: list[str]) -> list[dict]:
                         arrival["stopId"] = stop
                     all_arrivals.extend(arrivals)
             else:
-                logger.error(f"Failed to fetch data for stop {stop}: {response.status_code}")
+                logger.error(
+                    f"Failed to fetch data for stop {stop}: {response.status_code}",
+                )
         except httpx.RequestError as e:
             logger.error(f"Error fetching data for stop {stop}: {e}")
-    
+
     # Sort all arrivals by expected arrival time
     all_arrivals.sort(key=lambda x: x.get("expectedArrival", ""))
     return all_arrivals[:15]  # Limit to 15 most imminent arrivals
@@ -95,7 +97,7 @@ class TFL(BaseComponent):
                             "padding": "2rem",
                         },
                     )
-                
+
                 return self._render_arrivals(arrivals)
             except Exception as e:
                 logger.error(f"Error updating TFL arrivals: {e}")
@@ -107,31 +109,35 @@ class TFL(BaseComponent):
     def _render_arrivals(self, arrivals: list[dict]) -> list:
         """Render arrivals in a clean single-line format."""
         arrival_cards = []
-        
+
         for arrival in arrivals:
             # Calculate time until arrival
             arrival_time = datetime.datetime.fromisoformat(
-                arrival["expectedArrival"].replace("Z", "+00:00")
+                arrival["expectedArrival"].replace("Z", "+00:00"),
             )
-            now = datetime.datetime.now(datetime.timezone.utc)
+            now = datetime.datetime.now(datetime.UTC)
             time_diff = (arrival_time - now).total_seconds()
             minutes = max(0, int(time_diff // 60))
-            
+
             # Skip arrivals that have already passed or are more than 30 minutes away
             if minutes < 0 or minutes > 30:
                 continue
-            
+
             # Clean station name
             station_name = arrival.get("stationName", "Unknown Station")
-            station_name = station_name.replace(" Rail Station", "").replace(" Underground Station", "")
-            
+            station_name = station_name.replace(" Rail Station", "").replace(
+                " Underground Station", "",
+            )
+
             # Clean destination name
             destination = arrival.get("destinationName", "Unknown Destination")
-            destination = destination.replace(" Rail Station", "").replace(" Underground Station", "")
-            
+            destination = destination.replace(" Rail Station", "").replace(
+                " Underground Station", "",
+            )
+
             # Line name
             line_name = arrival.get("lineName", "Unknown Line")
-            
+
             # Time styling based on urgency
             if minutes < 2:
                 time_color = COLORS["alert_red"]
@@ -142,7 +148,7 @@ class TFL(BaseComponent):
             else:
                 time_color = COLORS["pure_white"]
                 time_weight = "400"
-            
+
             # Create arrival card
             arrival_card = html.Div(
                 [
@@ -216,7 +222,7 @@ class TFL(BaseComponent):
                     "backdropFilter": "blur(10px)",
                 },
             )
-            
+
             arrival_cards.append(arrival_card)
-        
+
         return arrival_cards

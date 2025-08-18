@@ -1,22 +1,24 @@
+import os
+
 import dash_mantine_components as dmc
 from dash import Dash, html
 from dash_iconify import DashIconify
-import os
 
 from app.config import COMPONENTS
-from utils.styles import COMPACT_STYLES, COLORS
+from utils.styles import COLORS, COMPACT_STYLES
 
 # Get the path to the assets directory
-assets_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets')
+assets_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
 
 app = Dash(__name__, suppress_callback_exceptions=True, assets_folder=assets_path)
 app.title = "Magic Mirror"
+
 
 def create_separator(icon: str = None, title: str = None):
     """Create a horizontal separator with optional icon and title."""
     if not icon and not title:
         return None
-    
+
     return html.Div(
         [
             html.Div(
@@ -25,31 +27,39 @@ def create_separator(icon: str = None, title: str = None):
                     "height": "1px",
                     "background": "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
                     "flex": "1",
-                }
+                },
             ),
             html.Div(
                 [
                     *(
-                        [DashIconify(
-                            icon=icon,
-                            style={
-                                "fontSize": "1.2rem",
-                                "color": COLORS["primary_blue"],
-                                "marginRight": "8px" if title else "0",
-                            }
-                        )] if icon else []
+                        [
+                            DashIconify(
+                                icon=icon,
+                                style={
+                                    "fontSize": "1.2rem",
+                                    "color": COLORS["primary_blue"],
+                                    "marginRight": "8px" if title else "0",
+                                },
+                            ),
+                        ]
+                        if icon
+                        else []
                     ),
                     *(
-                        [html.Span(
-                            title,
-                            style={
-                                "color": COLORS["soft_gray"],
-                                "fontSize": "0.9rem",
-                                "fontWeight": "500",
-                                "textTransform": "uppercase",
-                                "letterSpacing": "1px",
-                            }
-                        )] if title else []
+                        [
+                            html.Span(
+                                title,
+                                style={
+                                    "color": COLORS["soft_gray"],
+                                    "fontSize": "0.9rem",
+                                    "fontWeight": "500",
+                                    "textTransform": "uppercase",
+                                    "letterSpacing": "1px",
+                                },
+                            ),
+                        ]
+                        if title
+                        else []
                     ),
                 ],
                 style={
@@ -57,7 +67,7 @@ def create_separator(icon: str = None, title: str = None):
                     "alignItems": "center",
                     "padding": "0 1rem",
                     "backgroundColor": COLORS["black"],
-                }
+                },
             ),
             html.Div(
                 style={
@@ -65,7 +75,7 @@ def create_separator(icon: str = None, title: str = None):
                     "height": "1px",
                     "background": "line80ar-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
                     "flex": "1",
-                }
+                },
             ),
         ],
         style={
@@ -73,8 +83,9 @@ def create_separator(icon: str = None, title: str = None):
             "alignItems": "center",
             "margin": "1rem 0",
             "width": "100%",
-        }
+        },
     )
+
 
 # Build the layout with separators
 layout_children = []
@@ -85,13 +96,13 @@ for i, comp in enumerate(COMPONENTS):
         separator.append(
             # hR with fancy gradient black -> white -> black in cubic
             html.Div(
-                "\u00A0",  # Non-breaking space to give the div content
+                "\u00a0",  # Non-breaking space to give the div content
                 style={
                     "border": "none",
                     "height": "3px",
                     "background": "linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent)",
-                }
-            )
+                },
+            ),
         )
 
     # Add the component
@@ -107,8 +118,9 @@ for i, comp in enumerate(COMPONENTS):
                 "overflow": "hidden",
                 "display": "flex",
                 "flexDirection": "column",
-            } | comp.css_position
-        )
+            }
+            | comp.css_position,
+        ),
     )
 
 app.layout = dmc.MantineProvider(

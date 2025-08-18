@@ -382,7 +382,7 @@ class Sports(BaseComponent):
                         "padding": "2rem",
                     },
                 )
-            
+
             all_fixtures: list[dict[str, Any]] = []
             for sport_key, items in data["sports"].items():
                 if isinstance(items, list):
@@ -429,18 +429,25 @@ class Sports(BaseComponent):
                                 html.Div(
                                     [
                                         DashIconify(
-                                            icon=fx.get("sport_icon", "mdi:help-circle"),
+                                            icon=fx.get(
+                                                "sport_icon", "mdi:help-circle",
+                                            ),
                                             style={
                                                 "fontSize": "1.2rem",
                                                 "marginRight": "10px",
-                                                "color": fx.get("sport_icon_color", COLORS["primary_blue"]),
+                                                "color": fx.get(
+                                                    "sport_icon_color",
+                                                    COLORS["primary_blue"],
+                                                ),
                                                 "flexShrink": "0",
                                             },
                                         ),
                                         html.Span(
                                             f"{fx.get('home', '?')} vs {fx.get('away', '?')}",
                                             style={
-                                                "fontWeight": "bold" if is_today else "500",
+                                                "fontWeight": "bold"
+                                                if is_today
+                                                else "500",
                                                 "fontSize": "0.9rem",
                                                 "color": COLORS["pure_white"],
                                                 "marginRight": "5px",
@@ -448,25 +455,35 @@ class Sports(BaseComponent):
                                             },
                                         ),
                                         *(
-                                            [html.Span(
-                                                fx.get("competition", ""),
-                                                style={
-                                                    "fontSize": "0.7rem",
-                                                    "color": COLORS["soft_gray"],
-                                                    "fontStyle": "italic",
-                                                    "marginRight": "5px",
-                                                },
-                                            )] if fx.get("competition") else []
+                                            [
+                                                html.Span(
+                                                    fx.get("competition", ""),
+                                                    style={
+                                                        "fontSize": "0.7rem",
+                                                        "color": COLORS["soft_gray"],
+                                                        "fontStyle": "italic",
+                                                        "marginRight": "5px",
+                                                    },
+                                                ),
+                                            ]
+                                            if fx.get("competition")
+                                            else []
                                         ),
                                         *(
-                                            [html.Span(
-                                                fx.get("channel", ""),
-                                                style={
-                                                    "fontSize": "0.9rem",
-                                                    "color": COLORS["success_green"],
-                                                    "marginRight": "5px",
-                                                },
-                                            )] if fx.get("channel") else []
+                                            [
+                                                html.Span(
+                                                    fx.get("channel", ""),
+                                                    style={
+                                                        "fontSize": "0.9rem",
+                                                        "color": COLORS[
+                                                            "success_green"
+                                                        ],
+                                                        "marginRight": "5px",
+                                                    },
+                                                ),
+                                            ]
+                                            if fx.get("channel")
+                                            else []
                                         ),
                                     ],
                                     style={
@@ -483,8 +500,12 @@ class Sports(BaseComponent):
                                             date_display,
                                             style={
                                                 "fontSize": "0.95rem",
-                                                "color": COLORS["accent_gold"] if is_today else COLORS["soft_gray"],
-                                                "fontWeight": "bold" if is_today else "400",
+                                                "color": COLORS["accent_gold"]
+                                                if is_today
+                                                else COLORS["soft_gray"],
+                                                "fontWeight": "bold"
+                                                if is_today
+                                                else "400",
                                                 "marginRight": "8px",
                                             },
                                         ),
@@ -515,14 +536,16 @@ class Sports(BaseComponent):
                         ),
                     ],
                     style={
-                        "border": f"1px solid {COLORS['accent_gold']}" if is_today else "1px solid rgba(255,255,255,0.08)",
+                        "border": f"1px solid {COLORS['accent_gold']}"
+                        if is_today
+                        else "1px solid rgba(255,255,255,0.08)",
                         "borderRadius": "8px",
                         "padding": "2px 4px",
                         "marginBottom": "0",
                         "backdropFilter": "blur(10px)",
                     },
                 )
-                
+
                 fixture_cards.append(fixture_card)
-            
+
             return fixture_cards

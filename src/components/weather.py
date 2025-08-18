@@ -1,11 +1,10 @@
 import datetime
-import os
 
+import dash_mantine_components as dmc
 import httpx
 from dash import Input, Output, dcc, html
 from dash_iconify import DashIconify
 from loguru import logger
-import dash_mantine_components as dmc
 
 from components.base import BaseComponent
 from utils.file_cache import cache_json
@@ -109,14 +108,16 @@ class Weather(BaseComponent):
             "icon": Weather._icon_url(day_dict.get("condition", {}).get("icon", "")),
         }
         return details
-    
+
     @staticmethod
     def _extract_current_details(current_dict: dict) -> dict:
         """Extract API details from the current weather."""
         details = {
             "temperature": round(current_dict.get("temp_c", 0)),
             "condition": current_dict.get("condition", {}).get("text", "Unknown"),
-            "icon": Weather._icon_url(current_dict.get("condition", {}).get("icon", "")),
+            "icon": Weather._icon_url(
+                current_dict.get("condition", {}).get("icon", ""),
+            ),
         }
         return details
 
@@ -129,7 +130,7 @@ class Weather(BaseComponent):
             "tomorrow": self._extract_day_details(forecast_days[1].get("day", {})),
             "location": raw_data.get("location", {}).get("name", self.postcode),
         }
-    
+
     @staticmethod
     def _high_low_rain(day_data: dict) -> html.Div:
         high = day_data.get("high", "?")
@@ -137,37 +138,46 @@ class Weather(BaseComponent):
         rain = day_data.get("rain_chance", "?")
 
         return html.Div(
-            style={
-                "display": "flex",
-                "justifyContent": "space-between"
-            },
+            style={"display": "flex", "justifyContent": "space-between"},
             className="text-ms",
             children=[
                 html.Div(
                     [
-                        DashIconify(icon="mdi:arrow-up", color="red", style={"marginRight": "0.5rem"}),
+                        DashIconify(
+                            icon="mdi:arrow-up",
+                            color="red",
+                            style={"marginRight": "0.5rem"},
+                        ),
                         html.Div(high),
                         html.Div("°C", className="degrees"),
                     ],
-                    className="centered-content"
+                    className="centered-content",
                 ),
                 html.Div(
                     [
-                        DashIconify(icon="mdi:arrow-down", color="#5f9fff", style={"marginRight": "0.5rem"}),
+                        DashIconify(
+                            icon="mdi:arrow-down",
+                            color="#5f9fff",
+                            style={"marginRight": "0.5rem"},
+                        ),
                         html.Div(low),
                         html.Div("°C", className="degrees"),
                     ],
-                    className="centered-content"
+                    className="centered-content",
                 ),
                 html.Div(
                     [
-                        DashIconify(icon="mdi:weather-rainy", color="white", style={"marginRight": "0.5rem"}),
+                        DashIconify(
+                            icon="mdi:weather-rainy",
+                            color="white",
+                            style={"marginRight": "0.5rem"},
+                        ),
                         html.Div(rain),
                         html.Div("%", className="degrees"),
                     ],
-                    className="centered-content"
+                    className="centered-content",
                 ),
-            ]
+            ],
         )
 
     @staticmethod
@@ -193,12 +203,19 @@ class Weather(BaseComponent):
                                 html.Div(
                                     id=f"{self.component_id}-current-temperature",
                                     children=[
-                                        html.Div(current.get("temperature", "?"), className="text-l"),
+                                        html.Div(
+                                            current.get("temperature", "?"),
+                                            className="text-l",
+                                        ),
                                         html.Div("°C", className="text-m degrees"),
                                     ],
                                     style={"display": "flex", "alignItems": "baseline"},
                                 ),
-                                dmc.Image(src=current.get("icon", ""), w=self.icon_size, h=self.icon_size),
+                                dmc.Image(
+                                    src=current.get("icon", ""),
+                                    w=self.icon_size,
+                                    h=self.icon_size,
+                                ),
                             ],
                             className="centered-content gap-m",
                         ),
@@ -208,15 +225,15 @@ class Weather(BaseComponent):
                 # Vertical line to separate current and tomorrow weather
                 # Cool gradient from black to white and back to black in non-linear fashion
                 html.Div(
-                    "\u00A0",  # Non-breaking space to give the div content
+                    "\u00a0",  # Non-breaking space to give the div content
                     style={
-                        #"height": "100%",
+                        # "height": "100%",
                         "minHeight": "80px",  # Ensure minimum height
                         "background": "linear-gradient(180deg, #000000 0%, #ffffff 50%, #000000 100%)",
                         "width": "2px",
                         "alignSelf": "stretch",  # Make it stretch to fill parent height
                         "borderRadius": "1px",
-                    }
+                    },
                 ),
                 # Tomorrow
                 html.Div(
@@ -228,22 +245,25 @@ class Weather(BaseComponent):
                                 html.Div(
                                     id=f"{self.component_id}-tomorrow-temperature",
                                     children=[
-                                        html.Div(self._tomorrow_day(), className="text-ml"),
+                                        html.Div(
+                                            self._tomorrow_day(), className="text-ml",
+                                        ),
                                     ],
                                     style={"display": "flex", "alignItems": "baseline"},
                                 ),
-                                dmc.Image(src=tomorrow.get("icon", ""), w=self.icon_size, h=self.icon_size),
+                                dmc.Image(
+                                    src=tomorrow.get("icon", ""),
+                                    w=self.icon_size,
+                                    h=self.icon_size,
+                                ),
                             ],
                             className="centered-content",
                         ),
                         self._high_low_rain(tomorrow),
                     ],
-                )
+                ),
             ],
             id=f"{self.component_id}-render-container-div",
             className="centered-content",
-            style={
-                "width": "100%",
-                "justifyContent": "space-between"
-            }
+            style={"width": "100%", "justifyContent": "space-between"},
         )

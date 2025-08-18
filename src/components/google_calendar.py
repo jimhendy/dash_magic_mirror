@@ -2,7 +2,6 @@ import datetime
 import os
 from dataclasses import dataclass
 
-import dash_mantine_components as dmc
 from dash import Input, Output, dcc, html
 from dash_iconify import DashIconify
 from google.auth.transport.requests import Request
@@ -236,10 +235,12 @@ class GoogleCalendar(BaseComponent):
                     date_text += f" → {end_text}"
 
                 # Card styling - clean and minimal with subtle gradient
+                border_color = COLORS["accent_gold"] if event_is_today else (
+                    COLORS["dimmed_gray"] if event_is_tomorrow else
+                    "rgba(255,255,255,0.08)"
+                )
                 card_style = {
-                    "background": "linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06))" if event_is_today 
-                                 else "linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
-                    "border": f"1px solid {COLORS['accent_gold']}" if event_is_today else "1px solid rgba(255,255,255,0.08)",
+                    "border": f"1px solid {border_color}",
                     "borderRadius": "8px",
                     "padding": "2px 4px",
                     "marginBottom": "0",
@@ -276,12 +277,16 @@ class GoogleCalendar(BaseComponent):
                                                         "color": COLORS["warm_orange"],
                                                     },
                                                 ),
-                                            ] if is_birthday else []
+                                            ]
+                                            if is_birthday
+                                            else []
                                         ),
                                         html.Span(
                                             summary,
                                             style={
-                                                "fontWeight": "bold" if event_is_today else "500",
+                                                "fontWeight": "bold"
+                                                if event_is_today
+                                                else "500",
                                                 "fontSize": "1.1rem",
                                                 "color": title_color,
                                                 "overflow": "hidden",
