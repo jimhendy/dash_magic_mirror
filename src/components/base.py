@@ -1,3 +1,4 @@
+import datetime
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -62,3 +63,31 @@ class BaseComponent(ABC):
         :param app: The Dash application instance.
         """
         ...
+
+    @staticmethod
+    def _opacity_from_days_away(
+        date_obj: datetime.datetime | datetime.date | None,
+    ) -> float:
+        if not date_obj:
+            return 0.5
+
+        now = datetime.datetime.now(tz=datetime.UTC)
+
+        if isinstance(date_obj, datetime.date) and not isinstance(
+            date_obj, datetime.datetime,
+        ):
+            now = now.date()
+        elif not hasattr(date_obj, "tzinfo") or date_obj.tzinfo is None:
+            date_obj = date_obj.replace(tzinfo=now.tzinfo)
+
+        days_away = (date_obj - now).days
+
+        if days_away <= 1:
+            return 1
+        if days_away < 3:
+            return 0.9
+        if days_away < 7:
+            return 0.8
+        if days_away < 14:
+            return 0.6
+        return 0.5

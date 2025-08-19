@@ -204,6 +204,7 @@ class GoogleCalendar(BaseComponent):
                     start_datetime_str,
                     is_all_day=is_all_day,
                 )
+                opacity = self._opacity_from_days_away(start_datetime)
 
                 end_datetime_str = end_dict.get("dateTime", end_dict.get("date"))
                 raw_end_datetime = datetime_from_str(
@@ -250,13 +251,14 @@ class GoogleCalendar(BaseComponent):
                     "padding": "2px 4px",
                     "marginBottom": "0",
                     "backdropFilter": "blur(10px)",
+                    "opacity": opacity,
                 }
                 # Text colors - clean and readable
                 title_color = COLORS["pure_white"]
                 event_card = html.Div(
                     [
                         html.Div(
-                            className="test-m centered-content",
+                            className="text-s centered-content",
                             children=[
                                 html.Div(
                                     [
@@ -277,7 +279,6 @@ class GoogleCalendar(BaseComponent):
                                                 DashIconify(
                                                     icon="mdi:cake-variant",
                                                     style={
-                                                        "fontSize": "1.1rem",
                                                         "marginRight": "6px",
                                                         "color": COLORS["warm_orange"],
                                                     },
@@ -292,12 +293,10 @@ class GoogleCalendar(BaseComponent):
                                                 "fontWeight": "bold"
                                                 if event_is_today
                                                 else "500",
-                                                "fontSize": "1.1rem",
                                                 "color": title_color,
                                                 "overflow": "hidden",
                                                 "textOverflow": "ellipsis",
                                                 "whiteSpace": "nowrap",
-                                                "lineHeight": "1.2",
                                                 "flex": "1",
                                             },
                                         ),
@@ -312,7 +311,6 @@ class GoogleCalendar(BaseComponent):
                                 html.Div(
                                     date_text,
                                     style={
-                                        "fontSize": "1rem",
                                         "color": COLORS["warm_orange"],
                                         "fontWeight": "500",
                                         "marginLeft": "16px",

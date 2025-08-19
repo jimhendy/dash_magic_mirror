@@ -347,7 +347,6 @@ class Sports(BaseComponent):
                         "gap": "8px",
                         "width": "100%",
                         "color": COLORS["pure_white"],
-                        "fontFamily": "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif",
                     },
                 ),
             ],
@@ -376,7 +375,6 @@ class Sports(BaseComponent):
                 return html.Div(
                     "No upcoming fixtures",
                     style={
-                        "fontSize": "1.2rem",
                         "color": COLORS["soft_gray"],
                         "textAlign": "center",
                         "padding": "2rem",
@@ -395,20 +393,19 @@ class Sports(BaseComponent):
                 return html.Div(
                     "No upcoming fixtures",
                     style={
-                        "fontSize": "1.2rem",
                         "color": COLORS["soft_gray"],
                         "textAlign": "center",
                         "padding": "2rem",
                     },
                 )
-            limited = all_fixtures
             fixture_cards = []
             today = datetime.date.today()
 
-            for fx in limited:
+            for fx in all_fixtures:
                 # Format date nicely and check if it's today
                 date_display = ""
                 is_today = False
+                date_obj = None
                 if fx.get("parsed_date"):
                     try:
                         date_obj = datetime.date.fromisoformat(fx["parsed_date"])
@@ -434,7 +431,6 @@ class Sports(BaseComponent):
                                                 "mdi:help-circle",
                                             ),
                                             style={
-                                                "fontSize": "1.2rem",
                                                 "marginRight": "10px",
                                                 "color": fx.get(
                                                     "sport_icon_color",
@@ -449,7 +445,6 @@ class Sports(BaseComponent):
                                                 "fontWeight": "bold"
                                                 if is_today
                                                 else "500",
-                                                "fontSize": "0.9rem",
                                                 "color": COLORS["pure_white"],
                                                 "marginRight": "5px",
                                                 "flex": "1",
@@ -458,24 +453,9 @@ class Sports(BaseComponent):
                                         *(
                                             [
                                                 html.Span(
-                                                    fx.get("competition", ""),
-                                                    style={
-                                                        "fontSize": "0.7rem",
-                                                        "color": COLORS["soft_gray"],
-                                                        "fontStyle": "italic",
-                                                        "marginRight": "5px",
-                                                    },
-                                                ),
-                                            ]
-                                            if fx.get("competition")
-                                            else []
-                                        ),
-                                        *(
-                                            [
-                                                html.Span(
                                                     fx.get("channel", ""),
+                                                    className="text-vs",
                                                     style={
-                                                        "fontSize": "0.9rem",
                                                         "color": COLORS[
                                                             "success_green"
                                                         ],
@@ -500,7 +480,6 @@ class Sports(BaseComponent):
                                         html.Span(
                                             date_display,
                                             style={
-                                                "fontSize": "0.95rem",
                                                 "color": COLORS["accent_gold"]
                                                 if is_today
                                                 else COLORS["soft_gray"],
@@ -513,7 +492,6 @@ class Sports(BaseComponent):
                                         html.Span(
                                             fx.get("time", ""),
                                             style={
-                                                "fontSize": "1rem",
                                                 "color": COLORS["warm_orange"],
                                                 "fontWeight": "500",
                                             },
@@ -536,6 +514,7 @@ class Sports(BaseComponent):
                             },
                         ),
                     ],
+                    className="text-s centered-content",
                     style={
                         "border": f"1px solid {COLORS['accent_gold']}"
                         if is_today
@@ -544,6 +523,7 @@ class Sports(BaseComponent):
                         "padding": "2px 4px",
                         "marginBottom": "0",
                         "backdropFilter": "blur(10px)",
+                        "opacity": self._opacity_from_days_away(date_obj),
                     },
                 )
 
