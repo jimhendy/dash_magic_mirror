@@ -89,7 +89,7 @@ class Weather(BaseComponent):
                     "fontSize": "1.5rem",
                 },
             )
-        
+
     def full_screen_title(self) -> str:
         try:
             api_data = fetch_weather_data(self.api_key, self.postcode)

@@ -246,7 +246,11 @@ def _render_daily_item(day_data: dict[str, Any]) -> html.Div:
                             html.Div(
                                 f"UV: {day_data.get('uv_index', 0)}",
                                 className="text-s",
-                                style={"color": "#aaa", "fontSize": "0.75rem", "marginTop": "0.25rem"},
+                                style={
+                                    "color": "#aaa",
+                                    "fontSize": "0.75rem",
+                                    "marginTop": "0.25rem",
+                                },
                             ),
                         ],
                         style={"flex": "1", "textAlign": "left"},
@@ -386,10 +390,7 @@ def render_weather_fullscreen(
             ),
             # Daily Forecast
             html.Div(
-                [
-                    _render_daily_item(day)
-                    for day in daily_data
-                ],
+                [_render_daily_item(day) for day in daily_data],
                 style={"height": "30%"},
             ),
         ],

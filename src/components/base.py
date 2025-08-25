@@ -74,14 +74,18 @@ class BaseComponent(ABC):
 
             @app.callback(
                 Output("full-screen-modal", "style", allow_duplicate=True),
-                Output("full-screen-modal-title", "children", allow_duplicate=True),    
+                Output("full-screen-modal-title", "children", allow_duplicate=True),
                 Output("full-screen-modal-content", "children", allow_duplicate=True),
                 Input(self.component_id, "n_clicks"),
                 State("full-screen-modal", "style"),
                 prevent_initial_call=True,
             )
             def open_full_screen_modal(n_clicks: int, current_style: dict[str, str]):
-                return current_style | {"display": "block"}, self.full_screen_title(), self.full_screen_layout()
+                return (
+                    current_style | {"display": "block"},
+                    self.full_screen_title(),
+                    self.full_screen_layout(),
+                )
 
     @abstractmethod
     def _add_callbacks(self, app: Dash) -> None:

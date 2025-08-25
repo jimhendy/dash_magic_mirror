@@ -93,8 +93,7 @@ def _extract_hourly_details(hour_dict: dict[str, Any]) -> dict[str, Any]:
 
 
 def _datetime_from_time_str(time_str: str, date: datetime.date) -> datetime.datetime:
-    """Convert a time string (08:02 PM) to a datetime on the supplied date.
-    """
+    """Convert a time string (08:02 PM) to a datetime on the supplied date."""
     time_parts = time_str.split(" ")
     if len(time_parts) != 2:
         return datetime.datetime.combine(date, datetime.time.min)

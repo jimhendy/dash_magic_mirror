@@ -97,6 +97,7 @@ def _mouse_movement_tracker() -> Component:
         },
     )
 
+
 def _empty_plotly_graph() -> Component:
     """Get an empty Plotly graph component.
     This aids in preloading the plotly display code from CDN
@@ -107,7 +108,7 @@ def _empty_plotly_graph() -> Component:
     """
     return html.Div(
         dcc.Graph(
-            id='dummy-preload',
+            id="dummy-preload",
             figure={
                 "data": [
                     {
@@ -115,11 +116,11 @@ def _empty_plotly_graph() -> Component:
                         "y": [0],
                         "type": "scatter",
                         "mode": "markers",
-                    }
+                    },
                 ],
             },
-            style={'display': 'none'}  # hidden from view
-        )
+            style={"display": "none"},  # hidden from view
+        ),
     )
 
 
