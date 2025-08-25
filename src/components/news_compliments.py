@@ -616,7 +616,7 @@ class NewsComplimentsFeed(BaseComponent):
         super().__init__(name="news_compliments", *args, **kwargs)
         self.limit_per_feed = limit_per_feed
 
-    def layout(self):
+    def summary_layout(self):
         return html.Div(
             [
                 dcc.Interval(
@@ -643,7 +643,7 @@ class NewsComplimentsFeed(BaseComponent):
                         "alignItems": "stretch",
                         "gap": "8px",
                         "width": "100%",
-                        "color": COLORS["pure_white"],
+                        "color": COLORS["white"],
                         "fontFamily": "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif",
                     },
                 ),

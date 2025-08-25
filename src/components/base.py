@@ -1,9 +1,8 @@
-import datetime
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from dash import Dash
+from dash import Dash, Input, Output, State, html
 from dash.development.base_component import Component
 
 
@@ -15,29 +14,19 @@ class BaseComponent(ABC):
     def __init__(
         self,
         name: str,
-        v_center: bool = False,
-        h_center: bool = False,
+        *,
         separator: bool = False,
+        full_screen: bool = True,
         **kwargs,
     ):
         self.name = name
         self._id = uuid.uuid4().hex
         self.separator = separator
+        self.full_screen = full_screen
 
         self.css_position = {
             **kwargs,
         }
-
-        transforms = []
-        if v_center:
-            self.css_position["top"] = "50%"
-            transforms.append("translateY(-50%)")
-        if h_center:
-            self.css_position["left"] = "50%"
-            transforms.append("translateX(-50%)")
-
-        if transforms:
-            self.css_position["transform"] = " ".join(transforms)
 
     @property
     def component_id(self) -> str:
@@ -52,42 +41,53 @@ class BaseComponent(ABC):
             dir.mkdir(parents=True, exist_ok=True)
         return dir
 
-    @abstractmethod
-    def layout(self) -> Component: ...
+    def summary_layout(self) -> Component:
+        return html.Div(
+            id=self.component_id,
+            children=self._summary_layout(),
+            style=self.css_position,
+            n_clicks=0,
+        )
 
     @abstractmethod
+    def _summary_layout(self) -> Component:
+        """Returns the summary layout for the component."""
+        ...
+
+    def full_screen_layout(self) -> Component:
+        msg = "Full screen layout not implemented"
+        return html.Div(msg)
+
+    def full_screen_title(self) -> str:
+        """Returns the title for the full screen modal."""
+        return self.name
+
     def add_callbacks(self, app: Dash) -> None:
         """Adds callbacks to the component. This method should be implemented by subclasses
         to define how the component interacts with the Dash app.
 
         :param app: The Dash application instance.
         """
+        self._add_callbacks(app)
+
+        if self.full_screen:
+
+            @app.callback(
+                Output("full-screen-modal", "style", allow_duplicate=True),
+                Output("full-screen-modal-title", "children", allow_duplicate=True),    
+                Output("full-screen-modal-content", "children", allow_duplicate=True),
+                Input(self.component_id, "n_clicks"),
+                State("full-screen-modal", "style"),
+                prevent_initial_call=True,
+            )
+            def open_full_screen_modal(n_clicks: int, current_style: dict[str, str]):
+                return current_style | {"display": "block"}, self.full_screen_title(), self.full_screen_layout()
+
+    @abstractmethod
+    def _add_callbacks(self, app: Dash) -> None:
+        """Adds callbacks to the component. This method should be implemented by subclasses
+        to define how the component interacts with the Dash app.
+
+        :param app: The Dash application instance.
+        """
         ...
-
-    @staticmethod
-    def _opacity_from_days_away(
-        date_obj: datetime.datetime | datetime.date | None,
-    ) -> float:
-        if not date_obj:
-            return 0.5
-
-        now = datetime.datetime.now(tz=datetime.UTC)
-
-        if isinstance(date_obj, datetime.date) and not isinstance(
-            date_obj, datetime.datetime,
-        ):
-            now = now.date()
-        elif not hasattr(date_obj, "tzinfo") or date_obj.tzinfo is None:
-            date_obj = date_obj.replace(tzinfo=now.tzinfo)
-
-        days_away = (date_obj - now).days
-
-        if days_away <= 1:
-            return 1
-        if days_away < 3:
-            return 0.9
-        if days_away < 7:
-            return 0.8
-        if days_away < 14:
-            return 0.6
-        return 0.5

@@ -50,7 +50,7 @@ class TFL(BaseComponent):
         super().__init__(name="tfl", *args, **kwargs)
         self.stops = stops
 
-    def layout(self):
+    def summary_layout(self):
         """Returns the layout of the TFL component."""
         return html.Div(
             [
@@ -67,7 +67,7 @@ class TFL(BaseComponent):
                         "alignItems": "stretch",
                         "gap": "8px",
                         "width": "100%",
-                        "color": COLORS["pure_white"],
+                        "color": COLORS["white"],
                         "fontFamily": "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif",
                     },
                 ),
@@ -142,13 +142,13 @@ class TFL(BaseComponent):
 
             # Time styling based on urgency
             if minutes < 2:
-                time_color = COLORS["alert_red"]
+                time_color = COLORS["red"]
                 time_weight = "bold"
             elif minutes < 5:
-                time_color = COLORS["accent_gold"]
+                time_color = COLORS["gold"]
                 time_weight = "500"
             else:
-                time_color = COLORS["pure_white"]
+                time_color = COLORS["white"]
                 time_weight = "400"
 
             # Create arrival card
@@ -162,7 +162,7 @@ class TFL(BaseComponent):
                                     html.Span(
                                         station_name,
                                         style={
-                                            "color": COLORS["primary_blue"],
+                                            "color": COLORS["blue"],
                                             "fontWeight": "500",
                                             "fontSize": "1rem",
                                             "marginRight": "8px",
@@ -179,7 +179,7 @@ class TFL(BaseComponent):
                                     html.Span(
                                         f"→ {destination}",
                                         style={
-                                            "color": COLORS["pure_white"],
+                                            "color": COLORS["white"],
                                             "fontSize": "1rem",
                                             "fontWeight": "300",
                                             "flex": "1",

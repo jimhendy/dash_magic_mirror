@@ -30,7 +30,7 @@ class Weather(BaseComponent):
             msg = "Please set the WEATHER_API_KEY environment variable with your WeatherAPI.com key."
             raise ValueError(msg)
 
-    def layout(self):
+    def summary_layout(self):
         """Returns the layout of the Weather component."""
         return html.Div(
             [

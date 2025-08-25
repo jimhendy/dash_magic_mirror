@@ -1,4 +1,4 @@
-from dash import Input, Output, dcc, html
+from dash import Input, Output, html
 
 from components.base import BaseComponent
 from utils.styles import COLORS
@@ -9,17 +9,13 @@ class Clock(BaseComponent):
     Displays the current time and updates every second.
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(name="clock", *args, **kwargs)
+    def __init__(self, **kwargs):
+        super().__init__(name="clock", full_screen=True, **kwargs)
 
-    def layout(self):
+    def _summary_layout(self):
         """Returns the layout of the clock component."""
         return html.Div(
             [
-                dcc.Interval(
-                    id=f"{self.component_id}-interval",
-                    interval=1_000,  # Update every second
-                ),
                 html.Div(  # Slightly dimmed date text above the time
                     id=f"{self.component_id}-date",
                     style={
@@ -36,7 +32,7 @@ class Clock(BaseComponent):
                             style={
                                 "fontSize": "5rem",
                                 "fontWeight": "bold",
-                                "color": COLORS["pure_white"],
+                                "color": COLORS["white"],
                                 "lineHeight": "1",
                             },
                         ),
@@ -44,7 +40,7 @@ class Clock(BaseComponent):
                             id=f"{self.component_id}-seconds",
                             style={
                                 "fontSize": "1.2rem",
-                                "color": COLORS["dimmed_gray"],
+                                "color": COLORS["gray"],
                                 "marginLeft": "0.5rem",
                             },
                         ),
@@ -63,7 +59,7 @@ class Clock(BaseComponent):
             },
         )
 
-    def add_callbacks(self, app):
+    def _add_callbacks(self, app):
         app.clientside_callback(
             """
             function(n_intervals) {
@@ -85,5 +81,5 @@ class Clock(BaseComponent):
             Output(f"{self.component_id}-date", "children"),
             Output(f"{self.component_id}-hour-minute", "children"),
             Output(f"{self.component_id}-seconds", "children"),
-            Input(f"{self.component_id}-interval", "n_intervals"),
+            Input("one-second-timer", "n_intervals"),
         )

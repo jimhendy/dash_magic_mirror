@@ -329,7 +329,7 @@ class Sports(BaseComponent):
         super().__init__(name="sports", *args, **kwargs)
         self.fetch_minutes = fetch_minutes
 
-    def layout(self):
+    def summary_layout(self):
         return html.Div(
             [
                 dcc.Interval(
@@ -346,7 +346,7 @@ class Sports(BaseComponent):
                         "alignItems": "stretch",
                         "gap": "8px",
                         "width": "100%",
-                        "color": COLORS["pure_white"],
+                        "color": COLORS["white"],
                     },
                 ),
             ],
@@ -434,7 +434,7 @@ class Sports(BaseComponent):
                                                 "marginRight": "10px",
                                                 "color": fx.get(
                                                     "sport_icon_color",
-                                                    COLORS["primary_blue"],
+                                                    COLORS["blue"],
                                                 ),
                                                 "flexShrink": "0",
                                             },
@@ -445,7 +445,7 @@ class Sports(BaseComponent):
                                                 "fontWeight": "bold"
                                                 if is_today
                                                 else "500",
-                                                "color": COLORS["pure_white"],
+                                                "color": COLORS["white"],
                                                 "marginRight": "5px",
                                                 "flex": "1",
                                             },
@@ -456,9 +456,7 @@ class Sports(BaseComponent):
                                                     fx.get("channel", ""),
                                                     className="text-vs",
                                                     style={
-                                                        "color": COLORS[
-                                                            "success_green"
-                                                        ],
+                                                        "color": COLORS["green"],
                                                         "marginRight": "5px",
                                                     },
                                                 ),
@@ -480,7 +478,7 @@ class Sports(BaseComponent):
                                         html.Span(
                                             date_display,
                                             style={
-                                                "color": COLORS["accent_gold"]
+                                                "color": COLORS["gold"]
                                                 if is_today
                                                 else COLORS["soft_gray"],
                                                 "fontWeight": "bold"
@@ -492,7 +490,7 @@ class Sports(BaseComponent):
                                         html.Span(
                                             fx.get("time", ""),
                                             style={
-                                                "color": COLORS["warm_orange"],
+                                                "color": COLORS["orange"],
                                                 "fontWeight": "500",
                                             },
                                         ),
@@ -516,7 +514,7 @@ class Sports(BaseComponent):
                     ],
                     className="text-s centered-content",
                     style={
-                        "border": f"1px solid {COLORS['accent_gold']}"
+                        "border": f"1px solid {COLORS['gold']}"
                         if is_today
                         else "1px solid rgba(255,255,255,0.08)",
                         "borderRadius": "8px",

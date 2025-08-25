@@ -6,18 +6,18 @@ from typing import Any
 
 # Color palette
 COLORS = {
-    "primary_blue": "#4A90E2",
-    "accent_gold": "#FFD700",
-    "warm_orange": "#FFA500",
-    "alert_red": "#FF4400",
-    "softer_red": "#FF8F67",  # Alias for alert_red
-    "success_green": "#32CD32",
-    "pure_white": "#FFFFFF",
+    "blue": "#4A90E2",
+    "gold": "#FFD700",
+    "orange": "#FFA500",
+    "red": "#FF0000",
+    "dimmed_red": "#FD6A6A",
+    "green": "#32CD32",
+    "white": "#FFFFFF",
     "soft_gray": "#CCCCCC",
     "black": "#000000",
     "dark_gray": "#333333",
     "light_gray": "#F0F0F0",
-    "dimmed_gray": "#888888",
+    "gray": "#888888",
 }
 
 # Common compact style combinations for Python components
