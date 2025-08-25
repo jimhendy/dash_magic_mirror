@@ -95,3 +95,19 @@ def add_callbacks() -> None:
         State("full-screen-modal", "style"),
         prevent_initial_call=True,
     )
+
+    # As soon as the full screen modal is closed, clear the content to a basic loading message
+    app.clientside_callback(
+        """
+        function(style) {
+            const closed = style && style.display === "none";
+            if (closed) {
+                return "Loading...";
+            }
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("full-screen-modal-content", "children", allow_duplicate=True),
+        Input("full-screen-modal", "style"),
+        prevent_initial_call=True,
+    )

@@ -94,7 +94,7 @@ class Weather(BaseComponent):
         try:
             api_data = fetch_weather_data(self.api_key, self.postcode)
             weather_data = process_detailed_weather_data(api_data, self.postcode)
-            return weather_data["current"]["condition"]
+            return html.Div(weather_data["current"]["condition"], className="text-m")
         except Exception as e:
             logger.error(f"Error loading full-screen weather title: {e}")
             return "Weather"

@@ -71,18 +71,28 @@ class BaseComponent(ABC):
         self._add_callbacks(app)
 
         if self.full_screen:
-
-            @app.callback(
+            # As soon as the full screen button is clicked, show the full screen modal
+            app.clientside_callback(
+                """
+                function(n_clicks, current_style) {
+                    console.log("Full screen button clicked");
+                    return { ...current_style, display: "block" };
+                }
+                """,
                 Output("full-screen-modal", "style", allow_duplicate=True),
-                Output("full-screen-modal-title", "children", allow_duplicate=True),
-                Output("full-screen-modal-content", "children", allow_duplicate=True),
                 Input(self.component_id, "n_clicks"),
                 State("full-screen-modal", "style"),
                 prevent_initial_call=True,
             )
-            def open_full_screen_modal(n_clicks: int, current_style: dict[str, str]):
+
+            @app.callback(
+                Output("full-screen-modal-title", "children", allow_duplicate=True),
+                Output("full-screen-modal-content", "children", allow_duplicate=True),
+                Input(self.component_id, "n_clicks"),
+                prevent_initial_call=True,
+            )
+            def open_full_screen_modal(n_clicks: int):
                 return (
-                    current_style | {"display": "block"},
                     self.full_screen_title(),
                     self.full_screen_layout(),
                 )

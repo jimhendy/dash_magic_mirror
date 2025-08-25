@@ -35,28 +35,33 @@ def _full_screen_modal() -> Component:
             "display": "none",
         },
         children=[
-            html.Div(
-                id="full-screen-modal-nav-bar",
+            dcc.Loading(
+                id="full-screen-modal-loading",
                 children=[
-                    dmc.Button(
-                        "Back",
-                        id="full-screen-modal-back-btn",
-                        variant="outline",
-                        n_clicks=0,
+                    html.Div(
+                        id="full-screen-modal-nav-bar",
+                        children=[
+                            dmc.Button(
+                                "Back",
+                                id="full-screen-modal-back-btn",
+                                variant="outline",
+                                n_clicks=0,
+                            ),
+                            html.Div(id="full-screen-modal-title"),
+                            dmc.Text(id="full-screen-modal-timer", size="sm"),
+                        ],
+                        style={
+                            "display": "flex",
+                            "justifyContent": "space-between",
+                            "height": "50px",
+                        },
                     ),
-                    html.Div(id="full-screen-modal-title"),
-                    dmc.Text(id="full-screen-modal-timer", size="sm"),
+                    html.Div(
+                        id="full-screen-modal-content",
+                        children=[],
+                        style={"height": "calc(100vh - 50px)"},
+                    ),
                 ],
-                style={
-                    "display": "flex",
-                    "justifyContent": "space-between",
-                    "height": "50px",
-                },
-            ),
-            html.Div(
-                id="full-screen-modal-content",
-                children=[],
-                style={"height": "calc(100vh - 50px)"},
             ),
         ],
     )
