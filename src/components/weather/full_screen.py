@@ -85,14 +85,14 @@ def _create_hourly_timeseries(
         ),
     )
 
-    # Cloud cover (right axis, gray)
+    # Cloud cover (right axis, blue, dotted)
     fig.add_trace(
         go.Scatter(
             x=[hd.time for hd in hour_data],
             y=[hd.cloud_cover for hd in hour_data],
             mode="lines",
             name="Cloud Cover",
-            line=dict(color=COLORS["gray"], width=2, dash="dot"),
+            line=dict(color=COLORS["blue_dimmed"], width=2, dash="dot"),
             yaxis="y2",
             line_shape="spline",
         ),
@@ -184,7 +184,7 @@ def _create_hourly_timeseries(
         if hour_data[i].time.date() != hour_data[i - 1].time.date():
             fig.add_vline(
                 x=hour_data[i].time,
-                line=dict(color=COLORS["gray"], width=2, dash="dot"),
+                line=dict(color=COLORS["gray"], width=2, dash="dash"),
             )
 
     # Add a sunrise and sunset symbols at the top of the plot (assuming it will not be peak temp)
@@ -346,32 +346,6 @@ def render_weather_fullscreen(
 
     return html.Div(
         [
-            # # Header: 60px
-            # html.Div(
-            #     [
-            #         html.Span(
-            #             location,
-            #             style={"fontSize": "2rem", "marginRight": "2rem"},
-            #         ),
-            #         html.Span(
-            #             f"{current.get('temperature', 0)}°C",
-            #             style={"fontSize": "2rem", "marginRight": "2rem"},
-            #         ),
-            #         html.Span(
-            #             current.get("condition", ""),
-            #             style={"fontSize": "1.5rem", "color": "#ccc"},
-            #         ),
-            #     ],
-            #     style={
-            #         "display": "flex",
-            #         "alignItems": "center",
-            #         "justifyContent": "center",
-            #         "height": "60px",
-            #         "padding": "0.5rem",
-            #         "borderBottom": "1px solid rgba(255,255,255,0.1)",
-            #     },
-            # ),
-            # Chart: Everything else minus 180px for forecast
             html.Div(
                 [
                     dcc.Graph(

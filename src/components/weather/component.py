@@ -2,6 +2,7 @@ from dash import Input, Output, dcc, html
 from loguru import logger
 
 from components.base import BaseComponent
+from utils.models import FullScreenResult
 
 from .data import (
     fetch_weather_data,
@@ -72,29 +73,25 @@ class Weather(BaseComponent):
                 logger.error(f"Error updating weather: {e}")
                 return html.Div("Weather unavailable", style={"color": "#FF6B6B"})
 
-    def full_screen_layout(self):
+    def full_screen_content(self) -> FullScreenResult:
         """Returns the full-screen layout of the Weather component."""
         try:
             api_data = fetch_weather_data(self.api_key, self.postcode)
             weather_data = process_detailed_weather_data(api_data, self.postcode)
-            return render_weather_fullscreen(weather_data, self.component_id)
+            content = render_weather_fullscreen(weather_data, self.component_id)
+            title = weather_data["current"]["condition"]
+            return FullScreenResult(content=content, title=title)
         except Exception as e:
             logger.error(f"Error loading full-screen weather: {e}")
-            return html.Div(
-                "Weather unavailable",
-                style={
-                    "color": "#FF6B6B",
-                    "textAlign": "center",
-                    "padding": "2rem",
-                    "fontSize": "1.5rem",
-                },
+            return FullScreenResult(
+                content=html.Div(
+                    "Weather unavailable",
+                    style={
+                        "color": "#FF6B6B",
+                        "textAlign": "center",
+                        "padding": "2rem",
+                        "fontSize": "1.5rem",
+                    },
+                ),
+                title="Weather unavailable",
             )
-
-    def full_screen_title(self) -> str:
-        try:
-            api_data = fetch_weather_data(self.api_key, self.postcode)
-            weather_data = process_detailed_weather_data(api_data, self.postcode)
-            return html.Div(weather_data["current"]["condition"], className="text-m")
-        except Exception as e:
-            logger.error(f"Error loading full-screen weather title: {e}")
-            return "Weather"

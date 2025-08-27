@@ -7,6 +7,7 @@ from typing import Any
 # Color palette
 COLORS = {
     "blue": "#4A90E2",
+    "blue_dimmed": "#6EA8E5",
     "gold": "#FFD700",
     "orange": "#FFA500",
     "red": "#FF0000",

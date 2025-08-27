@@ -1,188 +1,58 @@
-"""Utility functions for Google Calendar component.
-
-Contains date parsing, event processing, calendar grid generation,
-and other reusable helper functions.
-"""
+"""Calendar-specific utility functions for Google Calendar component."""
 
 import datetime
 from typing import Any
 
-from utils.dates import datetime_from_str
+from .data import CalendarEvent
 
 
-def is_multi_day(start: datetime.datetime, end: datetime.datetime | None) -> bool:
-    """Check if event spans multiple days.
-
-    Args:
-        start: Event start datetime
-        end: Event end datetime (optional)
-
-    Returns:
-        True if the event spans multiple days
-
-    """
-    if not end:
-        return False
-    return start.date() != end.date()
-
-
-def get_corrected_end_date(
-    end: datetime.datetime | None,
-    *,
-    is_all_day: bool,
-) -> datetime.datetime | None:
-    """Get corrected end date for all-day events.
-
-    Google Calendar all-day events have end dates that are one day too far.
-
-    Args:
-        end: Original end datetime
-        is_all_day: Whether this is an all-day event
-
-    Returns:
-        Corrected end datetime
-
-    """
-    if not end:
-        return None
-    if is_all_day:
-        # Subtract 1 day from all-day event end dates
-        end -= datetime.timedelta(days=1)
-    return end
-
-
-def get_events_for_date(
-    events: list[dict[str, Any]],
-    target_date: datetime.date,
-) -> list[dict[str, Any]]:
-    """Get all events for a specific date.
-
-    Args:
-        events: List of event dictionaries
-        target_date: Date to filter events for
-
-    Returns:
-        List of events that occur on the target date
-
-    """
-    events_for_date = []
-    for event in events:
-        start_dict = event.get("start", {})
-        is_all_day = "dateTime" not in start_dict
-        start_datetime_str = start_dict.get("dateTime", start_dict.get("date"))
-        start_datetime = datetime_from_str(start_datetime_str, is_all_day=is_all_day)
-
-        end_dict = event.get("end", {})
-        end_datetime_str = end_dict.get("dateTime", end_dict.get("date"))
-        end_datetime = datetime_from_str(end_datetime_str, is_all_day=is_all_day)
-
-        # Correct end date for all-day events
-        if is_all_day and end_datetime:
-            end_datetime -= datetime.timedelta(days=1)
-
-        # Check if event overlaps with target date
-        if (
-            start_datetime.date()
-            <= target_date
-            <= (end_datetime.date() if end_datetime else start_datetime.date())
-        ):
-            events_for_date.append(event)
-
-    return events_for_date
-
-
-def generate_calendar_grid(
-    year: int,
-    month: int,
-    events: list[dict[str, Any]],
+def generate_calendar_grid_weeks(
+    start_date: datetime.date,
+    num_weeks: int,
+    events: list[CalendarEvent],
 ) -> list[list[dict[str, Any]]]:
-    """Generate calendar grid showing only weeks with events or current week.
+    """Generate a calendar grid for a specified number of weeks.
 
     Args:
-        year: Target year
-        month: Target month
-        events: List of event dictionaries
+        start_date: Starting date (should be a Monday)
+        num_weeks: Number of weeks to generate
+        events: List of CalendarEvent objects
 
     Returns:
         Calendar grid as list of weeks, each week containing day info dictionaries
 
     """
     today = datetime.date.today()
-
-    # Get all event dates to determine which weeks we need to show
-    event_dates: set[datetime.date] = set()
-    for event in events:
-        start_date = datetime_from_str(
-            event["start"].get("dateTime") or event["start"]["date"],
-            is_all_day="date" in event["start"],
-        )
-        end_date = None
-        if event.get("end"):
-            end_date = datetime_from_str(
-                event["end"].get("dateTime") or event["end"]["date"],
-                is_all_day="date" in event["end"],
-            )
-            end_date = get_corrected_end_date(
-                end_date,
-                is_all_day="date" in event["start"],
-            )
-
-        if not end_date:
-            end_date = start_date
-
-        # Add all dates in the event range
-        current_date = start_date.date()
-        while current_date <= end_date.date():
-            event_dates.add(current_date)
-            current_date += datetime.timedelta(days=1)
-
-    # Always include current week
-    current_week_start = today - datetime.timedelta(days=today.weekday())
-    for i in range(7):
-        event_dates.add(current_week_start + datetime.timedelta(days=i))
-
-    # Find the range of weeks we need to display
-    if not event_dates:
-        # If no events, just show current week
-        start_date = current_week_start
-        weeks_to_show = 1
-    else:
-        min_date = min(event_dates)
-        max_date = max(event_dates)
-
-        # Start from the beginning of the week containing the earliest date
-        start_date = min_date - datetime.timedelta(days=min_date.weekday())
-
-        # End at the end of the week containing the latest date
-        end_date = max_date + datetime.timedelta(days=(6 - max_date.weekday()))
-
-        # Calculate number of weeks
-        weeks_to_show = ((end_date - start_date).days // 7) + 1
-
-        # Limit to reasonable number of weeks (max 8 weeks)
-        weeks_to_show = min(weeks_to_show, 8)
-
-    # Create calendar grid
     calendar_grid = []
 
-    for week in range(weeks_to_show):
-        week_row = []
-        for day in range(7):
-            date = start_date + datetime.timedelta(days=week * 7 + day)
-            day_events = get_events_for_date(events, date)
+    # Ensure start_date is a Monday
+    days_since_monday = start_date.weekday()
+    actual_start = start_date - datetime.timedelta(days=days_since_monday)
 
-            # Check if this date is in the target month (for styling)
-            is_current_month = date.month == month
+    for week_idx in range(num_weeks):
+        week_row = []
+        for day_idx in range(7):  # Monday to Sunday
+            current_date = actual_start + datetime.timedelta(
+                days=week_idx * 7 + day_idx,
+            )
+
+            # Get events for this date
+            day_events = [
+                event
+                for event in events
+                if event.start_datetime.date()
+                <= current_date
+                <= event.end_datetime.date()
+            ]
 
             week_row.append(
                 {
-                    "date": date,
-                    "is_current_month": is_current_month,
-                    "is_today": date == today,
-                    "is_past": date < today,
+                    "date": current_date,
+                    "is_today": current_date == today,
+                    "is_past": current_date < today,
                     "events": day_events,
-                    "week_index": week,
-                    "day_index": day,
+                    "week_index": week_idx,
+                    "day_index": day_idx,
                 },
             )
         calendar_grid.append(week_row)
@@ -190,99 +60,240 @@ def generate_calendar_grid(
     return calendar_grid
 
 
-def process_multi_day_events(
+def create_event_spans(
     calendar_grid: list[list[dict[str, Any]]],
-    events: list[dict[str, Any]],
-) -> dict[str, dict[str, Any]]:
-    """Process events to create multi-day spans with simple, reliable rendering.
+) -> list[dict[str, Any]]:
+    """Create event spans that connect multi-day events across the calendar grid.
 
     Args:
-        calendar_grid: Calendar grid from generate_calendar_grid
-        events: List of event dictionaries
+        calendar_grid: Calendar grid from generate_calendar_grid_weeks
 
     Returns:
-        Dictionary of event spans with rendering information
+        List of event span dictionaries with positioning information
 
     """
-    event_spans = {}
+    event_spans = []
+    processed_events = set()
 
-    # Create a date-to-position mapping for quick lookup
+    # Flatten the grid to get all dates and their positions
     date_positions = {}
     for week_idx, week in enumerate(calendar_grid):
         for day_idx, day_info in enumerate(week):
             date_positions[day_info["date"]] = (week_idx, day_idx)
 
-    for event in events:
-        start_date = datetime_from_str(
-            event["start"].get("dateTime") or event["start"]["date"],
-            is_all_day="date" in event["start"],
-        )
-        end_date = None
-        if event.get("end"):
-            end_date = datetime_from_str(
-                event["end"].get("dateTime") or event["end"]["date"],
-                is_all_day="date" in event["end"],
-            )
-            end_date = get_corrected_end_date(
-                end_date,
-                is_all_day="date" in event["start"],
-            )
+    # Track events by week for vertical stacking
+    week_event_tracks = {}
 
-        if not end_date:
-            end_date = start_date
+    # Process each day to find event spans
+    for week_idx, week in enumerate(calendar_grid):
+        for day_idx, day_info in enumerate(week):
+            current_date = day_info["date"]
 
-        # Check if this is truly a multi-day event
-        start_date_only = start_date.date()
-        end_date_only = end_date.date()
+            for event in day_info["events"]:
+                event_key = (event.id, event.start_datetime.date())
 
-        if start_date_only == end_date_only:
-            continue  # Skip single-day events
+                # Skip if we've already processed this event
+                if event_key in processed_events:
+                    continue
 
-        # Find start and end positions in grid
-        start_pos = date_positions.get(start_date_only)
-        end_pos = date_positions.get(end_date_only)
+                processed_events.add(event_key)
 
-        if not start_pos:
-            continue  # Event starts outside our grid
+                # Calculate event span
+                start_date = max(
+                    event.start_datetime.date(), min(date_positions.keys()),
+                )
+                end_date = min(event.end_datetime.date(), max(date_positions.keys()))
 
-        # If event ends outside our grid, find the last day we show
-        if not end_pos:
-            # Find the last date in our grid
-            last_week = calendar_grid[-1]
-            last_day = last_week[-1]["date"]
-            if end_date_only > last_day:
-                end_pos = (len(calendar_grid) - 1, 6)  # Last day of last week
-            else:
-                continue  # Event ends before our grid starts
+                # Find start and end positions in grid
+                start_week, start_day = date_positions.get(
+                    start_date, (week_idx, day_idx),
+                )
+                end_week, end_day = date_positions.get(end_date, (week_idx, day_idx))
 
-        # Create spans for each week this event touches
-        start_week, start_day = start_pos
-        end_week, end_day = end_pos
+                # Assign vertical track for each week this event spans
+                event_track = 0
+                for week in range(start_week, end_week + 1):
+                    if week not in week_event_tracks:
+                        week_event_tracks[week] = []
 
-        for week_idx in range(start_week, end_week + 1):
-            # Determine the start and end days for this week
-            if week_idx == start_week:
-                week_start_day = start_day
-            else:
-                week_start_day = 0  # Monday
+                    # Find available track (to avoid overlaps)
+                    used_tracks = set()
+                    for existing_event in week_event_tracks[week]:
+                        # Check if events overlap in this week
+                        existing_start = existing_event["start_week"]
+                        existing_end = existing_event["end_week"]
+                        existing_start_day = (
+                            existing_event["start_day"] if existing_start == week else 0
+                        )
+                        existing_end_day = (
+                            existing_event["end_day"] if existing_end == week else 6
+                        )
 
-            if week_idx == end_week:
-                week_end_day = end_day
-            else:
-                week_end_day = 6  # Sunday
+                        current_start_day = start_day if start_week == week else 0
+                        current_end_day = end_day if end_week == week else 6
 
-            # Create a unique span ID for this week
-            span_id = f"event_{hash(event['id']) % 10000}_w{week_idx}"
+                        # Check for day overlap
+                        if not (
+                            current_end_day < existing_start_day
+                            or current_start_day > existing_end_day
+                        ):
+                            used_tracks.add(existing_event["track"])
 
-            event_spans[span_id] = {
-                "event": event,
-                "week_index": week_idx,
-                "start_day": week_start_day,
-                "end_day": week_end_day,
-                "is_first_week": week_idx == start_week,
-                "is_last_week": week_idx == end_week,
-                "spans_multiple_weeks": end_week > start_week,
-                "event_id": event["id"],
-            }
+                    # Find first available track
+                    event_track = 0
+                    while event_track in used_tracks:
+                        event_track += 1
+
+                # Create event span
+                event_span = {
+                    "event": event,
+                    "start_week": start_week,
+                    "start_day": start_day,
+                    "end_week": end_week,
+                    "end_day": end_day,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "track": event_track,
+                }
+
+                event_spans.append(event_span)
+
+                # Add to week tracking
+                for week in range(start_week, end_week + 1):
+                    week_event_tracks[week].append(event_span)
 
     return event_spans
+
+
+def get_calendar_title_for_weeks(calendar_grid: list[list[dict[str, Any]]]) -> str:
+    """Get an appropriate title for a multi-week calendar view.
+
+    Args:
+        calendar_grid: Calendar grid from generate_calendar_grid_weeks
+
+    Returns:
+        Formatted title string showing the date range
+
+    """
+    if not calendar_grid or not calendar_grid[0]:
+        return "Calendar"
+
+    start_date = calendar_grid[0][0]["date"]
+    end_date = calendar_grid[-1][-1]["date"]
+
+    if start_date.month == end_date.month:
+        return start_date.strftime("%B %Y")
+    if start_date.year == end_date.year:
+        return f"{start_date.strftime('%B')} - {end_date.strftime('%B %Y')}"
+    return f"{start_date.strftime('%b %Y')} - {end_date.strftime('%b %Y')}"
+
+
+def is_event_multi_day(start_date: datetime.date, end_date: datetime.date) -> bool:
+    """Check if an event spans multiple days.
+
+    Args:
+        start_date: Event start date
+        end_date: Event end date
+
+    Returns:
+        True if the event spans multiple days
+
+    """
+    return start_date != end_date
+
+
+def get_event_duration_hours(
+    start_datetime: datetime.datetime,
+    end_datetime: datetime.datetime,
+) -> float:
+    """Get event duration in hours.
+
+    Args:
+        start_datetime: Event start datetime
+        end_datetime: Event end datetime
+
+    Returns:
+        Duration in hours
+
+    """
+    duration = end_datetime - start_datetime
+    return duration.total_seconds() / 3600
+
+
+def create_event_tooltip(event: CalendarEvent) -> str:
+    """Create a detailed tooltip for an event.
+
+    Args:
+        event: Calendar event
+
+    Returns:
+        Formatted tooltip string
+
+    """
+    try:
+        start_str = event.start_datetime.strftime("%a %b %d, %Y")
+        end_str = event.end_datetime.strftime("%a %b %d, %Y")
+
+        if event.is_all_day:
+            # Use date() to avoid timezone comparison issues
+            if event.start_datetime.date() == event.end_datetime.date():
+                time_str = f"{start_str} (All day)"
+            else:
+                time_str = f"{start_str} - {end_str} (All day)"
+        else:
+            start_time = event.start_datetime.strftime("%I:%M %p")
+            end_time = event.end_datetime.strftime("%I:%M %p")
+
+            # Use date() to avoid timezone comparison issues
+            if event.start_datetime.date() == event.end_datetime.date():
+                time_str = f"{start_str} {start_time} - {end_time}"
+            else:
+                time_str = f"{start_str} {start_time} - {end_str} {end_time}"
+
+        return f"{event.title}\n{time_str}"
+
+    except (AttributeError, TypeError):
+        # Fallback if there are any datetime issues
+        return f"{event.title}\n(Time information unavailable)"
+
+
+def get_spanning_events_for_date_range(
+    events: list[CalendarEvent],
+    start_date: datetime.date,
+    end_date: datetime.date,
+) -> list[CalendarEvent]:
+    """Get events that span across the entire date range.
+
+    Args:
+        events: List of processed calendar events
+        start_date: Start of the date range
+        end_date: End of the date range
+
+    Returns:
+        List of events that span from start_date to end_date (or beyond)
+
+    """
+    return [
+        event
+        for event in events
+        if event.start_datetime.date() <= start_date
+        and event.end_datetime.date() >= end_date
+    ]
+
+
+def filter_events_not_in_list(
+    all_events: list[CalendarEvent],
+    exclude_events: list[CalendarEvent],
+) -> list[CalendarEvent]:
+    """Filter out events that are in the exclude list.
+
+    Args:
+        all_events: List of all events
+        exclude_events: List of events to exclude
+
+    Returns:
+        List of events not in the exclude list
+
+    """
+    exclude_set = {event.id for event in exclude_events}
+    return [event for event in all_events if event.id not in exclude_set]

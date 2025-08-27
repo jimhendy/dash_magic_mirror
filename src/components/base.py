@@ -5,6 +5,8 @@ from pathlib import Path
 from dash import Dash, Input, Output, State, html
 from dash.development.base_component import Component
 
+from utils.models import FullScreenResult
+
 
 class BaseComponent(ABC):
     """Base class for all components in the Magic Mirror application.
@@ -54,13 +56,12 @@ class BaseComponent(ABC):
         """Returns the summary layout for the component."""
         ...
 
-    def full_screen_layout(self) -> Component:
+    def full_screen_content(self) -> FullScreenResult:
         msg = "Full screen layout not implemented"
-        return html.Div(msg)
-
-    def full_screen_title(self) -> str:
-        """Returns the title for the full screen modal."""
-        return self.name
+        return FullScreenResult(
+            content=html.Div(msg),
+            title=self.name,
+        )
 
     def add_callbacks(self, app: Dash) -> None:
         """Adds callbacks to the component. This method should be implemented by subclasses
@@ -92,9 +93,10 @@ class BaseComponent(ABC):
                 prevent_initial_call=True,
             )
             def open_full_screen_modal(n_clicks: int):
+                content = self.full_screen_content()
                 return (
-                    self.full_screen_title(),
-                    self.full_screen_layout(),
+                    html.Div(content.title, className="text-m"),
+                    content.content,
                 )
 
     @abstractmethod
