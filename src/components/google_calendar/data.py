@@ -108,7 +108,9 @@ def fetch_calendar_events(
 
 
 def process_calendar_events(
-    raw_events: list[dict[str, Any]], *, truncate_to_tomorrow: bool,
+    raw_events: list[dict[str, Any]],
+    *,
+    truncate_to_tomorrow: bool,
 ) -> list[CalendarEvent]:
     """Process raw calendar events into structured data.
 

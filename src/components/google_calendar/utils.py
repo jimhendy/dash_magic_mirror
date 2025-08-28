@@ -3,7 +3,125 @@
 import datetime
 from typing import Any
 
+from utils.calendar import assign_event_colors_consistently
+
 from .data import CalendarEvent
+
+
+def prepare_events_for_rendering(events: list[CalendarEvent]) -> list[CalendarEvent]:
+    """Prepare events for rendering with consistent color assignment and sorting.
+    
+    Args:
+        events: List of raw calendar events
+        
+    Returns:
+        Sorted events with colors assigned consistently
+    """
+    # Assign colors consistently based on today's events having priority
+    assign_event_colors_consistently(events, datetime.date.today())
+
+    # Sort events by start date, then by title for consistent color assignment
+    # Handle timezone-aware/naive datetime comparison by using date() for sorting
+    try:
+        sorted_events = sorted(events, key=lambda e: (e.start_datetime.date(), e.title))
+    except (TypeError, AttributeError):
+        # Fallback: if there are issues with datetime comparison, sort by title only
+        sorted_events = sorted(events, key=lambda e: e.title)
+    
+    return sorted_events
+
+
+def get_common_event_styles() -> dict[str, Any]:
+    """Get common styling properties for calendar events.
+    
+    Returns:
+        Dictionary of common CSS properties
+    """
+    return {
+        "padding": "6px 8px",
+        "fontSize": "12px",
+        "lineHeight": "1.2",
+        "fontWeight": "600",
+        "overflow": "hidden",
+        "textOverflow": "ellipsis",
+        "whiteSpace": "nowrap",
+        "borderRadius": "4px",
+        "boxShadow": "0 1px 3px rgba(0, 0, 0, 0.3)",
+    }
+
+
+def calculate_event_border_radius(
+    event_starts_here: bool, 
+    event_ends_here: bool, 
+    radius: str = "8px"
+) -> str:
+    """Calculate border radius for an event based on where it starts/ends.
+    
+    Args:
+        event_starts_here: Whether the event starts on this display unit
+        event_ends_here: Whether the event ends on this display unit
+        radius: Base radius to use
+        
+    Returns:
+        CSS border-radius string
+    """
+    left_radius = radius if event_starts_here else "0px"
+    right_radius = radius if event_ends_here else "0px"
+    return f"{left_radius} {right_radius} {right_radius} {left_radius}"
+
+
+def calculate_event_margins(
+    event_starts_here: bool, 
+    event_ends_here: bool, 
+    edge_margin: str = "4px", 
+    continuation_margin: str = "-8px"
+) -> tuple[str, str]:
+    """Calculate margins for an event based on where it starts/ends.
+    
+    Args:
+        event_starts_here: Whether the event starts on this display unit
+        event_ends_here: Whether the event ends on this display unit
+        edge_margin: Margin to use when event starts/ends here
+        continuation_margin: Margin to use when event continues from elsewhere
+        
+    Returns:
+        Tuple of (left_margin, right_margin)
+    """
+    margin_left = edge_margin if event_starts_here else continuation_margin
+    margin_right = edge_margin if event_ends_here else continuation_margin
+    return margin_left, margin_right
+
+
+def generate_event_time_display(
+    event: CalendarEvent, 
+    event_starts_here: bool, 
+    event_ends_here: bool
+) -> str:
+    """Generate time display string for an event based on its timing.
+    
+    Args:
+        event: Calendar event
+        event_starts_here: Whether the event starts on this display unit
+        event_ends_here: Whether the event ends on this display unit
+        
+    Returns:
+        Formatted time display string
+    """
+    if event.is_all_day:
+        return ""
+    
+    if event_starts_here and event_ends_here:
+        # Same day event
+        return f"{event.start_datetime.strftime('%H:%M')} - {event.end_datetime.strftime('%H:%M')}"
+    elif event_starts_here:
+        # Starts here, continues
+        return f"From {event.start_datetime.strftime('%H:%M')}"
+    elif event_ends_here:
+        # Ends here
+        return f"Until {event.end_datetime.strftime('%H:%M')}"
+    else:
+        # Continues all day
+        return "All day"
 
 
 def generate_calendar_grid_weeks(
@@ -100,13 +218,15 @@ def create_event_spans(
 
                 # Calculate event span
                 start_date = max(
-                    event.start_datetime.date(), min(date_positions.keys()),
+                    event.start_datetime.date(),
+                    min(date_positions.keys()),
                 )
                 end_date = min(event.end_datetime.date(), max(date_positions.keys()))
 
                 # Find start and end positions in grid
                 start_week, start_day = date_positions.get(
-                    start_date, (week_idx, day_idx),
+                    start_date,
+                    (week_idx, day_idx),
                 )
                 end_week, end_day = date_positions.get(end_date, (week_idx, day_idx))
 

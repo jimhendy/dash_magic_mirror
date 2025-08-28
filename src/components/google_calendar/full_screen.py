@@ -6,9 +6,10 @@ from calendar import day_name
 from dash import html
 
 from utils.calendar import (
+    assign_event_colors_consistently,
     get_contrasting_text_color,
     get_event_color_by_event,
-    reset_event_color_assignments,
+    truncate_event_title,
 )
 from utils.models import FullScreenResult
 
@@ -18,6 +19,7 @@ from .utils import (
     create_event_tooltip,
     generate_calendar_grid_weeks,
     get_calendar_title_for_weeks,
+    prepare_events_for_rendering,
 )
 
 
@@ -35,16 +37,8 @@ def render_calendar_fullscreen(
         FullScreenResult containing the full-screen calendar layout
 
     """
-    # Reset color assignments for consistent coloring
-    reset_event_color_assignments()
-
-    # Sort events by start date, then by title for consistent color assignment
-    # Handle timezone-aware/naive datetime comparison by using date() for sorting
-    try:
-        sorted_events = sorted(events, key=lambda e: (e.start_datetime.date(), e.title))
-    except (TypeError, AttributeError):
-        # Fallback: if there are issues with datetime comparison, sort by title only
-        sorted_events = sorted(events, key=lambda e: e.title)
+    # Prepare events with consistent color assignment and sorting
+    sorted_events = prepare_events_for_rendering(events)
 
     today = datetime.date.today()
 
@@ -65,7 +59,9 @@ def render_calendar_fullscreen(
 
 
 def _render_calendar_grid(
-    calendar_grid: list[list[dict]], event_spans: list[dict], font_size: str,
+    calendar_grid: list[list[dict]],
+    event_spans: list[dict],
+    font_size: str,
 ) -> html.Div:
     """Render the calendar grid with weeks and days.
 

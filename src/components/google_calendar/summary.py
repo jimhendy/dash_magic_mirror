@@ -4,9 +4,16 @@ import datetime
 
 from dash import html
 
-from utils.calendar import get_event_color_by_calendar, truncate_event_title
+from utils.calendar import get_event_color_by_event, truncate_event_title
 
 from .data import CalendarEvent, get_events_for_date
+from .utils import (
+    prepare_events_for_rendering,
+    get_common_event_styles,
+    calculate_event_border_radius,
+    calculate_event_margins,
+    generate_event_time_display,
+)
 
 
 def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
@@ -19,11 +26,14 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
         html.Div containing the calendar summary layout
 
     """
+    # Prepare events with consistent color assignment and sorting
+    sorted_events = prepare_events_for_rendering(events)
+
     today = datetime.date.today()
     tomorrow = today + datetime.timedelta(days=1)
 
-    today_events = get_events_for_date(events, today)
-    tomorrow_events = get_events_for_date(events, tomorrow)
+    today_events = get_events_for_date(sorted_events, today)
+    tomorrow_events = get_events_for_date(sorted_events, tomorrow)
 
     return html.Div(
         style={
@@ -127,47 +137,28 @@ def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div
 
     """
     # Determine event position and styling
-    event_starts_on_display_date = event.start_datetime.date() == display_date
-    event_ends_on_display_date = event.end_datetime.date() == display_date
+    event_starts_here = event.start_datetime.date() == display_date
+    event_ends_here = event.end_datetime.date() == display_date
 
-    # Calculate border radius based on event continuation
-    border_radius_left = "8px" if event_starts_on_display_date else "0px"
-    border_radius_right = "8px" if event_ends_on_display_date else "0px"
+    # Use common utility functions for styling
+    border_radius = calculate_event_border_radius(event_starts_here, event_ends_here)
+    margin_left, margin_right = calculate_event_margins(event_starts_here, event_ends_here)
+    
+    # Get base event styles and customize for summary view
+    event_styles = get_common_event_styles()
+    event_styles.update({
+        "backgroundColor": get_event_color_by_event(event.id),
+        "borderRadius": border_radius,
+        "marginLeft": margin_left,
+        "marginRight": margin_right,
+        "position": "relative",
+    })
 
-    # Calculate margins based on event continuation - move curved edges away from column edges
-    margin_left = "4px" if event_starts_on_display_date else "-8px"
-    margin_right = "4px" if event_ends_on_display_date else "-8px"
-
-    # Event color based on calendar
-    background_color = get_event_color_by_calendar(event.calendar_id)
-
-    # Time display
-    time_display = ""
-    if not event.is_all_day:
-        if event_starts_on_display_date and event_ends_on_display_date:
-            # Same day event
-            time_display = f"{event.start_datetime.strftime('%H:%M')} - {event.end_datetime.strftime('%H:%M')}"
-        elif event_starts_on_display_date:
-            # Starts today, continues
-            time_display = f"From {event.start_datetime.strftime('%H:%M')}"
-        elif event_ends_on_display_date:
-            # Ends today
-            time_display = f"Until {event.end_datetime.strftime('%H:%M')}"
-        else:
-            # Continues all day
-            time_display = "All day"
+    # Generate time display using common utility
+    time_display = generate_event_time_display(event, event_starts_here, event_ends_here)
 
     return html.Div(
-        style={
-            "backgroundColor": background_color,
-            "padding": "6px 8px",
-            "borderRadius": f"{border_radius_left} {border_radius_right} {border_radius_right} {border_radius_left}",
-            "marginLeft": margin_left,
-            "marginRight": margin_right,
-            "fontSize": "12px",
-            "lineHeight": "1.2",
-            "position": "relative",
-        },
+        style=event_styles,
         children=[
             html.Div(
                 truncate_event_title(event.title, 25),

@@ -1,7 +1,6 @@
 """Calendar-related utility functions that can be used by multiple components."""
 
 
-
 def truncate_event_title(title: str, max_length: int = 30) -> str:
     """Truncate event title if too long.
 
@@ -94,6 +93,51 @@ def get_event_color_by_event(event_id: str) -> str:
     _color_counter += 1
 
     return color
+
+
+def assign_event_colors_consistently(events: list, reference_date=None) -> None:
+    """Assign colors to events consistently based on their relationship to a reference date.
+    
+    Args:
+        events: List of events with id, start_datetime attributes
+        reference_date: Reference date (defaults to today)
+    """
+    import datetime
+    
+    if reference_date is None:
+        reference_date = datetime.date.today()
+    
+    global _event_color_assignments, _color_counter
+    
+    # Reset assignments
+    reset_event_color_assignments()
+    
+    # Sort events: today events first, then by start date and title
+    def sort_key(event):
+        event_date = event.start_datetime.date()
+        is_today = event_date == reference_date
+        is_yesterday = event_date == reference_date - datetime.timedelta(days=1)
+        is_multi_day = event.start_datetime.date() != event.end_datetime.date()
+        
+        # Priority: today events first, then multi-day events that include today,
+        # then future events, then yesterday events (if they don't span to today)
+        if is_today or (is_multi_day and event_date <= reference_date <= event.end_datetime.date()):
+            priority = 0  # Highest priority
+        elif event_date > reference_date:
+            priority = 1  # Future events
+        elif is_yesterday and not is_multi_day:
+            priority = 2  # Yesterday single-day events (lowest priority)
+        else:
+            priority = 3  # Other past events
+        
+        return (priority, event_date, event.title)
+    
+    # Sort and assign colors
+    sorted_events = sorted(events, key=sort_key)
+    
+    # Pre-assign colors to ensure consistency
+    for event in sorted_events:
+        get_event_color_by_event(event.id)
 
 
 def reset_event_color_assignments():
