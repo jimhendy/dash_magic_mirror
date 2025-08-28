@@ -327,7 +327,9 @@ def process_sports_data() -> dict[str, Any]:
 
 
 def get_summary_fixtures(
-    data: dict[str, Any], limit: int = 3, days_ahead: int = 7,
+    data: dict[str, Any],
+    limit: int = 3,
+    days_ahead: int = 7,
 ) -> list[dict[str, Any]]:
     """Get fixtures for summary view - limited to next 7 days and max 3 items."""
     if not data or "sports" not in data:

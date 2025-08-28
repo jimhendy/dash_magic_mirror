@@ -165,7 +165,7 @@ def _create_arrivals_table(arrivals: list) -> html.Div:
             actual_time_text = local_time.strftime("%H:%M")
 
         expected_text = f"{arrival['minutes']}m" if arrival["minutes"] > 0 else "Due"
-        
+
         # Combine time info: "07:31 (5m)" or just "Due" if due
         if actual_time_text and arrival["minutes"] > 0:
             time_display = f"{actual_time_text} ({expected_text})"
@@ -214,7 +214,9 @@ def _create_arrivals_table(arrivals: list) -> html.Div:
                     platform_text or "–",  # Use dash if no platform
                     style={
                         "flex": "1",
-                        "color": COLORS["soft_gray"] if platform_text else COLORS["gray"],
+                        "color": COLORS["soft_gray"]
+                        if platform_text
+                        else COLORS["gray"],
                         "fontSize": "0.9rem",
                         "alignSelf": "center",
                         "textAlign": "center",

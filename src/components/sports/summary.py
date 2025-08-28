@@ -58,7 +58,8 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
                                     style={
                                         "marginRight": "8px",
                                         "color": fx.get(
-                                            "sport_icon_color", COLORS["blue"],
+                                            "sport_icon_color",
+                                            COLORS["blue"],
                                         ),
                                         "flexShrink": "0",
                                         "fontSize": "1.2rem",

@@ -87,9 +87,7 @@ def _render_day_column(
                     "fontWeight": "bold",
                     "fontSize": "16px",
                 },
-                children=[
-                    html.Div(f"{label}, {date.strftime('%d %b')}")
-                ],
+                children=[html.Div(f"{label}, {date.strftime('%d %b')}")],
             ),
             # Events container
             html.Div(
