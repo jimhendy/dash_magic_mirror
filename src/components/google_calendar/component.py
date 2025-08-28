@@ -35,18 +35,21 @@ class GoogleCalendar(BaseComponent):
 
     def _get_processed_events(self, truncate_to_tomorrow: bool = True):
         """Get processed calendar events with error handling.
-        
+
         Args:
             truncate_to_tomorrow: Whether to truncate events to tomorrow
-            
+
         Returns:
             List of processed CalendarEvent objects
-            
+
         Raises:
             Exception: If there's an error fetching or processing events
+
         """
         raw_events = fetch_calendar_events(self.calendar_ids)
-        return process_calendar_events(raw_events, truncate_to_tomorrow=truncate_to_tomorrow)
+        return process_calendar_events(
+            raw_events, truncate_to_tomorrow=truncate_to_tomorrow,
+        )
 
     def _summary_layout(self):
         """Returns the layout of the Google Calendar component."""
@@ -79,7 +82,7 @@ class GoogleCalendar(BaseComponent):
         def update_calendar(_):
             try:
                 from .summary import render_calendar_summary
-                
+
                 processed_events = self._get_processed_events(truncate_to_tomorrow=True)
                 return render_calendar_summary(processed_events)
             except Exception as e:

@@ -6,10 +6,8 @@ from calendar import day_name
 from dash import html
 
 from utils.calendar import (
-    assign_event_colors_consistently,
     get_contrasting_text_color,
     get_event_color_by_event,
-    truncate_event_title,
 )
 from utils.models import FullScreenResult
 

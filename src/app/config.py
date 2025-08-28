@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 from components.clock import Clock
 from components.google_calendar import GoogleCalendar
+from components.tfl_arrivals import TFLArrivals
 from components.weather import Weather
 
 # Load environment variables from .env file
@@ -29,16 +30,8 @@ COMPONENTS = [
             if calendar_id.startswith("GOOGLE_CALENDAR_ID_")
         ],
     ),
-    # # TFL Transport Arrivals
-    # TFL(
-    #     stops=[
-    #         os.environ[stop_id]
-    #         for stop_id in os.environ
-    #         if stop_id.startswith("TFL_STOP_ID_")
-    #     ],
-    #     maxHeight="20%",
-    #     separator=True,
-    # ),
+    # TFL Transport Arrivals
+    TFLArrivals(),
     # # Sports Fixtures
     # Sports(
     #     separator=True,

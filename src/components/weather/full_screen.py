@@ -81,7 +81,7 @@ def _create_hourly_timeseries(
             name="Rain Chance",
             line=dict(color=COLORS["blue"], width=2),
             yaxis="y2",
-            #line_shape="spline",
+            # line_shape="spline",
         ),
     )
 
@@ -94,7 +94,7 @@ def _create_hourly_timeseries(
             name="Cloud Cover",
             line=dict(color=COLORS["blue_dimmed"], width=2, dash="dot"),
             yaxis="y2",
-            #line_shape="spline",
+            # line_shape="spline",
         ),
     )
 

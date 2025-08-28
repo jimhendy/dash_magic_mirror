@@ -8,11 +8,11 @@ from utils.calendar import get_event_color_by_event, truncate_event_title
 
 from .data import CalendarEvent, get_events_for_date
 from .utils import (
-    prepare_events_for_rendering,
-    get_common_event_styles,
     calculate_event_border_radius,
     calculate_event_margins,
     generate_event_time_display,
+    get_common_event_styles,
+    prepare_events_for_rendering,
 )
 
 
@@ -142,20 +142,26 @@ def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div
 
     # Use common utility functions for styling
     border_radius = calculate_event_border_radius(event_starts_here, event_ends_here)
-    margin_left, margin_right = calculate_event_margins(event_starts_here, event_ends_here)
-    
+    margin_left, margin_right = calculate_event_margins(
+        event_starts_here, event_ends_here,
+    )
+
     # Get base event styles and customize for summary view
     event_styles = get_common_event_styles()
-    event_styles.update({
-        "backgroundColor": get_event_color_by_event(event.id),
-        "borderRadius": border_radius,
-        "marginLeft": margin_left,
-        "marginRight": margin_right,
-        "position": "relative",
-    })
+    event_styles.update(
+        {
+            "backgroundColor": get_event_color_by_event(event.id),
+            "borderRadius": border_radius,
+            "marginLeft": margin_left,
+            "marginRight": margin_right,
+            "position": "relative",
+        },
+    )
 
     # Generate time display using common utility
-    time_display = generate_event_time_display(event, event_starts_here, event_ends_here)
+    time_display = generate_event_time_display(
+        event, event_starts_here, event_ends_here,
+    )
 
     return html.Div(
         style=event_styles,

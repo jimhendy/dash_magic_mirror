@@ -10,12 +10,13 @@ from .data import CalendarEvent
 
 def prepare_events_for_rendering(events: list[CalendarEvent]) -> list[CalendarEvent]:
     """Prepare events for rendering with consistent color assignment and sorting.
-    
+
     Args:
         events: List of raw calendar events
-        
+
     Returns:
         Sorted events with colors assigned consistently
+
     """
     # Assign colors consistently based on today's events having priority
     assign_event_colors_consistently(events, datetime.date.today())
@@ -27,15 +28,16 @@ def prepare_events_for_rendering(events: list[CalendarEvent]) -> list[CalendarEv
     except (TypeError, AttributeError):
         # Fallback: if there are issues with datetime comparison, sort by title only
         sorted_events = sorted(events, key=lambda e: e.title)
-    
+
     return sorted_events
 
 
 def get_common_event_styles() -> dict[str, Any]:
     """Get common styling properties for calendar events.
-    
+
     Returns:
         Dictionary of common CSS properties
+
     """
     return {
         "padding": "6px 8px",
@@ -51,19 +53,18 @@ def get_common_event_styles() -> dict[str, Any]:
 
 
 def calculate_event_border_radius(
-    event_starts_here: bool, 
-    event_ends_here: bool, 
-    radius: str = "8px"
+    event_starts_here: bool, event_ends_here: bool, radius: str = "8px",
 ) -> str:
     """Calculate border radius for an event based on where it starts/ends.
-    
+
     Args:
         event_starts_here: Whether the event starts on this display unit
         event_ends_here: Whether the event ends on this display unit
         radius: Base radius to use
-        
+
     Returns:
         CSS border-radius string
+
     """
     left_radius = radius if event_starts_here else "0px"
     right_radius = radius if event_ends_here else "0px"
@@ -71,21 +72,22 @@ def calculate_event_border_radius(
 
 
 def calculate_event_margins(
-    event_starts_here: bool, 
-    event_ends_here: bool, 
-    edge_margin: str = "4px", 
-    continuation_margin: str = "-8px"
+    event_starts_here: bool,
+    event_ends_here: bool,
+    edge_margin: str = "4px",
+    continuation_margin: str = "-8px",
 ) -> tuple[str, str]:
     """Calculate margins for an event based on where it starts/ends.
-    
+
     Args:
         event_starts_here: Whether the event starts on this display unit
         event_ends_here: Whether the event ends on this display unit
         edge_margin: Margin to use when event starts/ends here
         continuation_margin: Margin to use when event continues from elsewhere
-        
+
     Returns:
         Tuple of (left_margin, right_margin)
+
     """
     margin_left = edge_margin if event_starts_here else continuation_margin
     margin_right = edge_margin if event_ends_here else continuation_margin
@@ -93,35 +95,33 @@ def calculate_event_margins(
 
 
 def generate_event_time_display(
-    event: CalendarEvent, 
-    event_starts_here: bool, 
-    event_ends_here: bool
+    event: CalendarEvent, event_starts_here: bool, event_ends_here: bool,
 ) -> str:
     """Generate time display string for an event based on its timing.
-    
+
     Args:
         event: Calendar event
         event_starts_here: Whether the event starts on this display unit
         event_ends_here: Whether the event ends on this display unit
-        
+
     Returns:
         Formatted time display string
+
     """
     if event.is_all_day:
         return ""
-    
+
     if event_starts_here and event_ends_here:
         # Same day event
         return f"{event.start_datetime.strftime('%H:%M')} - {event.end_datetime.strftime('%H:%M')}"
-    elif event_starts_here:
+    if event_starts_here:
         # Starts here, continues
         return f"From {event.start_datetime.strftime('%H:%M')}"
-    elif event_ends_here:
+    if event_ends_here:
         # Ends here
         return f"Until {event.end_datetime.strftime('%H:%M')}"
-    else:
-        # Continues all day
-        return "All day"
+    # Continues all day
+    return "All day"
 
 
 def generate_calendar_grid_weeks(
