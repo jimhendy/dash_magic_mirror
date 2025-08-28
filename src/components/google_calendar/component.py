@@ -48,7 +48,8 @@ class GoogleCalendar(BaseComponent):
         """
         raw_events = fetch_calendar_events(self.calendar_ids)
         return process_calendar_events(
-            raw_events, truncate_to_tomorrow=truncate_to_tomorrow,
+            raw_events,
+            truncate_to_tomorrow=truncate_to_tomorrow,
         )
 
     def _summary_layout(self):

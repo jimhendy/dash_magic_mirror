@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 from components.clock import Clock
 from components.google_calendar import GoogleCalendar
+from components.sports import Sports
 from components.tfl_arrivals import TFLArrivals
 from components.weather import Weather
 
@@ -32,11 +33,8 @@ COMPONENTS = [
     ),
     # TFL Transport Arrivals
     TFLArrivals(),
-    # # Sports Fixtures
-    # Sports(
-    #     separator=True,
-    #     maxHeight="25%",
-    # ),
+    # Sports Fixtures
+    Sports(),
     # # News & Compliments Feed at bottom
     # NewsComplimentsFeed(
     #     marginTop="auto",

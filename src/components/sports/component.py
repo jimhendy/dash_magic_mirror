@@ -1,0 +1,105 @@
+from dash import Input, Output, dcc, html
+from loguru import logger
+
+from components.base import BaseComponent
+from utils.models import FullScreenResult
+
+from .data import process_sports_data
+from .full_screen import render_sports_fullscreen
+from .summary import render_sports_summary
+
+
+class Sports(BaseComponent):
+    """Sports component for the Magic Mirror application.
+
+    Displays upcoming sports fixtures for configured teams.
+
+    Summary view: Shows next 3 fixtures within 7 days
+    Full screen view: Shows all fixtures with detailed information including competition and channel
+
+    Configuration is done in data.py SPORTS list.
+    """
+
+    def __init__(self, fetch_minutes: int = 360, **kwargs):
+        super().__init__(name="sports", **kwargs)
+        self.fetch_minutes = fetch_minutes
+
+    def _summary_layout(self):
+        """Returns the layout of the Sports component."""
+        return html.Div(
+            [
+                dcc.Interval(
+                    id=f"{self.component_id}-interval-fetch",
+                    interval=self.fetch_minutes
+                    * 60_000,  # Convert minutes to milliseconds
+                    n_intervals=0,
+                ),
+                dcc.Store(id=f"{self.component_id}-store", data=None),
+                html.Div(
+                    id=f"{self.component_id}-content",
+                    style={
+                        "display": "flex",
+                        "flexDirection": "column",
+                        "alignItems": "stretch",
+                        "gap": "8px",
+                        "width": "100%",
+                        "color": "#FFFFFF",
+                    },
+                ),
+            ],
+        )
+
+    def _add_callbacks(self, app):
+        """Add callbacks for the Sports component."""
+
+        @app.callback(
+            Output(f"{self.component_id}-store", "data"),
+            Input(f"{self.component_id}-interval-fetch", "n_intervals"),
+            prevent_initial_call=False,
+        )
+        def update_sports_data(_n):
+            try:
+                return process_sports_data()
+            except Exception as e:
+                logger.error(f"Error fetching sports fixtures: {e}")
+                return {}
+
+        @app.callback(
+            Output(f"{self.component_id}-content", "children"),
+            Input(f"{self.component_id}-store", "data"),
+            prevent_initial_call=False,
+        )
+        def render_sports_summary_view(data):
+            try:
+                return render_sports_summary(data, self.component_id)
+            except Exception as e:
+                logger.error(f"Error rendering sports summary: {e}")
+                return html.Div(
+                    "Sports unavailable",
+                    style={
+                        "color": "#FF6B6B",
+                        "textAlign": "center",
+                        "padding": "1rem",
+                    },
+                )
+
+    def full_screen_content(self) -> FullScreenResult:
+        """Returns the full-screen layout of the Sports component."""
+        try:
+            data = process_sports_data()
+            content = render_sports_fullscreen(data, self.component_id)
+            return FullScreenResult(content=content, title="Sports Fixtures")
+        except Exception as e:
+            logger.error(f"Error loading full-screen sports: {e}")
+            return FullScreenResult(
+                content=html.Div(
+                    "Sports fixtures unavailable",
+                    style={
+                        "color": "#FF6B6B",
+                        "textAlign": "center",
+                        "padding": "2rem",
+                        "fontSize": "1.5rem",
+                    },
+                ),
+                title="Sports unavailable",
+            )

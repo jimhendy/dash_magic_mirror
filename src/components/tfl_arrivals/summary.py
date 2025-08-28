@@ -6,7 +6,9 @@ from .data import get_time_color_and_weight
 
 
 def render_tfl_summary(
-    arrivals_data: dict, line_status: dict, stop_disruptions: dict,
+    arrivals_data: dict,
+    line_status: dict,
+    stop_disruptions: dict,
 ) -> html.Div:
     """Render TFL summary view with next 2 departures and status indicators."""
     arrivals = arrivals_data.get("arrivals", [])
@@ -30,7 +32,10 @@ def render_tfl_summary(
 
     # Create status indicators
     status_indicators = _create_status_indicators(
-        line_ids, line_status, stop_disruptions, station_name,
+        line_ids,
+        line_status,
+        stop_disruptions,
+        station_name,
     )
 
     # Create arrival cards
@@ -62,7 +67,10 @@ def render_tfl_summary(
 
 
 def _create_status_indicators(
-    line_ids: list, line_status: dict, stop_disruptions: dict, station_name: str,
+    line_ids: list,
+    line_status: dict,
+    stop_disruptions: dict,
+    station_name: str,
 ) -> html.Div:
     """Create status indicators for lines and station."""
     indicators = []

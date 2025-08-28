@@ -88,15 +88,7 @@ def _render_day_column(
                     "fontSize": "16px",
                 },
                 children=[
-                    html.Div(label),
-                    html.Div(
-                        date.strftime("%d %b"),
-                        style={
-                            "fontSize": "12px",
-                            "opacity": "0.8",
-                            "marginTop": "2px",
-                        },
-                    ),
+                    html.Div(f"{label}, {date.strftime('%d %b')}")
                 ],
             ),
             # Events container
@@ -143,7 +135,8 @@ def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div
     # Use common utility functions for styling
     border_radius = calculate_event_border_radius(event_starts_here, event_ends_here)
     margin_left, margin_right = calculate_event_margins(
-        event_starts_here, event_ends_here,
+        event_starts_here,
+        event_ends_here,
     )
 
     # Get base event styles and customize for summary view
@@ -160,7 +153,9 @@ def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div
 
     # Generate time display using common utility
     time_display = generate_event_time_display(
-        event, event_starts_here, event_ends_here,
+        event,
+        event_starts_here,
+        event_ends_here,
     )
 
     return html.Div(

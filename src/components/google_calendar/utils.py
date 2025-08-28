@@ -53,7 +53,9 @@ def get_common_event_styles() -> dict[str, Any]:
 
 
 def calculate_event_border_radius(
-    event_starts_here: bool, event_ends_here: bool, radius: str = "8px",
+    event_starts_here: bool,
+    event_ends_here: bool,
+    radius: str = "8px",
 ) -> str:
     """Calculate border radius for an event based on where it starts/ends.
 
@@ -95,7 +97,9 @@ def calculate_event_margins(
 
 
 def generate_event_time_display(
-    event: CalendarEvent, event_starts_here: bool, event_ends_here: bool,
+    event: CalendarEvent,
+    event_starts_here: bool,
+    event_ends_here: bool,
 ) -> str:
     """Generate time display string for an event based on its timing.
 
@@ -302,9 +306,9 @@ def get_calendar_title_for_weeks(calendar_grid: list[list[dict[str, Any]]]) -> s
     end_date = calendar_grid[-1][-1]["date"]
 
     if start_date.month == end_date.month:
-        return start_date.strftime("%B %Y")
+        return start_date.strftime("%b %Y")
     if start_date.year == end_date.year:
-        return f"{start_date.strftime('%B')} - {end_date.strftime('%B %Y')}"
+        return f"{start_date.strftime('%b')} - {end_date.strftime('%b %Y')}"
     return f"{start_date.strftime('%b %Y')} - {end_date.strftime('%b %Y')}"
 
 

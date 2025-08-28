@@ -6,7 +6,9 @@ from .data import get_time_color_and_weight
 
 
 def render_tfl_fullscreen(
-    all_arrivals_data: dict, line_status: dict, stop_disruptions: dict,
+    all_arrivals_data: dict,
+    line_status: dict,
+    stop_disruptions: dict,
 ) -> html.Div:
     """Render TFL full screen view with all arrivals and status tables."""
     # Combine all arrivals from all stops
@@ -24,8 +26,8 @@ def render_tfl_fullscreen(
     # Sort all arrivals by time
     all_arrivals.sort(key=lambda x: x["minutes"])
 
-    # Limit to what fits on screen (approximately 20-25 entries)
-    display_arrivals = all_arrivals[:25]
+    # Limit to what fits on screen comfortably with the new layout
+    display_arrivals = all_arrivals[:20]
 
     return html.Div(
         [
@@ -66,7 +68,9 @@ def render_tfl_fullscreen(
                                 },
                             ),
                             _create_station_status_table(
-                                all_stop_ids, stop_disruptions, all_arrivals_data,
+                                all_stop_ids,
+                                stop_disruptions,
+                                all_arrivals_data,
                             ),
                         ],
                         style={
@@ -111,17 +115,15 @@ def _create_arrivals_table(arrivals: list) -> html.Div:
             },
         )
 
-    # Table header
+    # Table header - simplified with fewer columns
     header = html.Div(
         [
-            html.Div("Station", style={"flex": "2", "fontWeight": "600"}),
-            html.Div("Line", style={"flex": "1.5", "fontWeight": "600"}),
-            html.Div("Destination", style={"flex": "2.5", "fontWeight": "600"}),
+            html.Div("Station & Line", style={"flex": "2.5", "fontWeight": "600"}),
+            html.Div("Destination", style={"flex": "3", "fontWeight": "600"}),
             html.Div("Platform", style={"flex": "1", "fontWeight": "600"}),
-            html.Div("Time", style={"flex": "1", "fontWeight": "600"}),
             html.Div(
-                "Expected",
-                style={"flex": "1", "fontWeight": "600", "textAlign": "right"},
+                "Arrival Time",
+                style={"flex": "1.5", "fontWeight": "600", "textAlign": "right"},
             ),
         ],
         style={
@@ -150,76 +152,96 @@ def _create_arrivals_table(arrivals: list) -> html.Div:
         elif platform_text.startswith("Platform "):
             platform_text = platform_text.replace("Platform ", "")
 
-        # Format the actual arrival time (e.g., "07:31")
+        # Clean station name - remove "London " prefix
+        station_name = arrival["station_name"]
+        if station_name.startswith("London "):
+            station_name = station_name.replace("London ", "")
+
+        # Format combined time display (actual time and expected)
         actual_time_text = ""
         if arrival.get("arrival_time"):
             # Convert to local time for display
             local_time = arrival["arrival_time"].astimezone()
             actual_time_text = local_time.strftime("%H:%M")
 
+        expected_text = f"{arrival['minutes']}m" if arrival["minutes"] > 0 else "Due"
+        
+        # Combine time info: "07:31 (5m)" or just "Due" if due
+        if actual_time_text and arrival["minutes"] > 0:
+            time_display = f"{actual_time_text} ({expected_text})"
+        elif actual_time_text:
+            time_display = f"{actual_time_text} (Due)"
+        else:
+            time_display = expected_text
+
         row = html.Div(
             [
+                # Combined Station & Line column
                 html.Div(
-                    arrival["station_name"],
-                    style={
-                        "flex": "2",
-                        "color": COLORS["white"],
-                        "fontSize": "1rem",
-                    },
-                ),
-                html.Div(
-                    arrival["line_name"],
-                    style={
-                        "flex": "1.5",
-                        "color": COLORS["blue"],
-                        "fontSize": "0.95rem",
-                        "fontWeight": "500",
-                    },
+                    [
+                        html.Div(
+                            station_name,
+                            style={
+                                "color": COLORS["white"],
+                                "fontSize": "1rem",
+                                "fontWeight": "500",
+                                "lineHeight": "1.2",
+                            },
+                        ),
+                        html.Div(
+                            arrival["line_name"],
+                            style={
+                                "color": COLORS["blue"],
+                                "fontSize": "0.85rem",
+                                "fontWeight": "400",
+                                "marginTop": "2px",
+                                "lineHeight": "1.2",
+                            },
+                        ),
+                    ],
+                    style={"flex": "2.5"},
                 ),
                 html.Div(
                     arrival["destination"],
                     style={
-                        "flex": "2.5",
+                        "flex": "3",
                         "color": COLORS["white"],
                         "fontSize": "1rem",
+                        "alignSelf": "center",
                     },
                 ),
                 html.Div(
-                    platform_text,
+                    platform_text or "–",  # Use dash if no platform
                     style={
                         "flex": "1",
-                        "color": COLORS["soft_gray"],
+                        "color": COLORS["soft_gray"] if platform_text else COLORS["gray"],
                         "fontSize": "0.9rem",
+                        "alignSelf": "center",
+                        "textAlign": "center",
+                        "fontWeight": "500" if platform_text else "300",
                     },
                 ),
                 html.Div(
-                    actual_time_text,
+                    time_display,
                     style={
-                        "flex": "1",
-                        "color": COLORS["white"],
-                        "fontSize": "1rem",
-                        "fontWeight": "400",
-                    },
-                ),
-                html.Div(
-                    f"{arrival['minutes']}m" if arrival["minutes"] > 0 else "Due",
-                    style={
-                        "flex": "1",
+                        "flex": "1.5",
                         "color": time_color,
-                        "fontSize": "1.1rem",
+                        "fontSize": "1rem",
                         "fontWeight": time_weight,
                         "textAlign": "right",
+                        "alignSelf": "center",
                     },
                 ),
             ],
             style={
                 "display": "flex",
-                "alignItems": "center",
+                "alignItems": "stretch",  # Changed to stretch for multi-line content
                 "padding": "12px 20px",
                 "background": bg_color,
                 "borderRadius": "6px",
                 "marginBottom": "2px",
                 "border": "1px solid rgba(255,255,255,0.05)",
+                "minHeight": "60px",  # Ensure consistent height for two-line content
             },
         )
         rows.append(row)
@@ -299,7 +321,9 @@ def _create_line_status_table(line_ids: set, line_status: dict) -> html.Div:
 
 
 def _create_station_status_table(
-    stop_ids: set, stop_disruptions: dict, all_arrivals_data: dict,
+    stop_ids: set,
+    stop_disruptions: dict,
+    all_arrivals_data: dict,
 ) -> html.Div:
     """Create the station status table."""
     if not stop_ids:

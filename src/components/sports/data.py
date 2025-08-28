@@ -5,13 +5,9 @@ from typing import Any
 
 import httpx
 from bs4 import BeautifulSoup
-from dash import Input, Output, dcc, html
-from dash_iconify import DashIconify
 from loguru import logger
 
-from components.base import BaseComponent
 from utils.file_cache import cache_json
-from utils.styles import COLORS
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -315,6 +311,7 @@ def fetch_fixtures_for_sport(sport: Sport) -> list[dict[str, Any]]:
 
 
 def fetch_all_fixtures() -> dict[str, Any]:
+    """Fetch all fixtures for all configured sports."""
     aggregate: dict[str, Any] = {
         "updated": datetime.datetime.utcnow().isoformat(),
         "sports": {},
@@ -324,207 +321,52 @@ def fetch_all_fixtures() -> dict[str, Any]:
     return aggregate
 
 
-class Sports(BaseComponent):
-    def __init__(self, *args, fetch_minutes: int = 360, **kwargs):
-        super().__init__(name="sports", *args, **kwargs)
-        self.fetch_minutes = fetch_minutes
+def process_sports_data() -> dict[str, Any]:
+    """Process and return sports fixture data."""
+    return fetch_all_fixtures()
 
-    def summary_layout(self):
-        return html.Div(
-            [
-                dcc.Interval(
-                    id=f"{self.component_id}-interval-fetch",
-                    interval=self.fetch_minutes * 60_000,
-                    n_intervals=0,
-                ),
-                dcc.Store(id=f"{self.component_id}-store", data=None),
-                html.Div(
-                    id=f"{self.component_id}-fixture",
-                    style={
-                        "display": "flex",
-                        "flexDirection": "column",
-                        "alignItems": "stretch",
-                        "gap": "8px",
-                        "width": "100%",
-                        "color": COLORS["white"],
-                    },
-                ),
-            ],
-        )
 
-    def add_callbacks(self, app):
-        @app.callback(
-            Output(f"{self.component_id}-store", "data"),
-            Input(f"{self.component_id}-interval-fetch", "n_intervals"),
-            prevent_initial_call=False,
-        )
-        def _update_store(_n):
+def get_summary_fixtures(
+    data: dict[str, Any], limit: int = 3, days_ahead: int = 7,
+) -> list[dict[str, Any]]:
+    """Get fixtures for summary view - limited to next 7 days and max 3 items."""
+    if not data or "sports" not in data:
+        return []
+
+    all_fixtures: list[dict[str, Any]] = []
+    for sport_key, items in data["sports"].items():
+        if isinstance(items, list):
+            all_fixtures.extend(items)
+
+    # Filter to next 7 days only
+    today = datetime.date.today()
+    cutoff_date = today + datetime.timedelta(days=days_ahead)
+
+    filtered_fixtures = []
+    for fx in all_fixtures:
+        if fx.get("parsed_date"):
             try:
-                return fetch_all_fixtures()
-            except Exception as e:
-                logger.error(f"Error fetching sports fixtures: {e}")
-                return {}
+                fixture_date = datetime.date.fromisoformat(fx["parsed_date"])
+                if today <= fixture_date <= cutoff_date:
+                    filtered_fixtures.append(fx)
+            except ValueError:
+                continue
 
-        @app.callback(
-            Output(f"{self.component_id}-fixture", "children"),
-            Input(f"{self.component_id}-store", "data"),
-            prevent_initial_call=False,
-        )
-        def _render_list(data):
-            if not data or "sports" not in data:
-                return html.Div(
-                    "No upcoming fixtures",
-                    style={
-                        "color": COLORS["soft_gray"],
-                        "textAlign": "center",
-                        "padding": "2rem",
-                    },
-                )
+    # Sort by date and limit
+    filtered_fixtures.sort(key=lambda x: x.get("sort_date", datetime.date.max))
+    return filtered_fixtures[:limit]
 
-            all_fixtures: list[dict[str, Any]] = []
-            for sport_key, items in data["sports"].items():
-                if isinstance(items, list):
-                    all_fixtures.extend(items)
 
-            # Sort by date, then limit
-            all_fixtures.sort(key=lambda x: x.get("sort_date", datetime.date.max))
+def get_full_screen_fixtures(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Get all fixtures for full screen view."""
+    if not data or "sports" not in data:
+        return []
 
-            if not all_fixtures:
-                return html.Div(
-                    "No upcoming fixtures",
-                    style={
-                        "color": COLORS["soft_gray"],
-                        "textAlign": "center",
-                        "padding": "2rem",
-                    },
-                )
-            fixture_cards = []
-            today = datetime.date.today()
+    all_fixtures: list[dict[str, Any]] = []
+    for sport_key, items in data["sports"].items():
+        if isinstance(items, list):
+            all_fixtures.extend(items)
 
-            for fx in all_fixtures:
-                # Format date nicely and check if it's today
-                date_display = ""
-                is_today = False
-                date_obj = None
-                if fx.get("parsed_date"):
-                    try:
-                        date_obj = datetime.date.fromisoformat(fx["parsed_date"])
-                        is_today = date_obj == today
-                        if is_today:
-                            date_display = "TODAY"
-                        else:
-                            date_display = date_obj.strftime("%a %d %b")
-                    except:  # noqa: E722
-                        date_display = fx.get("date_time_raw", "")[:20]
-
-                # Create fixture card with single-line layout
-                fixture_card = html.Div(
-                    [
-                        html.Div(
-                            [
-                                # Left side: sport icon, teams, and competition
-                                html.Div(
-                                    [
-                                        DashIconify(
-                                            icon=fx.get(
-                                                "sport_icon",
-                                                "mdi:help-circle",
-                                            ),
-                                            style={
-                                                "marginRight": "10px",
-                                                "color": fx.get(
-                                                    "sport_icon_color",
-                                                    COLORS["blue"],
-                                                ),
-                                                "flexShrink": "0",
-                                            },
-                                        ),
-                                        html.Span(
-                                            f"{fx.get('home', '?')} vs {fx.get('away', '?')}",
-                                            style={
-                                                "fontWeight": "bold"
-                                                if is_today
-                                                else "500",
-                                                "color": COLORS["white"],
-                                                "marginRight": "5px",
-                                                "flex": "1",
-                                            },
-                                        ),
-                                        *(
-                                            [
-                                                html.Span(
-                                                    fx.get("channel", ""),
-                                                    className="text-vs",
-                                                    style={
-                                                        "color": COLORS["green"],
-                                                        "marginRight": "5px",
-                                                    },
-                                                ),
-                                            ]
-                                            if fx.get("channel")
-                                            else []
-                                        ),
-                                    ],
-                                    style={
-                                        "display": "flex",
-                                        "alignItems": "center",
-                                        "overflow": "hidden",
-                                        "flex": "1",
-                                    },
-                                ),
-                                # Right side: date and time
-                                html.Div(
-                                    [
-                                        html.Span(
-                                            date_display,
-                                            style={
-                                                "color": COLORS["gold"]
-                                                if is_today
-                                                else COLORS["soft_gray"],
-                                                "fontWeight": "bold"
-                                                if is_today
-                                                else "400",
-                                                "marginRight": "8px",
-                                            },
-                                        ),
-                                        html.Span(
-                                            fx.get("time", ""),
-                                            style={
-                                                "color": COLORS["orange"],
-                                                "fontWeight": "500",
-                                            },
-                                        ),
-                                    ],
-                                    style={
-                                        "display": "flex",
-                                        "alignItems": "center",
-                                        "whiteSpace": "nowrap",
-                                        "textAlign": "right",
-                                    },
-                                ),
-                            ],
-                            style={
-                                "display": "flex",
-                                "alignItems": "center",
-                                "justifyContent": "space-between",
-                                "width": "100%",
-                                "gap": "8px",
-                            },
-                        ),
-                    ],
-                    className="text-s centered-content",
-                    style={
-                        "border": f"1px solid {COLORS['gold']}"
-                        if is_today
-                        else "1px solid rgba(255,255,255,0.08)",
-                        "borderRadius": "8px",
-                        "padding": "2px 4px",
-                        "marginBottom": "0",
-                        "backdropFilter": "blur(10px)",
-                        "opacity": self._opacity_from_days_away(date_obj),
-                    },
-                )
-
-                fixture_cards.append(fixture_card)
-
-            return fixture_cards
+    # Sort by date
+    all_fixtures.sort(key=lambda x: x.get("sort_date", datetime.date.max))
+    return all_fixtures

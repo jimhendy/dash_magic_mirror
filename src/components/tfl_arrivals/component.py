@@ -159,7 +159,9 @@ class TFLArrivals(BaseComponent):
                     self._get_fullscreen_data()
                 )
                 return render_tfl_fullscreen(
-                    all_arrivals_data, line_status, stop_disruptions,
+                    all_arrivals_data,
+                    line_status,
+                    stop_disruptions,
                 )
             except Exception as e:
                 logger.error(f"Error updating TFL full screen: {e}")
@@ -181,7 +183,9 @@ class TFLArrivals(BaseComponent):
                 self._get_fullscreen_data()
             )
             content = render_tfl_fullscreen(
-                all_arrivals_data, line_status, stop_disruptions,
+                all_arrivals_data,
+                line_status,
+                stop_disruptions,
             )
             return FullScreenResult(content=content, title="Transport Arrivals")
         except Exception as e:

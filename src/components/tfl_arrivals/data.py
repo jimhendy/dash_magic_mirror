@@ -46,7 +46,8 @@ def fetch_line_status(line_ids: list[str]) -> list[dict]:
     line_ids_str = ",".join(line_ids)
     try:
         response = httpx.get(
-            LINE_STATUS_API_URL.format(line_ids=line_ids_str), timeout=10,
+            LINE_STATUS_API_URL.format(line_ids=line_ids_str),
+            timeout=10,
         )
         if response.is_success:
             return response.json()
@@ -68,7 +69,8 @@ def fetch_stoppoint_disruptions(stop_ids: list[str]) -> list[dict]:
     stop_ids_str = ",".join(stop_ids)
     try:
         response = httpx.get(
-            STOPPOINT_DISRUPTION_API_URL.format(stop_ids=stop_ids_str), timeout=10,
+            STOPPOINT_DISRUPTION_API_URL.format(stop_ids=stop_ids_str),
+            timeout=10,
         )
         if response.is_success:
             return response.json()
@@ -172,7 +174,8 @@ def process_line_status_data(line_status_data: list[dict]) -> dict[str, dict]:
             primary_status = line_statuses[0]
             status_severity = primary_status.get("statusSeverity", 10)
             status_description = primary_status.get(
-                "statusSeverityDescription", "Unknown",
+                "statusSeverityDescription",
+                "Unknown",
             )
             reason = primary_status.get("reason", "")
 
