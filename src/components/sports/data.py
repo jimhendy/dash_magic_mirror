@@ -23,7 +23,7 @@ class Sport:
 SPORTS: list[Sport] = [
     Sport(
         url="rugby-union",
-        teams=["scotland", "ireland", "munster", "glasgow"],
+        teams=["scotland", "ireland", "munster", "glasgow warriors"],
         display_name="Rugby",
         icon="mdi:rugby",
         icon_color="#4CAF50",  # Green for rugby
@@ -55,7 +55,7 @@ def _date_str(d: datetime.date) -> str:
     return d.strftime("%Y%m%d")
 
 
-@cache_json(valid_lifetime=datetime.timedelta(hours=6))
+@cache_json(valid_lifetime=datetime.timedelta(hours=36))
 def fetch_raw_html_for_sport(sport: Sport) -> str:
     """Cache the raw HTML response for better development iteration."""
     start = datetime.date.today()
