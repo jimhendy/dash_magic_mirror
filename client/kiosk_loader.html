@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Kiosk Loader</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: #000;
+  }
+  iframe {
+    border: none;
+    width: 100vw;
+    height: 100vh;
+    display: block;
+  }
+</style>
+<script>
+const url = "http://192.168.0.20:8050"; // Change to the server URL
+const reloadIntervalMs = 60 * 60 * 1000; // 1 hour
+
+function loadSite() {
+  document.getElementById('frame').src = url;
+}
+
+window.onload = () => {
+  loadSite();
+  setInterval(loadSite, reloadIntervalMs);
+};
+</script>
+</head>
+<body>
+<iframe id="frame"></iframe>
+</body>
+</html>
