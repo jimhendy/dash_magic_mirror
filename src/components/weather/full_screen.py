@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from dash import dcc, html
 from dash_iconify import DashIconify
 
-from utils.styles import COLORS
+from utils.styles import COLORS, FONT_FAMILY
 
 
 def _format_day_name(date_str: str) -> str:
@@ -38,6 +38,7 @@ def _create_hourly_timeseries(
     hourly_data: list[dict[str, Any]],
     daily_data: list[dict[str, Any]],
     font_size: int = 20,
+    line_shape: str = "hv",
 ) -> go.Figure:
     """Create a timeseries plot for hourly weather data."""
     if not hourly_data:
@@ -81,7 +82,7 @@ def _create_hourly_timeseries(
             name="Rain Chance",
             line=dict(color=COLORS["blue"], width=2),
             yaxis="y2",
-            # line_shape="spline",
+            line_shape=line_shape,
         ),
     )
 
@@ -94,7 +95,7 @@ def _create_hourly_timeseries(
             name="Cloud Cover",
             line=dict(color=COLORS["blue_dimmed"], width=2, dash="dot"),
             yaxis="y2",
-            # line_shape="spline",
+            line_shape=line_shape,
         ),
     )
 
@@ -106,6 +107,7 @@ def _create_hourly_timeseries(
             mode="lines",
             name="Temperature",
             line=dict(color=COLORS["red"], width=4),
+            # line_shape=line_shape,
         ),
     )
 
@@ -117,6 +119,7 @@ def _create_hourly_timeseries(
             mode="lines",
             name="Feels Like",
             line=dict(color=COLORS["dimmed_red"], width=2, dash="dot"),
+            # line_shape=line_shape,
         ),
     )
 
@@ -200,7 +203,7 @@ def _create_hourly_timeseries(
         fig.add_annotation(
             x=sr,
             y=max(hd.temp_c for hd in hour_data) + 1,
-            text=f"☀️ {sr.strftime('%I:%M')}",
+            text=f"☀️ {sr.strftime('%-H:%M')}",
             showarrow=False,
             font=dict(size=20),
         )
@@ -210,7 +213,7 @@ def _create_hourly_timeseries(
         fig.add_annotation(
             x=ss,
             y=max(hd.temp_c for hd in hour_data) + 1,
-            text=f"☽ {ss.strftime('%I:%M')}",
+            text=f"☽ {ss.strftime('%H:%M')}",
             showarrow=False,
             font=dict(size=20),
         )
@@ -372,7 +375,7 @@ def render_weather_fullscreen(
             "height": "100vh",
             "color": "white",
             "backgroundColor": "black",
-            "fontFamily": "Inter, sans-serif",
+            "fontFamily": FONT_FAMILY,
             "overflow": "hidden",
             "display": "flex",
             "flexDirection": "column",

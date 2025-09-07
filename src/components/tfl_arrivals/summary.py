@@ -1,6 +1,6 @@
 from dash import html
 
-from utils.styles import COLORS
+from utils.styles import COLORS, FONT_FAMILY
 
 from .data import get_time_color_and_weight
 
@@ -19,11 +19,11 @@ def render_tfl_summary(
         return html.Div(
             "No transport arrivals",
             style={
-                "fontSize": "1.2rem",
+                "fontSize": "1.3rem",  # Increased from 1.2rem
                 "color": COLORS["soft_gray"],
                 "textAlign": "center",
                 "padding": "2rem",
-                "fontFamily": "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif",
+                "fontFamily": FONT_FAMILY,
             },
         )
 
@@ -61,7 +61,7 @@ def render_tfl_summary(
         ],
         style={
             "color": COLORS["white"],
-            "fontFamily": "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif",
+            "fontFamily": FONT_FAMILY,
         },
     )
 
@@ -124,7 +124,7 @@ def _create_line_status_indicator(status: dict) -> html.Div:
             html.Span(
                 f"{status['line_name']}: {status['status_text']}",
                 style={
-                    "fontSize": "0.9rem",
+                    "fontSize": "1rem",  # Increased from 0.9rem
                     "color": COLORS["white"],
                 },
             ),
@@ -132,7 +132,7 @@ def _create_line_status_indicator(status: dict) -> html.Div:
         style={
             "display": "flex",
             "alignItems": "center",
-            "fontSize": "0.85rem",
+            "fontSize": "0.95rem",  # Increased from 0.85rem
         },
     )
 
@@ -152,7 +152,7 @@ def _create_station_disruption_indicator(station_name: str) -> html.Div:
             html.Span(
                 f"{station_name} has disruptions",
                 style={
-                    "fontSize": "0.9rem",
+                    "fontSize": "1rem",  # Increased from 0.9rem
                     "color": COLORS["white"],
                 },
             ),
@@ -160,7 +160,7 @@ def _create_station_disruption_indicator(station_name: str) -> html.Div:
         style={
             "display": "flex",
             "alignItems": "center",
-            "fontSize": "0.85rem",
+            "fontSize": "0.95rem",  # Increased from 0.85rem
         },
     )
 
@@ -181,7 +181,7 @@ def _create_arrival_card(arrival: dict) -> html.Div:
                                 style={
                                     "color": COLORS["blue"],
                                     "fontWeight": "500",
-                                    "fontSize": "1rem",
+                                    "fontSize": "1.1rem",  # Increased from 1rem
                                     "marginRight": "8px",
                                 },
                             ),
@@ -189,11 +189,24 @@ def _create_arrival_card(arrival: dict) -> html.Div:
                                 f"→ {arrival['destination']}",
                                 style={
                                     "color": COLORS["white"],
-                                    "fontSize": "1rem",
+                                    "fontSize": "1.1rem",  # Increased from 1rem
                                     "fontWeight": "300",
                                     "flex": "1",
                                 },
                             ),
+                            # Bethnal Green indicator
+                            html.Span(
+                                arrival.get("bethnal_green_indicator", ""),
+                                style={
+                                    "fontSize": "1rem",
+                                    "marginLeft": "8px",
+                                    "title": "Stops at Bethnal Green"
+                                    if arrival.get("bethnal_green_indicator")
+                                    else "",
+                                },
+                            )
+                            if arrival.get("bethnal_green_indicator")
+                            else html.Span(),
                         ],
                         style={
                             "display": "flex",
@@ -209,7 +222,7 @@ def _create_arrival_card(arrival: dict) -> html.Div:
                                 arrival["platform"].replace("Platform ", "Plat "),
                                 style={
                                     "color": COLORS["soft_gray"],
-                                    "fontSize": "0.85rem",
+                                    "fontSize": "0.95rem",  # Increased from 0.85rem
                                     "marginRight": "12px",
                                 },
                             ),
@@ -219,7 +232,7 @@ def _create_arrival_card(arrival: dict) -> html.Div:
                                 else "Due",
                                 style={
                                     "color": time_color,
-                                    "fontSize": "1.1rem",
+                                    "fontSize": "1.2rem",  # Increased from 1.1rem
                                     "fontWeight": time_weight,
                                 },
                             ),

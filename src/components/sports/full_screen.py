@@ -4,7 +4,7 @@ from typing import Any
 from dash import html
 from dash_iconify import DashIconify
 
-from utils.styles import COLORS
+from utils.styles import COLORS, FONT_FAMILY
 
 
 def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Div:
@@ -231,6 +231,6 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
         ],
         style={
             "color": COLORS["white"],
-            "fontFamily": "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif",
+            "fontFamily": FONT_FAMILY,
         },
     )

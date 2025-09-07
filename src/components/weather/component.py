@@ -3,6 +3,7 @@ from loguru import logger
 
 from components.base import BaseComponent
 from utils.models import FullScreenResult
+from utils.styles import FONT_FAMILY
 
 from .data import (
     fetch_weather_data,
@@ -46,7 +47,7 @@ class Weather(BaseComponent):
                     style={
                         "color": "#FFFFFF",
                         "fontSize": "14px",
-                        "fontFamily": "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif",
+                        "fontFamily": FONT_FAMILY,
                         "textAlign": "center",
                     },
                 ),

@@ -3,6 +3,7 @@ from loguru import logger
 
 from components.base import BaseComponent
 from utils.models import FullScreenResult
+from utils.styles import FONT_FAMILY
 
 from .data import (
     fetch_arrivals_for_stop,
@@ -59,8 +60,8 @@ class TFLArrivals(BaseComponent):
                     id=f"{self.component_id}-content",
                     style={
                         "color": "#FFFFFF",
-                        "fontSize": "14px",
-                        "fontFamily": "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif",
+                        "fontSize": "16px",  # Increased from 14px
+                        "fontFamily": FONT_FAMILY,
                     },
                 ),
             ],
@@ -144,7 +145,7 @@ class TFLArrivals(BaseComponent):
                         "color": "#999999",
                         "textAlign": "center",
                         "padding": "20px",
-                        "fontFamily": "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif",
+                        "fontFamily": FONT_FAMILY,
                     },
                 )
 
@@ -172,7 +173,7 @@ class TFLArrivals(BaseComponent):
                         "textAlign": "center",
                         "padding": "40px",
                         "fontSize": "1.5rem",
-                        "fontFamily": "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif",
+                        "fontFamily": FONT_FAMILY,
                     },
                 )
 
@@ -198,7 +199,7 @@ class TFLArrivals(BaseComponent):
                         "textAlign": "center",
                         "padding": "40px",
                         "fontSize": "1.5rem",
-                        "fontFamily": "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif",
+                        "fontFamily": FONT_FAMILY,
                     },
                 ),
                 title="Transport Unavailable",

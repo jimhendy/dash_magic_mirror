@@ -1,6 +1,6 @@
 from dash import html
 
-from utils.styles import COLORS
+from utils.styles import COLORS, FONT_FAMILY
 
 from .data import get_time_color_and_weight
 
@@ -97,7 +97,7 @@ def render_tfl_fullscreen(
         style={
             "padding": "20px",
             "color": COLORS["white"],
-            "fontFamily": "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif",
+            "fontFamily": FONT_FAMILY,
         },
     )
 
@@ -202,12 +202,32 @@ def _create_arrivals_table(arrivals: list) -> html.Div:
                     style={"flex": "2.5"},
                 ),
                 html.Div(
-                    arrival["destination"],
+                    [
+                        html.Span(
+                            arrival["destination"],
+                            style={
+                                "color": COLORS["white"],
+                                "fontSize": "1rem",
+                            },
+                        ),
+                        html.Span(
+                            arrival.get("bethnal_green_indicator", ""),
+                            style={
+                                "fontSize": "1rem",
+                                "marginLeft": "8px",
+                                "title": "Stops at Bethnal Green"
+                                if arrival.get("bethnal_green_indicator")
+                                else "",
+                            },
+                        )
+                        if arrival.get("bethnal_green_indicator")
+                        else html.Span(),
+                    ],
                     style={
                         "flex": "3",
-                        "color": COLORS["white"],
-                        "fontSize": "1rem",
                         "alignSelf": "center",
+                        "display": "flex",
+                        "alignItems": "center",
                     },
                 ),
                 html.Div(

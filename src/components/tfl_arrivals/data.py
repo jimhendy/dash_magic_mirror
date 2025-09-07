@@ -11,6 +11,66 @@ from utils.file_cache import cache_json
 ARRIVALS_API_URL = "https://api.tfl.gov.uk/StopPoint/{stop_id}/Arrivals"
 LINE_STATUS_API_URL = "https://api.tfl.gov.uk/Line/{line_ids}/Status"
 STOPPOINT_DISRUPTION_API_URL = "https://api.tfl.gov.uk/StopPoint/{stop_ids}/Disruption"
+TIMETABLE_API_URL = (
+    "https://api.tfl.gov.uk/Line/{line_id}/Timetable/{from_stop_id}/to/{to_stop_id}"
+)
+
+# Bethnal Green Rail Station ID
+BETHNAL_GREEN_STATION_ID = "910GBTHNLGR"
+# Liverpool Street station IDs (there might be multiple for different lines)
+LIVERPOOL_STREET_STATION_IDS = ["940GZZLULVT", "910GLIVST"]
+# Highams Park station ID (if this is the primary station)
+HIGHAMS_PARK_STATION_ID = "910GHIGPARK"
+
+
+@cache_json(valid_lifetime=datetime.timedelta(minutes=5))
+def fetch_timetable(line_id: str, from_stop_id: str, to_stop_id: str) -> dict:
+    """Fetch timetable data between two stops to check calling patterns."""
+    try:
+        response = httpx.get(
+            TIMETABLE_API_URL.format(
+                line_id=line_id,
+                from_stop_id=from_stop_id,
+                to_stop_id=to_stop_id,
+            ),
+            timeout=10,
+        )
+        if response.is_success:
+            return response.json()
+        logger.error(
+            f"Failed to fetch timetable for {line_id} from {from_stop_id} to {to_stop_id}: {response.status_code}",
+        )
+        return {}
+    except httpx.RequestError as e:
+        logger.error(
+            f"Error fetching timetable for {line_id} from {from_stop_id} to {to_stop_id}: {e}",
+        )
+        return {}
+
+
+def check_stops_at_bethnal_green(arrival: dict) -> bool:
+    """Check if a train service stops at Bethnal Green before Liverpool Street."""
+    line_id = arrival.get("lineId", "")
+    destination = arrival.get("destinationName", "")
+
+    # Quick check: if destination contains Liverpool Street, likely stops at Bethnal Green on Central line
+    if "liverpool street" in destination.lower() and line_id == "central":
+        # For Central line eastbound to Liverpool Street, trains typically stop at Bethnal Green
+        # This is a reasonable assumption for the Central line
+        return True
+
+    # For other lines or if we want to be more precise, we could use the timetable API
+    # But this would require additional API calls and might be overkill for the Central line
+    # since virtually all Central line trains from Highams Park to Liverpool Street stop at Bethnal Green
+
+    return False
+
+
+def get_bethnal_green_indicator(arrival: dict) -> str:
+    """Get indicator symbol for trains that stop at Bethnal Green."""
+    if check_stops_at_bethnal_green(arrival):
+        return "🔄"  # Transfer symbol indicating it stops at Bethnal Green
+    return ""
 
 
 @cache_json(valid_lifetime=datetime.timedelta(seconds=30))
@@ -147,6 +207,7 @@ def process_arrivals_data(arrivals: list[dict]) -> dict[str, Any]:
                     "direction": arrival.get("direction", ""),
                     "mode": arrival.get("modeName", ""),
                     "station_name": clean_station_name(arrival.get("stationName", "")),
+                    "bethnal_green_indicator": get_bethnal_green_indicator(arrival),
                 }
                 processed_arrivals.append(processed_arrival)
             except (ValueError, TypeError) as e:

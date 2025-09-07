@@ -21,10 +21,13 @@ COLORS = {
     "gray": "#888888",
 }
 
+# Consistent font family for the entire application
+FONT_FAMILY = "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif"
+
 # Common compact style combinations for Python components
 COMPACT_STYLES = {
     "base_container": {
-        "fontFamily": "Arial, sans-serif",
+        "fontFamily": FONT_FAMILY,
         "background": COLORS["black"],
         "lineHeight": "1.1",
         "width": "100vw",
