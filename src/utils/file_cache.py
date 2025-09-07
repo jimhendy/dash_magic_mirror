@@ -24,16 +24,17 @@ def reproduce_hash(*args, **kwargs) -> str:
 
 def clear_component_cache(component_name: str) -> int:
     """Clear all cache files for a specific component.
-    
+
     Args:
         component_name: The name of the component to clear cache for
-        
+
     Returns:
         Number of cache files removed
+
     """
     if not CACHE_PATH.exists():
         return 0
-    
+
     removed_count = 0
     # Find all cache files that contain the component name
     for cache_file in CACHE_PATH.glob("*.json"):
@@ -46,7 +47,7 @@ def clear_component_cache(component_name: str) -> int:
             except OSError:
                 # File might have been deleted by another process
                 pass
-    
+
     return removed_count
 
 

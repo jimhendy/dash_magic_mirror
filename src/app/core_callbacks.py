@@ -1,4 +1,5 @@
-from dash import Input, Output, State, get_app, callback_context, html
+from dash import Input, Output, State, get_app, html
+
 from utils.file_cache import clear_component_cache
 
 
@@ -126,21 +127,27 @@ def add_callbacks() -> None:
             # Extract component name from the title's data attribute
             component_name = None
             title_text = ""
-            
+
             if isinstance(current_title, dict):
                 # Extract component name from data attribute
-                props = current_title.get('props', {})
-                component_name = props.get('data-component-name')
-                title_text = props.get('children', '')
-            
+                props = current_title.get("props", {})
+                component_name = props.get("data-component-name")
+                title_text = props.get("children", "")
+
             if component_name:
                 removed_count = clear_component_cache(component_name)
-                
+
                 # Update the title to show cache was cleared
-                return html.Div([
-                    html.Span(title_text, style={"marginRight": "10px"}),
-                    html.Span(f"(Cache cleared: {removed_count} files)", 
-                             style={"fontSize": "0.8em", "color": "#ffd700"})
-                ], className="text-m", **{"data-component-name": component_name})
-        
+                return html.Div(
+                    [
+                        html.Span(title_text, style={"marginRight": "10px"}),
+                        html.Span(
+                            f"(Cache cleared: {removed_count} files)",
+                            style={"fontSize": "0.8em", "color": "#ffd700"},
+                        ),
+                    ],
+                    className="text-m",
+                    **{"data-component-name": component_name},
+                )
+
         return current_title

@@ -96,9 +96,9 @@ class BaseComponent(ABC):
                 content = self.full_screen_content()
                 return (
                     html.Div(
-                        content.title, 
+                        content.title,
                         className="text-m",
-                        **{"data-component-name": self.name}
+                        **{"data-component-name": self.name},
                     ),
                     content.content,
                 )
