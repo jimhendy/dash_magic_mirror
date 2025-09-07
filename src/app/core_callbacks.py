@@ -1,4 +1,5 @@
-from dash import Input, Output, State, get_app
+from dash import Input, Output, State, get_app, callback_context, html
+from utils.file_cache import clear_component_cache
 
 
 def add_callbacks() -> None:
@@ -111,3 +112,35 @@ def add_callbacks() -> None:
         Input("full-screen-modal", "style"),
         prevent_initial_call=True,
     )
+
+    # Handle cache clearing for the current component
+    @app.callback(
+        Output("full-screen-modal-title", "children", allow_duplicate=True),
+        Input("full-screen-modal-clear-cache-btn", "n_clicks"),
+        State("full-screen-modal-title", "children"),
+        prevent_initial_call=True,
+    )
+    def clear_component_cache_callback(n_clicks, current_title):
+        """Clear the cache for the current component and update the title."""
+        if n_clicks and current_title:
+            # Extract component name from the title's data attribute
+            component_name = None
+            title_text = ""
+            
+            if isinstance(current_title, dict):
+                # Extract component name from data attribute
+                props = current_title.get('props', {})
+                component_name = props.get('data-component-name')
+                title_text = props.get('children', '')
+            
+            if component_name:
+                removed_count = clear_component_cache(component_name)
+                
+                # Update the title to show cache was cleared
+                return html.Div([
+                    html.Span(title_text, style={"marginRight": "10px"}),
+                    html.Span(f"(Cache cleared: {removed_count} files)", 
+                             style={"fontSize": "0.8em", "color": "#ffd700"})
+                ], className="text-m", **{"data-component-name": component_name})
+        
+        return current_title

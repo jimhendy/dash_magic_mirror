@@ -1,6 +1,7 @@
 import dash_mantine_components as dmc
 from dash import dcc, html
 from dash.development.base_component import Component
+from dash_iconify import DashIconify
 
 from app.config import COMPONENTS
 from utils.styles import COLORS
@@ -41,11 +42,25 @@ def _full_screen_modal() -> Component:
                     html.Div(
                         id="full-screen-modal-nav-bar",
                         children=[
-                            dmc.Button(
-                                "Back",
-                                id="full-screen-modal-back-btn",
-                                variant="outline",
-                                n_clicks=0,
+                            html.Div(
+                                children=[
+                                    dmc.Button(
+                                        "Back",
+                                        id="full-screen-modal-back-btn",
+                                        variant="outline",
+                                        n_clicks=0,
+                                        style={"marginRight": "10px"},
+                                    ),
+                                    dmc.Button(
+                                        DashIconify(icon="mdi:trash-can"),
+                                        id="full-screen-modal-clear-cache-btn",
+                                        variant="outline",
+                                        color="yellow",
+                                        size="sm",
+                                        n_clicks=0,
+                                    ),
+                                ],
+                                style={"display": "flex", "alignItems": "center"},
                             ),
                             html.Div(id="full-screen-modal-title"),
                             dmc.Text(id="full-screen-modal-timer", size="sm"),

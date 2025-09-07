@@ -95,7 +95,11 @@ class BaseComponent(ABC):
             def open_full_screen_modal(n_clicks: int):
                 content = self.full_screen_content()
                 return (
-                    html.Div(content.title, className="text-m"),
+                    html.Div(
+                        content.title, 
+                        className="text-m",
+                        **{"data-component-name": self.name}
+                    ),
                     content.content,
                 )
 

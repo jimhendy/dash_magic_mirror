@@ -22,6 +22,34 @@ def reproduce_hash(*args, **kwargs) -> str:
     return md5(combined_str.encode("utf-8")).hexdigest()[:8]
 
 
+def clear_component_cache(component_name: str) -> int:
+    """Clear all cache files for a specific component.
+    
+    Args:
+        component_name: The name of the component to clear cache for
+        
+    Returns:
+        Number of cache files removed
+    """
+    if not CACHE_PATH.exists():
+        return 0
+    
+    removed_count = 0
+    # Find all cache files that contain the component name
+    for cache_file in CACHE_PATH.glob("*.json"):
+        # Cache files are named like: module.function_hash_timestamp.json
+        # Look for files that contain the component name in the module path
+        if component_name.lower() in cache_file.name.lower():
+            try:
+                cache_file.unlink()
+                removed_count += 1
+            except OSError:
+                # File might have been deleted by another process
+                pass
+    
+    return removed_count
+
+
 def cache_json(valid_lifetime: datetime.timedelta) -> Callable:
     """Decorator to cache the result of a function to a file for a specified duration."""
 
