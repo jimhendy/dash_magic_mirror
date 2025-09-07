@@ -15,12 +15,11 @@ TIMETABLE_API_URL = (
     "https://api.tfl.gov.uk/Line/{line_id}/Timetable/{from_stop_id}/to/{to_stop_id}"
 )
 
-# Bethnal Green Rail Station ID
-BETHNAL_GREEN_STATION_ID = "910GBTHNLGR"
-# Liverpool Street station IDs (there might be multiple for different lines)
-LIVERPOOL_STREET_STATION_IDS = ["940GZZLULVT", "910GLIVST"]
-# Highams Park station ID (if this is the primary station)
-HIGHAMS_PARK_STATION_ID = "910GHIGPARK"
+
+# Station IDs from environment variables
+def get_transfer_station_id() -> str:
+    """Get the transfer station ID for checking connections."""
+    return os.environ.get("TFL_TRANSFER_STATION_ID", "")
 
 
 @cache_json(valid_lifetime=datetime.timedelta(minutes=5))
@@ -48,28 +47,62 @@ def fetch_timetable(line_id: str, from_stop_id: str, to_stop_id: str) -> dict:
         return {}
 
 
-def check_stops_at_bethnal_green(arrival: dict) -> bool:
-    """Check if a train service stops at Bethnal Green before Liverpool Street."""
+@cache_json(valid_lifetime=datetime.timedelta(seconds=30))
+def fetch_bethnal_green_arrivals() -> list[dict]:
+    """Fetch arrivals at transfer station."""
+    transfer_station_id = get_transfer_station_id()
+    if not transfer_station_id:
+        return []
+    return fetch_arrivals_for_stop(transfer_station_id)
+
+
+def check_stops_at_bethnal_green(
+    arrival: dict,
+    bethnal_green_arrivals: list[dict],
+) -> bool:
+    """Check if a train service stops at the transfer station by matching vehicle IDs and destinations."""
+    vehicle_id = arrival.get("vehicleId", "")
     line_id = arrival.get("lineId", "")
     destination = arrival.get("destinationName", "")
 
-    # Quick check: if destination contains Liverpool Street, likely stops at Bethnal Green on Central line
-    if "liverpool street" in destination.lower() and line_id == "central":
-        # For Central line eastbound to Liverpool Street, trains typically stop at Bethnal Green
-        # This is a reasonable assumption for the Central line
-        return True
+    if not line_id:
+        return False
 
-    # For other lines or if we want to be more precise, we could use the timetable API
-    # But this would require additional API calls and might be overkill for the Central line
-    # since virtually all Central line trains from Highams Park to Liverpool Street stop at Bethnal Green
+    # First try exact vehicle ID match
+    if vehicle_id:
+        for bg_arrival in bethnal_green_arrivals:
+            if (
+                bg_arrival.get("vehicleId", "") == vehicle_id
+                and bg_arrival.get("lineId", "") == line_id
+            ):
+                return True
+
+    # If no vehicle ID match, check by destination and line
+    # Trains going to major terminus stations typically stop at transfer stations
+    if "liverpool street" in destination.lower() and line_id in [
+        "weaver",
+        "central",
+    ]:  # Overground and Central line
+        # Check if there are any trains on the same line going to the same destination at transfer station
+        for bg_arrival in bethnal_green_arrivals:
+            bg_destination = bg_arrival.get("destinationName", "")
+            bg_line_id = bg_arrival.get("lineId", "")
+            if bg_line_id == line_id and "liverpool street" in bg_destination.lower():
+                return True
 
     return False
 
 
-def get_bethnal_green_indicator(arrival: dict) -> str:
-    """Get indicator symbol for trains that stop at Bethnal Green."""
-    if check_stops_at_bethnal_green(arrival):
-        return "🔄"  # Transfer symbol indicating it stops at Bethnal Green
+def get_bethnal_green_indicator(
+    arrival: dict,
+    bethnal_green_arrivals: list[dict],
+    is_summary: bool = False,
+) -> str:
+    """Get indicator symbol for trains that stop at transfer station."""
+    if check_stops_at_bethnal_green(arrival, bethnal_green_arrivals):
+        if is_summary:
+            return "Ⓑ"  # B in circle for summary
+        return "✓"  # Tick for full screen
     return ""
 
 
@@ -159,7 +192,10 @@ def get_primary_stop_id() -> str:
     return os.environ.get("TFL_STOP_ID_1", "")
 
 
-def process_arrivals_data(arrivals: list[dict]) -> dict[str, Any]:
+def process_arrivals_data(
+    arrivals: list[dict],
+    is_summary: bool = False,
+) -> dict[str, Any]:
     """Process arrivals data for rendering."""
     if not arrivals:
         return {
@@ -176,9 +212,24 @@ def process_arrivals_data(arrivals: list[dict]) -> dict[str, Any]:
     # Get station name from first arrival
     station_name = arrivals[0].get("stationName", "Unknown Station")
 
+    # Fetch Bethnal Green arrivals once for all comparisons
+    bethnal_green_arrivals = fetch_bethnal_green_arrivals()
+
+    # Get ignore destination for summary filtering
+    ignore_destination = os.environ.get("TFL_SUMMARY_IGNORE_DESTINATION", "")
+
     # Process arrivals for display
     processed_arrivals = []
     for arrival in arrivals:
+        # Filter out ignored destinations in summary view
+        destination = arrival.get("destinationName", "")
+        if (
+            is_summary
+            and ignore_destination
+            and ignore_destination.lower() in destination.lower()
+        ):
+            continue
+
         # Calculate time until arrival
         arrival_time_str = arrival.get("expectedArrival", "")
         if arrival_time_str:
@@ -198,16 +249,18 @@ def process_arrivals_data(arrivals: list[dict]) -> dict[str, Any]:
                     "id": arrival.get("id", ""),
                     "minutes": minutes,
                     "arrival_time": arrival_time,  # Store the actual arrival time
-                    "destination": clean_station_name(
-                        arrival.get("destinationName", ""),
-                    ),
+                    "destination": clean_station_name(destination),
                     "platform": arrival.get("platformName", "Unknown"),
                     "line_name": arrival.get("lineName", ""),
                     "line_id": arrival.get("lineId", ""),
                     "direction": arrival.get("direction", ""),
                     "mode": arrival.get("modeName", ""),
                     "station_name": clean_station_name(arrival.get("stationName", "")),
-                    "bethnal_green_indicator": get_bethnal_green_indicator(arrival),
+                    "bethnal_green_indicator": get_bethnal_green_indicator(
+                        arrival,
+                        bethnal_green_arrivals,
+                        is_summary,
+                    ),
                 }
                 processed_arrivals.append(processed_arrival)
             except (ValueError, TypeError) as e:

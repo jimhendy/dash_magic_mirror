@@ -3,7 +3,6 @@ from dash import dcc, html
 from dash.development.base_component import Component
 from dash_iconify import DashIconify
 
-from app.config import COMPONENTS
 from utils.styles import COLORS
 
 
@@ -151,12 +150,6 @@ def core_layout() -> Component:
         Component: The core layout component
 
     """
-    component_layouts = []
-    for i, component in enumerate(COMPONENTS):
-        if i and component.separator:
-            component_layouts.append(_horizontal_separator())
-        component_layouts.append(component.summary_layout())
-
     return dmc.MantineProvider(
         html.Div(
             id="core-layout",
@@ -165,9 +158,13 @@ def core_layout() -> Component:
                 _full_screen_modal(),
                 _one_second_timer(),
                 _mouse_movement_tracker(),
+                dcc.Store(
+                    id="global-refresh-trigger",
+                    data=0,
+                ),  # Global refresh counter
                 html.Div(
                     id="app-div",
-                    children=component_layouts,
+                    children=None,
                     style={
                         "width": "100vw",
                         "height": "100vh",
@@ -179,16 +176,4 @@ def core_layout() -> Component:
                 ),
             ],
         ),
-    )
-
-
-def _horizontal_separator() -> Component:
-    """Create a horizontal separator with optional icon and title."""
-    return html.Div(
-        "\u00a0",  # Non-breaking space to give the div content
-        style={
-            "border": "none",
-            "height": "3px",
-            "background": "linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent)",
-        },
     )

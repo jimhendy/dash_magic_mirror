@@ -1,6 +1,20 @@
 from dash import Input, Output, State, get_app, html
+from dash.dependencies import Component
 
+from app.config import COMPONENTS
 from utils.file_cache import clear_component_cache
+
+
+def _horizontal_separator() -> Component:
+    """Create a horizontal separator with optional icon and title."""
+    return html.Div(
+        "\u00a0",  # Non-breaking space to give the div content
+        style={
+            "border": "none",
+            "height": "3px",
+            "background": "linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent)",
+        },
+    )
 
 
 def add_callbacks() -> None:
@@ -116,38 +130,55 @@ def add_callbacks() -> None:
 
     # Handle cache clearing for the current component
     @app.callback(
-        Output("full-screen-modal-title", "children", allow_duplicate=True),
+        [
+            Output("global-refresh-trigger", "data", allow_duplicate=True),
+            Output("full-screen-modal", "style", allow_duplicate=True),
+        ],
         Input("full-screen-modal-clear-cache-btn", "n_clicks"),
         State("full-screen-modal-title", "children"),
+        State("global-refresh-trigger", "data"),
+        State("full-screen-modal", "style"),
         prevent_initial_call=True,
     )
-    def clear_component_cache_callback(n_clicks, current_title):
-        """Clear the cache for the current component and update the title."""
+    def clear_component_cache_callback(
+        n_clicks,
+        current_title,
+        current_refresh_count,
+        current_modal_style,
+    ):
+        """Clear the cache for the current component, trigger global refresh, and close modal."""
         if n_clicks and current_title:
             # Extract component name from the title's data attribute
             component_name = None
-            title_text = ""
 
             if isinstance(current_title, dict):
                 # Extract component name from data attribute
                 props = current_title.get("props", {})
                 component_name = props.get("data-component-name")
-                title_text = props.get("children", "")
 
             if component_name:
-                removed_count = clear_component_cache(component_name)
+                clear_component_cache(component_name)
+                new_refresh_count = (current_refresh_count or 0) + 1
 
-                # Update the title to show cache was cleared
-                return html.Div(
-                    [
-                        html.Span(title_text, style={"marginRight": "10px"}),
-                        html.Span(
-                            f"(Cache cleared: {removed_count} files)",
-                            style={"fontSize": "0.8em", "color": "#ffd700"},
-                        ),
-                    ],
-                    className="text-m",
-                    **{"data-component-name": component_name},
-                )
+                # Close the modal by setting display to none
+                closed_modal_style = {**(current_modal_style or {}), "display": "none"}
 
-        return current_title
+                return new_refresh_count, closed_modal_style
+
+        return current_refresh_count, current_modal_style
+
+    # Centralized app refresh callback - re-renders all components when cache is cleared
+    @app.callback(
+        Output("app-div", "children"),
+        Input("global-refresh-trigger", "data"),
+        prevent_initial_call=False,
+    )
+    def refresh_all_components(refresh_trigger):
+        """Re-render all components when global refresh is triggered."""
+        component_layouts = []
+        for i, component in enumerate(COMPONENTS):
+            if i and component.separator:
+                component_layouts.append(_horizontal_separator())
+            component_layouts.append(component.summary_layout())
+
+        return component_layouts

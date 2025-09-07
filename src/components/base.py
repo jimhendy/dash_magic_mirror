@@ -76,7 +76,12 @@ class BaseComponent(ABC):
             app.clientside_callback(
                 """
                 function(n_clicks, current_style) {
-                    console.log("Full screen button clicked");
+                    console.log("Full screen button clicked, n_clicks:", n_clicks);
+                    // Only open modal if there was an actual click (n_clicks > 0)
+                    // This prevents the modal from opening when components are re-rendered during cache clearing
+                    if (!n_clicks || n_clicks === 0) {
+                        return window.dash_clientside.no_update;
+                    }
                     return { ...current_style, display: "block" };
                 }
                 """,
@@ -93,6 +98,13 @@ class BaseComponent(ABC):
                 prevent_initial_call=True,
             )
             def open_full_screen_modal(n_clicks: int):
+                # Only open modal if there was an actual click (n_clicks > 0)
+                # This prevents the modal from opening when components are re-rendered during cache clearing
+                if not n_clicks or n_clicks == 0:
+                    from dash.exceptions import PreventUpdate
+
+                    raise PreventUpdate
+
                 content = self.full_screen_content()
                 return (
                     html.Div(

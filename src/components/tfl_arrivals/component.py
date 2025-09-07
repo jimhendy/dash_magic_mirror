@@ -89,7 +89,7 @@ class TFLArrivals(BaseComponent):
 
         # Fetch arrivals for primary stop
         arrivals = fetch_arrivals_for_stop(self.primary_stop_id)
-        arrivals_data = process_arrivals_data(arrivals)
+        arrivals_data = process_arrivals_data(arrivals, is_summary=True)
 
         # Fetch line status
         line_ids = arrivals_data.get("line_ids", [])
@@ -113,7 +113,7 @@ class TFLArrivals(BaseComponent):
 
         for stop_id in self.all_stop_ids:
             arrivals = fetch_arrivals_for_stop(stop_id)
-            arrivals_data = process_arrivals_data(arrivals)
+            arrivals_data = process_arrivals_data(arrivals, is_summary=False)
             all_arrivals_data[stop_id] = arrivals_data
             all_line_ids.update(arrivals_data.get("line_ids", []))
 

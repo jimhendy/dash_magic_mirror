@@ -194,19 +194,21 @@ def _create_arrival_card(arrival: dict) -> html.Div:
                                     "flex": "1",
                                 },
                             ),
-                            # Bethnal Green indicator
+                            # Transfer station indicator
                             html.Span(
                                 arrival.get("bethnal_green_indicator", ""),
                                 style={
-                                    "fontSize": "1rem",
+                                    "fontSize": "1.2rem",
                                     "marginLeft": "8px",
-                                    "title": "Stops at Bethnal Green"
+                                    "color": COLORS["green"]
+                                    if arrival.get("bethnal_green_indicator")
+                                    else "transparent",
+                                    "fontWeight": "bold",
+                                    "title": "Stops at Transfer Station"
                                     if arrival.get("bethnal_green_indicator")
                                     else "",
                                 },
-                            )
-                            if arrival.get("bethnal_green_indicator")
-                            else html.Span(),
+                            ),
                         ],
                         style={
                             "display": "flex",
@@ -215,17 +217,9 @@ def _create_arrival_card(arrival: dict) -> html.Div:
                             "flex": "1",
                         },
                     ),
-                    # Right side: Platform and time
+                    # Right side: Time
                     html.Div(
                         [
-                            html.Span(
-                                arrival["platform"].replace("Platform ", "Plat "),
-                                style={
-                                    "color": COLORS["soft_gray"],
-                                    "fontSize": "0.95rem",  # Increased from 0.85rem
-                                    "marginRight": "12px",
-                                },
-                            ),
                             html.Span(
                                 f"{arrival['minutes']}m"
                                 if arrival["minutes"] > 0

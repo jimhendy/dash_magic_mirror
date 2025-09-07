@@ -9,6 +9,36 @@ body {
     padding: 0;
     line-height: 1;
     color: #ffffff;
+    /* Prevent text selection and cursor */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    cursor: default;
+}
+
+/* Apply no-select globally to all elements */
+* {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    cursor: default;
+}
+
+/* Prevent text cursor from appearing */
+*:focus {
+    outline: none;
+}
+
+/* Prevent any text input behaviors */
+input, textarea, [contenteditable] {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    cursor: default;
+    pointer-events: none;
 }
 
 .text-vs { font-size: 0.8rem; }

@@ -120,7 +120,10 @@ def _create_arrivals_table(arrivals: list) -> html.Div:
         [
             html.Div("Station & Line", style={"flex": "2.5", "fontWeight": "600"}),
             html.Div("Destination", style={"flex": "3", "fontWeight": "600"}),
-            html.Div("Platform", style={"flex": "1", "fontWeight": "600"}),
+            html.Div(
+                "Transfer Station",
+                style={"flex": "1", "fontWeight": "600", "textAlign": "center"},
+            ),
             html.Div(
                 "Arrival Time",
                 style={"flex": "1.5", "fontWeight": "600", "textAlign": "right"},
@@ -144,13 +147,6 @@ def _create_arrivals_table(arrivals: list) -> html.Div:
 
         # Alternate row colors
         bg_color = "rgba(255,255,255,0.03)" if i % 2 == 0 else "rgba(255,255,255,0.08)"
-
-        # Clean platform display - replace "Platform null" or "null" with ""
-        platform_text = arrival.get("platform", "")
-        if platform_text in ["null", "Platform null", "Platform Unknown"]:
-            platform_text = ""
-        elif platform_text.startswith("Platform "):
-            platform_text = platform_text.replace("Platform ", "")
 
         # Clean station name - remove "London " prefix
         station_name = arrival["station_name"]
@@ -202,45 +198,28 @@ def _create_arrivals_table(arrivals: list) -> html.Div:
                     style={"flex": "2.5"},
                 ),
                 html.Div(
-                    [
-                        html.Span(
-                            arrival["destination"],
-                            style={
-                                "color": COLORS["white"],
-                                "fontSize": "1rem",
-                            },
-                        ),
-                        html.Span(
-                            arrival.get("bethnal_green_indicator", ""),
-                            style={
-                                "fontSize": "1rem",
-                                "marginLeft": "8px",
-                                "title": "Stops at Bethnal Green"
-                                if arrival.get("bethnal_green_indicator")
-                                else "",
-                            },
-                        )
-                        if arrival.get("bethnal_green_indicator")
-                        else html.Span(),
-                    ],
+                    arrival["destination"],
                     style={
                         "flex": "3",
                         "alignSelf": "center",
-                        "display": "flex",
-                        "alignItems": "center",
+                        "color": COLORS["white"],
+                        "fontSize": "1rem",
                     },
                 ),
                 html.Div(
-                    platform_text or "–",  # Use dash if no platform
+                    arrival.get("bethnal_green_indicator", ""),
                     style={
                         "flex": "1",
-                        "color": COLORS["soft_gray"]
-                        if platform_text
-                        else COLORS["gray"],
-                        "fontSize": "0.9rem",
+                        "color": COLORS["green"]
+                        if arrival.get("bethnal_green_indicator")
+                        else "transparent",
+                        "fontSize": "1.2rem",
                         "alignSelf": "center",
                         "textAlign": "center",
-                        "fontWeight": "500" if platform_text else "300",
+                        "fontWeight": "bold",
+                        "title": "Stops at Transfer Station"
+                        if arrival.get("bethnal_green_indicator")
+                        else "",
                     },
                 ),
                 html.Div(
