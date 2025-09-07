@@ -213,7 +213,6 @@ def _create_arrival_card(arrival: dict) -> html.Div:
                         style={
                             "display": "flex",
                             "alignItems": "center",
-                            "overflow": "hidden",
                             "flex": "1",
                         },
                     ),

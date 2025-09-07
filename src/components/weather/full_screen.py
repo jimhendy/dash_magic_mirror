@@ -376,7 +376,6 @@ def render_weather_fullscreen(
             "color": "white",
             "backgroundColor": "black",
             "fontFamily": FONT_FAMILY,
-            "overflow": "hidden",
             "display": "flex",
             "flexDirection": "column",
         },

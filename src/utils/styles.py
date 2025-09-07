@@ -32,7 +32,6 @@ COMPACT_STYLES = {
         "lineHeight": "1.1",
         "width": "100vw",
         "height": "100vh",
-        "overflow": "hidden",
         "position": "relative",
         "left": "0",
         "top": "0",

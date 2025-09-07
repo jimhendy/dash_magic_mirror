@@ -72,7 +72,6 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
                                         "fontWeight": "bold" if is_today else "500",
                                         "color": COLORS["white"],
                                         "flex": "1",
-                                        "overflow": "hidden",
                                         "textOverflow": "ellipsis",
                                         "whiteSpace": "nowrap",
                                         "fontSize": "1.1rem",  # Added explicit font size

@@ -223,8 +223,6 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
             html.Div(
                 fixture_cards,
                 style={
-                    "maxHeight": "80vh",
-                    "overflowY": "auto",
                     "padding": "0 20px",
                 },
             ),

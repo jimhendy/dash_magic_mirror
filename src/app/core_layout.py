@@ -27,7 +27,6 @@ def _full_screen_modal() -> Component:
             "left": "0",
             "width": "100vw",
             "height": "100vh",
-            "overflow": "hidden",
             "margin": "0",
             "padding": "0",
             "background": COLORS["black"],
@@ -73,7 +72,7 @@ def _full_screen_modal() -> Component:
                     html.Div(
                         id="full-screen-modal-content",
                         children=[],
-                        style={"height": "calc(100vh - 50px)"},
+                        style={"height": "calc(100vh - 50px)", "overflow": "auto"},
                     ),
                 ],
             ),
