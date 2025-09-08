@@ -17,6 +17,7 @@ class Sport:
     icon: str  # Iconify icon name e.g. "mdi:rugby"
     icon_color: str = "#FFFFFF"  # Icon color (optional)
     display_name: str = ""  # Friendly name (optional)
+    team_icon_map: dict[str, str] | None = None  # optional per-team iconify icon codes
 
 
 # Configure the sports / teams you care about
@@ -27,6 +28,13 @@ SPORTS: list[Sport] = [
         display_name="Rugby",
         icon="mdi:rugby",
         icon_color="#4CAF50",  # Green for rugby
+        team_icon_map={
+            # NOTE: Using approximate / generic emblem icons available in Iconify. Replace with custom SVG if desired.
+            "scotland": "mdi:flag-variant",  # Placeholder for Scotland Rugby
+            "ireland": "mdi:clover",  # Shamrock style
+            "munster": "mdi:crown",  # Placeholder emblem
+            "glasgow warriors": "mdi:shield-sword",  # Warrior style
+        },
     ),
     Sport(
         url="cricket",
@@ -34,6 +42,9 @@ SPORTS: list[Sport] = [
         display_name="Cricket",
         icon="mdi:cricket",
         icon_color="#FF9800",
+        team_icon_map={
+            "england": "mdi:shield-cross",  # St George style
+        },
     ),  # Orange for cricket
     Sport(
         url="football",
@@ -41,8 +52,29 @@ SPORTS: list[Sport] = [
         display_name="Football",
         icon="mdi:soccer",
         icon_color="#2196F3",  # Blue for football
+        team_icon_map={
+            "everton": "mdi:castle",  # Placeholder; swap with custom badge
+        },
     ),
 ]
+
+# Mapping from team name to crest ASSET PATH **per sport** to avoid cross-sport collisions
+# Keys: sport.url -> { team_lower: asset_path }
+SPORT_TEAM_CRESTS: dict[str, dict[str, str]] = {
+    "rugby-union": {
+        "munster": "/assets/crests/munster.svg",
+        "glasgow warriors": "/assets/crests/glasgow.png",
+        "scotland": "/assets/crests/scotland-rugby.svg",
+        "ireland": "/assets/crests/ireland-rugby.svg",
+    },
+    "cricket": {
+        "england": "/assets/crests/england-cricket.svg",
+        # intentionally NOT mapping 'ireland' to avoid showing rugby crest in cricket context
+    },
+    "football": {
+        "everton": "/assets/crests/everton.ico",
+    },
+}
 
 FETCH_RANGE_DAYS = 31
 USER_AGENT = (
@@ -180,8 +212,24 @@ def _create_fixture_dict(
     date_time_raw: str = "",
 ) -> dict[str, Any]:
     """Create a standardized fixture dictionary."""
+    # Determine if a specific team icon can override the generic sport icon
+    team_icon = sport.icon
+    if sport.team_icon_map:
+        home_lower = home.lower().strip()
+        away_lower = away.lower().strip()
+        for key, value in sport.team_icon_map.items():
+            if home_lower == key or away_lower == key:
+                team_icon = value
+                break
+    # Sport-scoped crest lookup only
+    crest_path = None
+    crest_map = SPORT_TEAM_CRESTS.get(sport.url, {})
+    for team_name in (home.lower(), away.lower()):
+        if team_name in crest_map:
+            crest_path = crest_map[team_name]
+            break
     return {
-        "sport_icon": sport.icon,
+        "sport_icon": team_icon,
         "sport_icon_color": sport.icon_color,
         "sport_name": sport.display_name or sport.url.title(),
         "raw": raw_text,
@@ -194,6 +242,7 @@ def _create_fixture_dict(
         "sort_date": parsed_date or datetime.date.max,
         "date_time_raw": date_time_raw,
         "fetched_at": datetime.datetime.now(datetime.UTC).isoformat(),
+        "crest": crest_path,
     }
 
 

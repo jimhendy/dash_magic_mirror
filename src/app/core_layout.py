@@ -40,14 +40,47 @@ def _full_screen_modal() -> Component:
                     html.Div(
                         id="full-screen-modal-nav-bar",
                         children=[
+                            # Left group (Back)
                             html.Div(
-                                children=[
+                                [
                                     dmc.Button(
                                         "Back",
                                         id="full-screen-modal-back-btn",
                                         variant="outline",
                                         n_clicks=0,
                                         style={"marginRight": "10px"},
+                                    ),
+                                ],
+                                style={
+                                    "display": "flex",
+                                    "alignItems": "center",
+                                    "minWidth": "120px",
+                                },
+                            ),
+                            # Center title (flex grow)
+                            html.Div(
+                                id="full-screen-modal-title",
+                                style={
+                                    "flex": 1,
+                                    "display": "flex",
+                                    "alignItems": "center",
+                                    "justifyContent": "center",
+                                    "textAlign": "center",
+                                    "padding": "0 10px",
+                                },
+                            ),
+                            # Right group (timer + refresh)
+                            html.Div(
+                                [
+                                    dmc.Text(
+                                        id="full-screen-modal-timer",
+                                        size="sm",
+                                        style={
+                                            "marginRight": "12px",
+                                            "color": "#AAA",
+                                            "minWidth": "70px",
+                                            "textAlign": "right",
+                                        },
                                     ),
                                     dmc.Button(
                                         DashIconify(icon="mdi:trash-can"),
@@ -56,17 +89,27 @@ def _full_screen_modal() -> Component:
                                         color="yellow",
                                         size="sm",
                                         n_clicks=0,
+                                        style={
+                                            "borderColor": "#666",
+                                        },
                                     ),
                                 ],
-                                style={"display": "flex", "alignItems": "center"},
+                                style={
+                                    "display": "flex",
+                                    "alignItems": "center",
+                                    "justifyContent": "flex-end",
+                                    "gap": "4px",
+                                    "minWidth": "160px",
+                                },
                             ),
-                            html.Div(id="full-screen-modal-title"),
-                            dmc.Text(id="full-screen-modal-timer", size="sm"),
                         ],
                         style={
                             "display": "flex",
                             "justifyContent": "space-between",
+                            "alignItems": "center",
                             "height": "50px",
+                            "padding": "0 8px",
+                            "borderBottom": "1px solid #222",
                         },
                     ),
                     html.Div(

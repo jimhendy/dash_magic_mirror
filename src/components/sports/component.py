@@ -118,6 +118,16 @@ class Sports(BaseComponent):
                 logger.error(f"Error preparing sports full screen: {e}")
                 return existing_title, existing_title
 
+        # Client-side filtering of fixture cards (hide/show) based on selected sport
+        app.clientside_callback(
+            "function(value){\n  try {\n    const wrapper = document.getElementById('"
+            f"{self.component_id}-fixtures-wrapper"
+            "');\n    if(!wrapper){return window.dash_clientside.no_update;}\n    const cards = wrapper.querySelectorAll('[data-sport]');\n    if(!cards.length){return window.dash_clientside.no_update;}\n    const sel = (value || 'all').toLowerCase();\n    cards.forEach(c=>{\n      const sport = (c.getAttribute('data-sport') || '').toLowerCase();\n      if(sel==='all' || sport===sel){\n        c.style.display = 'block';\n      } else {\n        c.style.display = 'none';\n      }\n    });\n  } catch(e){ console.warn('sport filter failed', e); }\n  return '';\n}",
+            Output(f"{self.component_id}-sport-filter", "title"),  # dummy no-op output
+            Input(f"{self.component_id}-sport-filter", "value"),
+            prevent_initial_call=False,
+        )
+
     def full_screen_content(self) -> FullScreenResult:
         """Fallback path (not used in preloaded mode)."""
         try:

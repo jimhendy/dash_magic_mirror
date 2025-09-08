@@ -46,6 +46,8 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
             except ValueError:
                 date_display = fx.get("date_time_raw", "")[:20]
 
+        crest = fx.get("crest")
+
         # Create compact fixture card
         fixture_card = html.Div(
             [
@@ -64,6 +66,18 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
                                         ),
                                         "flexShrink": "0",
                                         "fontSize": "1.4rem",  # Increased from 1.2rem
+                                        "display": "none" if crest else "block",
+                                    },
+                                ),
+                                html.Img(
+                                    src=crest,
+                                    style={
+                                        "height": "30px",
+                                        "width": "30px",
+                                        "objectFit": "contain",
+                                        "marginRight": "8px",
+                                        "display": "block" if crest else "none",
+                                        "filter": "drop-shadow(0 0 2px rgba(0,0,0,0.6))",
                                     },
                                 ),
                                 html.Span(

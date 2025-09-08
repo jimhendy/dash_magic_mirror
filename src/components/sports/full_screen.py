@@ -1,16 +1,16 @@
 import datetime
 from typing import Any
 
-from dash import html
+from dash import dcc, html
 from dash_iconify import DashIconify
 
 from utils.styles import COLORS, FONT_FAMILY
 
+from .data import SPORTS, get_full_screen_fixtures
+
 
 def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Div:
-    """Render the sports full screen view with detailed fixture information."""
-    from .data import get_full_screen_fixtures
-
+    """Render the sports full screen view with detailed fixture information including filter controls."""
     fixtures = get_full_screen_fixtures(data)
 
     if not fixtures:
@@ -27,6 +27,14 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
                 ),
             ],
         )
+
+    # Build filter options
+    filter_options = [
+        {"label": "All", "value": "all"},
+    ]
+    for sport in SPORTS:
+        label = sport.display_name or sport.url.title()
+        filter_options.append({"label": label, "value": label.lower()})
 
     # Create table data
     table_data = []
@@ -51,7 +59,6 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
             except ValueError:
                 date_display = fx.get("date_time_raw", "")[:15]
 
-        # Create row data
         row = {
             "Sport": fx.get("sport_name", ""),
             "Date": date_display,
@@ -60,17 +67,17 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
             "Away": fx.get("away", ""),
             "Competition": fx.get("competition", ""),
             "Channel": fx.get("channel", ""),
+            "Crest": fx.get("crest"),  # new
             "_is_today": is_today,
             "_sport_icon": fx.get("sport_icon", "mdi:help-circle"),
             "_sport_color": fx.get("sport_icon_color", COLORS["blue"]),
         }
         table_data.append(row)
 
-    # Create custom fixture cards instead of table for better formatting
     fixture_cards = []
-
-    for row in table_data:
+    for idx, row in enumerate(table_data):
         is_today = row["_is_today"]
+        sport_value = row["Sport"].lower()
 
         card = html.Div(
             [
@@ -85,6 +92,22 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
                                         "marginRight": "10px",
                                         "color": row["_sport_color"],
                                         "fontSize": "1.5rem",
+                                        "display": "none"
+                                        if row.get("Crest")
+                                        else "block",
+                                    },
+                                ),
+                                html.Img(
+                                    src=row.get("Crest"),
+                                    style={
+                                        "height": "34px",
+                                        "width": "34px",
+                                        "objectFit": "contain",
+                                        "marginRight": "10px",
+                                        "display": "block"
+                                        if row.get("Crest")
+                                        else "none",
+                                        "filter": "drop-shadow(0 0 2px rgba(0,0,0,0.6))",
                                     },
                                 ),
                                 html.Span(
@@ -203,6 +226,8 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
                     },
                 ),
             ],
+            id=f"{component_id}-fixture-card-{idx}",
+            **{"data-sport": sport_value},
             style={
                 "border": f"2px solid {COLORS['gold']}"
                 if is_today
@@ -220,11 +245,47 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
 
     return html.Div(
         [
+            # Filter bar
+            html.Div(
+                [
+                    dcc.RadioItems(
+                        id=f"{component_id}-sport-filter",
+                        options=filter_options,
+                        value="all",
+                        inline=True,
+                        labelStyle={
+                            "marginRight": "12px",
+                            "cursor": "pointer",
+                            "display": "flex",
+                            "alignItems": "center",
+                            "gap": "4px",
+                        },
+                        style={
+                            "fontFamily": FONT_FAMILY,
+                            "fontSize": "0.9rem",
+                            "display": "flex",
+                            "flexWrap": "wrap",
+                            "gap": "16px",
+                            "color": COLORS["white"],
+                            "marginBottom": "6px",
+                            "justifyContent": "center",  # centered buttons
+                            "width": "100%",
+                        },
+                    ),
+                ],
+                style={
+                    "padding": "8px 10px 4px 10px",
+                    "borderBottom": f"1px solid {COLORS['soft_gray']}",
+                    "marginBottom": "10px",
+                    "display": "flex",
+                    "justifyContent": "center",
+                },
+            ),
+            # Fixtures wrapper
             html.Div(
                 fixture_cards,
-                style={
-                    "padding": "0 20px",
-                },
+                id=f"{component_id}-fixtures-wrapper",
+                style={"padding": "0 20px"},
             ),
         ],
         style={
