@@ -3,6 +3,7 @@ import os
 from typing import Any
 
 import httpx
+from dash_iconify import DashIconify
 from loguru import logger
 
 from utils.file_cache import cache_json
@@ -48,7 +49,7 @@ def fetch_timetable(line_id: str, from_stop_id: str, to_stop_id: str) -> dict:
 
 
 @cache_json(valid_lifetime=datetime.timedelta(seconds=30))
-def fetch_bethnal_green_arrivals() -> list[dict]:
+def fetch_transfer_station_arrivals() -> list[dict]:
     """Fetch arrivals at transfer station."""
     transfer_station_id = get_transfer_station_id()
     if not transfer_station_id:
@@ -56,9 +57,9 @@ def fetch_bethnal_green_arrivals() -> list[dict]:
     return fetch_arrivals_for_stop(transfer_station_id)
 
 
-def check_stops_at_bethnal_green(
+def check_stops_at_transfer_station(
     arrival: dict,
-    bethnal_green_arrivals: list[dict],
+    transfer_station_arrivals: list[dict],
 ) -> bool:
     """Check if a train service stops at the transfer station by matching vehicle IDs and destinations."""
     vehicle_id = arrival.get("vehicleId", "")
@@ -70,7 +71,7 @@ def check_stops_at_bethnal_green(
 
     # First try exact vehicle ID match
     if vehicle_id:
-        for bg_arrival in bethnal_green_arrivals:
+        for bg_arrival in transfer_station_arrivals:
             if (
                 bg_arrival.get("vehicleId", "") == vehicle_id
                 and bg_arrival.get("lineId", "") == line_id
@@ -84,7 +85,7 @@ def check_stops_at_bethnal_green(
         "central",
     ]:  # Overground and Central line
         # Check if there are any trains on the same line going to the same destination at transfer station
-        for bg_arrival in bethnal_green_arrivals:
+        for bg_arrival in transfer_station_arrivals:
             bg_destination = bg_arrival.get("destinationName", "")
             bg_line_id = bg_arrival.get("lineId", "")
             if bg_line_id == line_id and "liverpool street" in bg_destination.lower():
@@ -93,15 +94,20 @@ def check_stops_at_bethnal_green(
     return False
 
 
-def get_bethnal_green_indicator(
+def get_transfer_station_indicator(
     arrival: dict,
-    bethnal_green_arrivals: list[dict],
+    transfer_station_arriavls: list[dict],
     is_summary: bool = False,
 ) -> str:
     """Get indicator symbol for trains that stop at transfer station."""
-    if check_stops_at_bethnal_green(arrival, bethnal_green_arrivals):
+    if check_stops_at_transfer_station(arrival, transfer_station_arriavls):
         if is_summary:
-            return "Ⓑ"  # B in circle for summary
+            return DashIconify(
+                icon="mdi:alpha-b-circle-outline",
+                color="green",
+                width=30,
+                height=30,
+            )
         return "✓"  # Tick for full screen
     return ""
 
@@ -213,7 +219,7 @@ def process_arrivals_data(
     station_name = arrivals[0].get("stationName", "Unknown Station")
 
     # Fetch Bethnal Green arrivals once for all comparisons
-    bethnal_green_arrivals = fetch_bethnal_green_arrivals()
+    transfer_station_arrivals = fetch_transfer_station_arrivals()
 
     # Get ignore destination for summary filtering
     ignore_destination = os.environ.get("TFL_SUMMARY_IGNORE_DESTINATION", "")
@@ -256,9 +262,9 @@ def process_arrivals_data(
                     "direction": arrival.get("direction", ""),
                     "mode": arrival.get("modeName", ""),
                     "station_name": clean_station_name(arrival.get("stationName", "")),
-                    "bethnal_green_indicator": get_bethnal_green_indicator(
+                    "transfer_station_indicator": get_transfer_station_indicator(
                         arrival,
-                        bethnal_green_arrivals,
+                        transfer_station_arrivals,
                         is_summary,
                     ),
                 }

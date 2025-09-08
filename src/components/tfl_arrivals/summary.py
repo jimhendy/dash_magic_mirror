@@ -196,16 +196,17 @@ def _create_arrival_card(arrival: dict) -> html.Div:
                             ),
                             # Transfer station indicator
                             html.Span(
-                                arrival.get("bethnal_green_indicator", ""),
+                                arrival.get("transfer_station_indicator", ""),
                                 style={
                                     "fontSize": "1.2rem",
                                     "marginLeft": "8px",
                                     "color": COLORS["green"]
-                                    if arrival.get("bethnal_green_indicator")
+                                    if arrival.get("transfer_station_indicator")
                                     else "transparent",
                                     "fontWeight": "bold",
+                                    "marginRight": "auto",
                                     "title": "Stops at Transfer Station"
-                                    if arrival.get("bethnal_green_indicator")
+                                    if arrival.get("transfer_station_indicator")
                                     else "",
                                 },
                             ),

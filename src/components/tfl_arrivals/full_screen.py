@@ -207,18 +207,18 @@ def _create_arrivals_table(arrivals: list) -> html.Div:
                     },
                 ),
                 html.Div(
-                    arrival.get("bethnal_green_indicator", ""),
+                    arrival.get("transfer_station_indicator", ""),
                     style={
                         "flex": "1",
                         "color": COLORS["green"]
-                        if arrival.get("bethnal_green_indicator")
+                        if arrival.get("transfer_station_indicator")
                         else "transparent",
                         "fontSize": "1.2rem",
                         "alignSelf": "center",
                         "textAlign": "center",
                         "fontWeight": "bold",
                         "title": "Stops at Transfer Station"
-                        if arrival.get("bethnal_green_indicator")
+                        if arrival.get("transfer_station_indicator")
                         else "",
                     },
                 ),
