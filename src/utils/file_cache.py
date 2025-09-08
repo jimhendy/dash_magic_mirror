@@ -5,6 +5,8 @@ from functools import wraps
 from hashlib import md5
 from pathlib import Path
 
+from loguru import logger
+
 from components.base import BaseComponent
 
 CACHE_PATH = Path.home() / ".cache" / "magic_mirror"
@@ -75,11 +77,11 @@ def cache_json(valid_lifetime: datetime.timedelta) -> Callable:
                 f: datetime.datetime.strptime(
                     f.stem.split("_")[-1],
                     DT_FORMAT,
-                ).astimezone(tz=datetime.UTC)
+                ).replace(tzinfo=datetime.UTC)
                 for f in CACHE_PATH.glob(cache_file_name.format(write_time="*"))
             }
             valid_files = {
-                f: t for f, t in cache_files.items() if now - t < valid_lifetime
+                f: t for f, t in cache_files.items() if t + valid_lifetime > now
             }
             if valid_files:
                 # Use the most recent valid cache file
@@ -87,6 +89,7 @@ def cache_json(valid_lifetime: datetime.timedelta) -> Callable:
                 with open(latest_file) as f:
                     return json.load(f)
             else:
+                logger.critical(f"No valid cache found for {cache_key}")
                 # Remove old cache files
                 for f in cache_files:
                     f.unlink(missing_ok=True)

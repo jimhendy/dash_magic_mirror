@@ -48,7 +48,7 @@ def fetch_timetable(line_id: str, from_stop_id: str, to_stop_id: str) -> dict:
         return {}
 
 
-@cache_json(valid_lifetime=datetime.timedelta(seconds=30))
+@cache_json(valid_lifetime=datetime.timedelta(seconds=60))
 def fetch_transfer_station_arrivals() -> list[dict]:
     """Fetch arrivals at transfer station."""
     transfer_station_id = get_transfer_station_id()
@@ -112,7 +112,7 @@ def get_transfer_station_indicator(
     return ""
 
 
-@cache_json(valid_lifetime=datetime.timedelta(seconds=30))
+@cache_json(valid_lifetime=datetime.timedelta(seconds=60))
 def fetch_arrivals_for_stop(stop_id: str) -> list[dict]:
     """Fetch arrivals for a single stop."""
     try:

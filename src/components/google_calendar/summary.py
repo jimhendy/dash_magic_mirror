@@ -35,16 +35,105 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
     today_events = get_events_for_date(sorted_events, today)
     tomorrow_events = get_events_for_date(sorted_events, tomorrow)
 
+    all_events = []
+    seen_ids = set()
+    for event in today_events + tomorrow_events:
+        if event.id not in seen_ids:
+            seen_ids.add(event.id)
+            all_events.append(event)
+    multi_day_events = []
+    single_today_events = []
+    single_tomorrow_events = []
+
+    for event in all_events:
+        start_date = event.start_datetime.date()
+        end_date = event.end_datetime.date()
+        if start_date <= today and end_date >= tomorrow:
+            multi_day_events.append(event)
+        else:
+            if start_date == today or (start_date < today and end_date == today):
+                single_today_events.append(event)
+            if start_date == tomorrow or (
+                start_date < tomorrow and end_date == tomorrow
+            ):
+                single_tomorrow_events.append(event)
+
+    def _render_multi_day_event(event):
+        event_starts_here = event.start_datetime.date() == today
+        event_ends_here = event.end_datetime.date() == tomorrow
+        border_radius = calculate_event_border_radius(
+            event_starts_here,
+            event_ends_here,
+        )
+        margin_left, margin_right = calculate_event_margins(
+            event_starts_here,
+            event_ends_here,
+        )
+        event_styles = get_common_event_styles()
+        event_styles.update(
+            {
+                "backgroundColor": get_event_color_by_event(event.id),
+                "borderRadius": border_radius,
+                "marginLeft": "auto",  # if event_starts_here else margin_left,
+                "marginRight": "auto",  # if event_ends_here else margin_right,
+                "position": "relative",
+                "width": "97%",
+            },
+        )
+        time_display = generate_event_time_display(
+            event,
+            event_starts_here,
+            event_ends_here,
+        )
+        return html.Div(
+            style=event_styles,
+            children=[
+                html.Div(
+                    truncate_event_title(event.title, 25),
+                    style={
+                        "fontWeight": "500",
+                        "marginBottom": "2px" if time_display else "0px",
+                        "overflow": "hidden",
+                        "textOverflow": "ellipsis",
+                        "whiteSpace": "nowrap",
+                    },
+                ),
+                html.Div(
+                    time_display,
+                    style={
+                        "fontSize": "10px",
+                        "opacity": "0.9",
+                        "overflow": "hidden",
+                        "textOverflow": "ellipsis",
+                        "whiteSpace": "nowrap",
+                    },
+                )
+                if time_display
+                else None,
+            ],
+        )
+
     return html.Div(
         style={
             "display": "flex",
+            "flexDirection": "column",
             "width": "100%",
             "gap": "8px",
             "cursor": "pointer",
+            "alignItems": "stretch",
         },
         children=[
-            _render_day_column(today, today_events, "Today"),
-            _render_day_column(tomorrow, tomorrow_events, "Tomorrow"),
+            *[_render_multi_day_event(event) for event in multi_day_events],
+            html.Div(
+                style={
+                    "display": "flex",
+                    "gap": "8px",
+                },
+                children=[
+                    _render_day_column(today, single_today_events, "Today"),
+                    _render_day_column(tomorrow, single_tomorrow_events, "Tomorrow"),
+                ],
+            ),
         ],
     )
 
@@ -70,25 +159,9 @@ def _render_day_column(
             "flex": "1",
             "display": "flex",
             "flexDirection": "column",
-            "border": "1px solid rgba(255, 255, 255, 0.2)",
-            "borderRadius": "8px",
-            "minHeight": "200px",
             "backgroundColor": "rgba(255, 255, 255, 0.05)",
         },
         children=[
-            # Day header
-            html.Div(
-                style={
-                    "padding": "8px 12px",
-                    "backgroundColor": "rgba(255, 255, 255, 0.1)",
-                    "borderRadius": "8px 8px 0 0",
-                    "borderBottom": "1px solid rgba(255, 255, 255, 0.2)",
-                    "textAlign": "center",
-                    "fontWeight": "bold",
-                    "fontSize": "16px",
-                },
-                children=[html.Div(f"{label}, {date.strftime('%d %b')}")],
-            ),
             # Events container
             html.Div(
                 style={
@@ -98,18 +171,7 @@ def _render_day_column(
                     "flexDirection": "column",
                     "gap": "4px",
                 },
-                children=[_render_event(event, date) for event in events]
-                or [
-                    html.Div(
-                        "No events",
-                        style={
-                            "textAlign": "center",
-                            "opacity": "0.5",
-                            "fontSize": "12px",
-                            "marginTop": "20px",
-                        },
-                    ),
-                ],
+                children=[_render_event(event, date) for event in events],
             ),
         ],
     )

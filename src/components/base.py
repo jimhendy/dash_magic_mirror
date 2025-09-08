@@ -1,4 +1,3 @@
-import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -6,6 +5,8 @@ from dash import Dash, Input, Output, State, html
 from dash.development.base_component import Component
 
 from utils.models import FullScreenResult
+
+_COMPONENT_COUNT = 0
 
 
 class BaseComponent(ABC):
@@ -21,8 +22,10 @@ class BaseComponent(ABC):
         full_screen: bool = True,
         **kwargs,
     ):
+        global _COMPONENT_COUNT
         self.name = name
-        self._id = uuid.uuid4().hex
+        self._id = _COMPONENT_COUNT
+        _COMPONENT_COUNT += 1
         self.separator = separator
         self.full_screen = full_screen
 
