@@ -1,4 +1,4 @@
-from dash import Input, Output, dcc, html
+from dash import Input, Output, State, dcc, html
 from loguru import logger
 
 from components.base import BaseComponent
@@ -22,7 +22,8 @@ class Sports(BaseComponent):
     """
 
     def __init__(self, fetch_minutes: int = 360, **kwargs):
-        super().__init__(name="sports", **kwargs)
+        # Enable preloaded full screen path
+        super().__init__(name="sports", preloaded_full_screen=True, **kwargs)
         self.fetch_minutes = fetch_minutes
 
     def _summary_layout(self):
@@ -36,6 +37,12 @@ class Sports(BaseComponent):
                     n_intervals=0,
                 ),
                 dcc.Store(id=f"{self.component_id}-store", data=None),
+                # New hidden stores for full screen prepopulation
+                dcc.Store(id=f"{self.component_id}-fullscreen-title-store", data=None),
+                dcc.Store(
+                    id=f"{self.component_id}-fullscreen-content-store",
+                    data=None,
+                ),
                 html.Div(
                     id=f"{self.component_id}-content",
                     style={
@@ -86,8 +93,33 @@ class Sports(BaseComponent):
                     },
                 )
 
+        # Populate full screen stores whenever data updates or on first click if not yet populated
+        @app.callback(
+            Output(f"{self.component_id}-fullscreen-title-store", "data"),
+            Output(f"{self.component_id}-fullscreen-content-store", "data"),
+            Input(f"{self.component_id}-store", "data"),
+            State(f"{self.component_id}-fullscreen-title-store", "data"),
+            prevent_initial_call=False,
+        )
+        def populate_fullscreen_stores(data, existing_title):
+            try:
+                # If no data yet
+                if not data:
+                    return existing_title, existing_title  # leave unchanged / None
+                content = render_sports_fullscreen(data, self.component_id)
+                # Title is static string for this component
+                title = html.Div(
+                    "Sports Fixtures",
+                    className="text-m",
+                    **{"data-component-name": self.name},
+                )
+                return title, content
+            except Exception as e:
+                logger.error(f"Error preparing sports full screen: {e}")
+                return existing_title, existing_title
+
     def full_screen_content(self) -> FullScreenResult:
-        """Returns the full-screen layout of the Sports component."""
+        """Fallback path (not used in preloaded mode)."""
         try:
             data = process_sports_data()
             content = render_sports_fullscreen(data, self.component_id)

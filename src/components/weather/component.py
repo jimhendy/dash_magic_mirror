@@ -25,7 +25,7 @@ class Weather(BaseComponent):
     icon_size = "7rem"
 
     def __init__(self, postcode: str, api_key: str, **kwargs):
-        super().__init__(name="weather", **kwargs)
+        super().__init__(name="weather", preloaded_full_screen=True, **kwargs)
         self.postcode = postcode.upper().replace(" ", "")
         self.api_key = api_key
 
@@ -41,6 +41,11 @@ class Weather(BaseComponent):
                     id=f"{self.component_id}-interval",
                     interval=15 * 60 * 1000,  # Update every 15 minutes
                     n_intervals=0,
+                ),
+                dcc.Store(id=f"{self.component_id}-fullscreen-title-store", data=None),
+                dcc.Store(
+                    id=f"{self.component_id}-fullscreen-content-store",
+                    data=None,
                 ),
                 html.Div(
                     id=f"{self.component_id}-content",
@@ -73,6 +78,28 @@ class Weather(BaseComponent):
             except Exception as e:
                 logger.error(f"Error updating weather: {e}")
                 return html.Div("Weather unavailable", style={"color": "#FF6B6B"})
+
+        # Populate full screen stores
+        @app.callback(
+            Output(f"{self.component_id}-fullscreen-title-store", "data"),
+            Output(f"{self.component_id}-fullscreen-content-store", "data"),
+            Input(f"{self.component_id}-interval", "n_intervals"),
+            prevent_initial_call=False,
+        )
+        def populate_fullscreen(_n):
+            try:
+                api_data = fetch_weather_data(self.api_key, self.postcode)
+                weather_data = process_detailed_weather_data(api_data, self.postcode)
+                content = render_weather_fullscreen(weather_data, self.component_id)
+                title = html.Div(
+                    weather_data["current"]["condition"],
+                    className="text-m",
+                    **{"data-component-name": self.name},
+                )
+                return title, content
+            except Exception as e:
+                logger.error(f"Error preparing weather full screen: {e}")
+                return None, None
 
     def full_screen_content(self) -> FullScreenResult:
         """Returns the full-screen layout of the Weather component."""

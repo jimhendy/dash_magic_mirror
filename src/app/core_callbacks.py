@@ -43,32 +43,21 @@ def add_callbacks() -> None:
     app.clientside_callback(
         r"""
         function(interval, countdown_text, current_style) {
-            console.log("Timer callback - Interval:", interval, "Countdown:", countdown_text, "Style:", current_style);
-            
             const is_opened = current_style && current_style.display === "block";
-            
-            // If modal is not open, do nothing
             if (!is_opened) {
                 return [window.dash_clientside.no_update, window.dash_clientside.no_update];
             }
-            
-            // Handle timer countdown
             if (!countdown_text || countdown_text === "Close in 0") {
                 let new_style = { ...current_style, display: "none" };
                 return [new_style, null];
             }
-            
             const match = countdown_text.match(/Close in (\d+)/);
             const current = match ? parseInt(match[1]) : 30;
-            
-            // Check if mouse moved recently (within last 2 seconds) and reset timer
             const lastMouseMove = window.lastMouseMove || 0;
             const now = Date.now();
             if (now - lastMouseMove < 2000 && current <= 25) {
-                // Reset to 30 if mouse moved and timer is below 25
                 return [window.dash_clientside.no_update, "Close in 30"];
             }
-            
             return [window.dash_clientside.no_update, "Close in " + Math.max(0, current - 1)];
         }
         """,
@@ -148,23 +137,15 @@ def add_callbacks() -> None:
     ):
         """Clear the cache for the current component, trigger global refresh, and close modal."""
         if n_clicks and current_title:
-            # Extract component name from the title's data attribute
             component_name = None
-
             if isinstance(current_title, dict):
-                # Extract component name from data attribute
                 props = current_title.get("props", {})
                 component_name = props.get("data-component-name")
-
             if component_name:
                 clear_component_cache(component_name)
                 new_refresh_count = (current_refresh_count or 0) + 1
-
-                # Close the modal by setting display to none
                 closed_modal_style = {**(current_modal_style or {}), "display": "none"}
-
                 return new_refresh_count, closed_modal_style
-
         return current_refresh_count, current_modal_style
 
     # Centralized app refresh callback - re-renders all components when cache is cleared
@@ -180,5 +161,4 @@ def add_callbacks() -> None:
             if i and component.separator:
                 component_layouts.append(_horizontal_separator())
             component_layouts.append(component.summary_layout())
-
         return component_layouts

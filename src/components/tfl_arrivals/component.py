@@ -36,7 +36,7 @@ class TFLArrivals(BaseComponent):
     """
 
     def __init__(self, **kwargs):
-        super().__init__(name="tfl_arrivals", **kwargs)
+        super().__init__(name="tfl_arrivals", preloaded_full_screen=True, **kwargs)
 
         # Get stop IDs from environment
         self.all_stop_ids = get_all_stop_ids()
@@ -55,6 +55,16 @@ class TFLArrivals(BaseComponent):
                     id=f"{self.component_id}-interval",
                     interval=30 * 1000,  # Update every 30 seconds
                     n_intervals=0,
+                ),
+                dcc.Interval(
+                    id=f"{self.component_id}-fullscreen-interval",
+                    interval=30 * 1000,  # Update every 30 seconds
+                    n_intervals=0,
+                ),
+                dcc.Store(id=f"{self.component_id}-fullscreen-title-store", data=None),
+                dcc.Store(
+                    id=f"{self.component_id}-fullscreen-content-store",
+                    data=None,
                 ),
                 html.Div(
                     id=f"{self.component_id}-content",
@@ -148,6 +158,33 @@ class TFLArrivals(BaseComponent):
                         "fontFamily": FONT_FAMILY,
                     },
                 )
+
+        # Populate full screen stores using fullscreen interval
+        @app.callback(
+            Output(f"{self.component_id}-fullscreen-title-store", "data"),
+            Output(f"{self.component_id}-fullscreen-content-store", "data"),
+            Input(f"{self.component_id}-fullscreen-interval", "n_intervals"),
+            prevent_initial_call=False,
+        )
+        def populate_fullscreen(_n):
+            try:
+                all_arrivals_data, line_status, stop_disruptions = (
+                    self._get_fullscreen_data()
+                )
+                content = render_tfl_fullscreen(
+                    all_arrivals_data,
+                    line_status,
+                    stop_disruptions,
+                )
+                title = html.Div(
+                    "Transport Arrivals",
+                    className="text-m",
+                    **{"data-component-name": self.name},
+                )
+                return title, content
+            except Exception as e:
+                logger.error(f"Error preparing TFL full screen: {e}")
+                return None, None
 
         # Full screen callback
         @app.callback(

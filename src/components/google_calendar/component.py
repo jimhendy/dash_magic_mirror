@@ -31,7 +31,8 @@ class GoogleCalendar(BaseComponent):
             calendar_config: Configuration object with calendar IDs and settings
 
         """
-        super().__init__(name="google_calendar", **kwargs)
+        # Enable preloaded full screen path
+        super().__init__(name="google_calendar", preloaded_full_screen=True, **kwargs)
         self.calendar_ids = calendar_ids
 
     def _get_processed_events(self, truncate_to_tomorrow: bool = True):
@@ -62,6 +63,12 @@ class GoogleCalendar(BaseComponent):
                     interval=5 * 60 * 1000,  # Update every 5 minutes
                     n_intervals=0,
                 ),
+                # Stores for pre-populated full screen content
+                dcc.Store(id=f"{self.component_id}-fullscreen-title-store", data=None),
+                dcc.Store(
+                    id=f"{self.component_id}-fullscreen-content-store",
+                    data=None,
+                ),
                 html.Div(
                     id=f"{self.component_id}-content",
                     style={
@@ -90,6 +97,31 @@ class GoogleCalendar(BaseComponent):
             except Exception as e:
                 logger.error(f"Error updating calendar: {e}")
                 return html.Div("Calendar unavailable", style={"color": "#FF6B6B"})
+
+        # Populate full screen stores (separate processing without truncation)
+        @app.callback(
+            Output(f"{self.component_id}-fullscreen-title-store", "data"),
+            Output(f"{self.component_id}-fullscreen-content-store", "data"),
+            Input(f"{self.component_id}-interval", "n_intervals"),
+            prevent_initial_call=False,
+        )
+        def populate_fullscreen(_n):
+            try:
+                from .full_screen import render_calendar_fullscreen
+
+                processed_events = self._get_processed_events(
+                    truncate_to_tomorrow=False,
+                )
+                fs_result = render_calendar_fullscreen(processed_events)
+                title = html.Div(
+                    fs_result.title,
+                    className="text-m",
+                    **{"data-component-name": self.name},
+                )
+                return title, fs_result.content
+            except Exception as e:
+                logger.error(f"Error preparing calendar full screen: {e}")
+                return None, None
 
     def full_screen_content(self) -> FullScreenResult:
         """Returns the full-screen layout of the Google Calendar component."""

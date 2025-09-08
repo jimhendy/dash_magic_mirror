@@ -20,6 +20,7 @@ class BaseComponent(ABC):
         *,
         separator: bool = False,
         full_screen: bool = True,
+        preloaded_full_screen: bool = False,  # New flag
         **kwargs,
     ):
         global _COMPONENT_COUNT
@@ -28,6 +29,9 @@ class BaseComponent(ABC):
         _COMPONENT_COUNT += 1
         self.separator = separator
         self.full_screen = full_screen
+        self.preloaded_full_screen = (
+            preloaded_full_screen  # Track if using pre-populated stores
+        )
 
         self.css_position = {
             **kwargs,
@@ -75,13 +79,10 @@ class BaseComponent(ABC):
         self._add_callbacks(app)
 
         if self.full_screen:
-            # As soon as the full screen button is clicked, show the full screen modal
+            # Always add modal open (style) clientside callback
             app.clientside_callback(
                 """
                 function(n_clicks, current_style) {
-                    console.log("Full screen button clicked, n_clicks:", n_clicks);
-                    // Only open modal if there was an actual click (n_clicks > 0)
-                    // This prevents the modal from opening when components are re-rendered during cache clearing
                     if (!n_clicks || n_clicks === 0) {
                         return window.dash_clientside.no_update;
                     }
@@ -94,29 +95,60 @@ class BaseComponent(ABC):
                 prevent_initial_call=True,
             )
 
-            @app.callback(
-                Output("full-screen-modal-title", "children", allow_duplicate=True),
-                Output("full-screen-modal-content", "children", allow_duplicate=True),
-                Input(self.component_id, "n_clicks"),
-                prevent_initial_call=True,
-            )
-            def open_full_screen_modal(n_clicks: int):
-                # Only open modal if there was an actual click (n_clicks > 0)
-                # This prevents the modal from opening when components are re-rendered during cache clearing
-                if not n_clicks or n_clicks == 0:
-                    from dash.exceptions import PreventUpdate
-
-                    raise PreventUpdate
-
-                content = self.full_screen_content()
-                return (
-                    html.Div(
-                        content.title,
-                        className="text-m",
-                        **{"data-component-name": self.name},
+            if self.preloaded_full_screen:
+                # Use pre-populated title/content from hidden stores (set up by subclass)
+                app.clientside_callback(
+                    """
+                    function(n_clicks, titleStore, contentStore) {
+                        if (!n_clicks || n_clicks === 0) {
+                            return [window.dash_clientside.no_update, window.dash_clientside.no_update];
+                        }
+                        if (!titleStore || !contentStore) {
+                            return ["Loading...", "Loading..."]; // Fallback
+                        }
+                        return [titleStore, contentStore];
+                    }
+                    """,
+                    Output("full-screen-modal-title", "children", allow_duplicate=True),
+                    Output(
+                        "full-screen-modal-content",
+                        "children",
+                        allow_duplicate=True,
                     ),
-                    content.content,
+                    Input(self.component_id, "n_clicks"),
+                    State(f"{self.component_id}-fullscreen-title-store", "data"),
+                    State(f"{self.component_id}-fullscreen-content-store", "data"),
+                    prevent_initial_call=True,
                 )
+            else:
+
+                @app.callback(
+                    Output("full-screen-modal-title", "children", allow_duplicate=True),
+                    Output(
+                        "full-screen-modal-content",
+                        "children",
+                        allow_duplicate=True,
+                    ),
+                    Input(self.component_id, "n_clicks"),
+                    prevent_initial_call=True,
+                )
+                def open_full_screen_modal(n_clicks: int):
+                    # Only open modal if there was an actual click (n_clicks > 0)
+                    # This prevents the modal from opening when components are re-rendered during cache clearing
+                    if not n_clicks or n_clicks == 0:
+                        from dash.exceptions import PreventUpdate
+
+                        raise PreventUpdate
+
+                    content = self.full_screen_content()
+                    return (
+                        html.Div(
+                            content.title,
+                            className="text-m",
+                            **{"data-component-name": self.name},
+                        ),
+                        content.content,
+                    )
 
     @abstractmethod
     def _add_callbacks(self, app: Dash) -> None:
