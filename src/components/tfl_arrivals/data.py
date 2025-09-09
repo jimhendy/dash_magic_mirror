@@ -57,50 +57,145 @@ def fetch_transfer_station_arrivals() -> list[dict]:
     return fetch_arrivals_for_stop(transfer_station_id)
 
 
+# --- Transfer station matching improvements ----------------------------------------------------
+
+def _normalise_destination(name: str) -> str:
+    if not name:
+        return ""
+    return clean_station_name(name).strip().lower()
+
+
+def build_transfer_station_index(transfer_station_arrivals: list[dict]) -> dict:
+    """Build lookup structures for efficient transfer station matching.
+
+    Returns dict with:
+      by_vehicle: vehicleId -> list[arrivals]
+      by_line_dest: (lineId, destinationKey) -> list[arrivals]
+    destinationKey prefers destinationNaptanId; falls back to normalised destination name.
+    """
+    by_vehicle: dict[str, list] = {}
+    by_line_dest: dict[tuple[str, str], list] = {}
+    for arr in transfer_station_arrivals:
+        vehicle_id = arr.get("vehicleId") or ""
+        line_id = arr.get("lineId") or ""
+        dest_id = arr.get("destinationNaptanId") or ""
+        dest_name = arr.get("destinationName", "")
+        destination_key = dest_id if dest_id else _normalise_destination(dest_name)
+        if vehicle_id:
+            by_vehicle.setdefault(vehicle_id, []).append(arr)
+        if line_id and destination_key:
+            by_line_dest.setdefault((line_id, destination_key), []).append(arr)
+    return {"by_vehicle": by_vehicle, "by_line_dest": by_line_dest}
+
+
+def _parse_expected(dt_str: str) -> datetime.datetime | None:
+    if not dt_str:
+        return None
+    try:
+        return datetime.datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def check_stops_at_transfer_station(
     arrival: dict,
     transfer_station_arrivals: list[dict],
 ) -> bool:
-    """Check if a train service stops at the transfer station by matching vehicle IDs and destinations."""
-    vehicle_id = arrival.get("vehicleId", "")
-    line_id = arrival.get("lineId", "")
-    destination = arrival.get("destinationName", "")
+    """Determine if the given arrival will also call at the configured transfer station *after* this stop.
+
+    Additional rule vs previous implementation:
+      Only return True if the matched prediction at the transfer station has an expectedArrival
+      strictly later than the expectedArrival at the current stop (i.e. the transfer station is
+      still ahead). If the transfer station time is earlier or equal, the train has already
+      passed it, so we suppress the indicator.
+    """
+    if not transfer_station_arrivals:
+        return False
+
+    transfer_station_id = get_transfer_station_id()
+
+    # If this prediction is already for the transfer station, no indicator needed.
+    if arrival.get("naptanId") == transfer_station_id:
+        return False
+
+    vehicle_id = arrival.get("vehicleId") or ""
+    line_id = arrival.get("lineId") or ""
+    dest_id = arrival.get("destinationNaptanId") or ""
+    dest_name_norm = normalize_destination_name(arrival.get("destinationName", ""))
 
     if not line_id:
         return False
 
-    # First try exact vehicle ID match
-    if vehicle_id:
-        for bg_arrival in transfer_station_arrivals:
-            if (
-                bg_arrival.get("vehicleId", "") == vehicle_id
-                and bg_arrival.get("lineId", "") == line_id
-            ):
-                return True
+    arrival_expected_dt = _parse_expected(arrival.get("expectedArrival"))
+    if not arrival_expected_dt:
+        return False
 
-    # If no vehicle ID match, check by destination and line
-    # Trains going to major terminus stations typically stop at transfer stations
-    if "liverpool street" in destination.lower() and line_id in [
-        "weaver",
-        "central",
-    ]:  # Overground and Central line
-        # Check if there are any trains on the same line going to the same destination at transfer station
-        for bg_arrival in transfer_station_arrivals:
-            bg_destination = bg_arrival.get("destinationName", "")
-            bg_line_id = bg_arrival.get("lineId", "")
-            if bg_line_id == line_id and "liverpool street" in bg_destination.lower():
-                return True
+    # Minimum forward delta (seconds) to regard transfer station as ahead (guard against clock jitter)
+    FORWARD_DELTA_SECONDS = 15
+
+    for ts_arr in transfer_station_arrivals:
+        # Lines must match for a valid comparison.
+        if ts_arr.get("lineId") != line_id:
+            continue
+
+        ts_vehicle_id = ts_arr.get("vehicleId") or ""
+        ts_dest_id = ts_arr.get("destinationNaptanId") or ""
+        ts_dest_name_norm = normalize_destination_name(ts_arr.get("destinationName", ""))
+
+        matched = False
+
+        # 1 & 2: vehicleId led matching.
+        if vehicle_id and ts_vehicle_id and vehicle_id == ts_vehicle_id:
+            if dest_id and ts_dest_id:
+                matched = dest_id == ts_dest_id
+            elif dest_name_norm and ts_dest_name_norm:
+                matched = dest_name_norm == ts_dest_name_norm
+            else:
+                matched = False
+        # 3: Fallback (only when vehicleId missing on either side): match by line + destination.
+        elif (not vehicle_id or not ts_vehicle_id):
+            if dest_id and ts_dest_id:
+                matched = dest_id == ts_dest_id
+            elif (
+                (not dest_id or not ts_dest_id)
+                and dest_name_norm
+                and ts_dest_name_norm
+                and dest_name_norm == ts_dest_name_norm
+            ):
+                matched = True
+
+        if not matched:
+            continue
+
+        # Ordering check – ensure transfer station call is after current stop.
+        ts_expected_dt = _parse_expected(ts_arr.get("expectedArrival"))
+        if not ts_expected_dt:
+            continue  # cannot confirm ordering, be conservative (no indicator)
+
+        delta = (ts_expected_dt - arrival_expected_dt).total_seconds()
+        if delta > FORWARD_DELTA_SECONDS:
+            return True  # Transfer station still ahead
+        else:
+            # Transfer station prediction is earlier/same -> it is behind or at this stop already
+            continue
 
     return False
 
 
+def normalize_destination_name(name: str) -> str:
+    """Normalize destination/station names for comparison."""
+    if not name:
+        return ""
+    return clean_station_name(name).strip().lower()
+
+
 def get_transfer_station_indicator(
     arrival: dict,
-    transfer_station_arriavls: list[dict],
+    transfer_station_arrivals: list[dict],
     is_summary: bool = False,
 ) -> str:
     """Get indicator symbol for trains that stop at transfer station."""
-    if check_stops_at_transfer_station(arrival, transfer_station_arriavls):
+    if check_stops_at_transfer_station(arrival, transfer_station_arrivals):
         if is_summary:
             return DashIconify(
                 icon="mdi:alpha-b-circle-outline",
@@ -218,7 +313,7 @@ def process_arrivals_data(
     # Get station name from first arrival
     station_name = arrivals[0].get("stationName", "Unknown Station")
 
-    # Fetch Bethnal Green arrivals once for all comparisons
+    # Fetch transfer station arrivals once
     transfer_station_arrivals = fetch_transfer_station_arrivals()
 
     # Get ignore destination for summary filtering
