@@ -89,8 +89,8 @@ def render_weather_summary(
                                     html.Div(
                                         current.get("temperature", "?"),
                                         style={
-                                            "fontSize": FONT_SIZES["summary_heading"],
-                                            "fontWeight": "600",
+                                            "fontSize": "1.8rem",
+                                            "fontWeight": "350",
                                             # inherit font
                                         },
                                     ),
@@ -139,7 +139,7 @@ def render_weather_summary(
                                         _tomorrow_day(),
                                         style={
                                             "fontSize": FONT_SIZES["summary_primary"],
-                                            "fontWeight": "600",
+                                            "fontWeight": "350",
                                             # inherit font
                                         },
                                     ),

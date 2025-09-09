@@ -30,8 +30,8 @@ class Clock(BaseComponent):
                         html.Div(
                             id=f"{self.component_id}-hour-minute",
                             style={
-                                "fontSize": "5rem",
-                                "fontWeight": "bold",
+                                "fontSize": "6rem",
+                                "fontWeight": "350",
                                 "color": COLORS["white"],
                                 "lineHeight": "1",
                             },

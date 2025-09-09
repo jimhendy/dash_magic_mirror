@@ -93,13 +93,14 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
             style=event_styles,
             children=[
                 html.Div(
-                    truncate_event_title(event.title, 25),
+                    truncate_event_title(event.title, 40),
                     style={
-                        "fontWeight": "500",
+                        "fontWeight": "350",
                         "marginBottom": "2px" if time_display else "0px",
                         "overflow": "hidden",
                         "textOverflow": "ellipsis",
                         "whiteSpace": "nowrap",
+                        "fontSize": "1.3rem",
                     },
                 ),
                 html.Div(
@@ -110,6 +111,7 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
                         "overflow": "hidden",
                         "textOverflow": "ellipsis",
                         "whiteSpace": "nowrap",
+                        "fontSize": FONT_SIZES["summary_meta"],
                     },
                 )
                 if time_display
@@ -239,12 +241,12 @@ def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div
             html.Div(
                 truncate_event_title(event.title, 40),
                 style={
-                    "fontWeight": "600",
+                    "fontWeight": "350",
                     "marginBottom": "1px" if time_display else "0px",
                     "overflow": "hidden",
                     "textOverflow": "ellipsis",
                     "whiteSpace": "nowrap",
-                    "fontSize": FONT_SIZES["summary_secondary"],
+                    "fontSize": "1.3rem",
                 },
             ),
             html.Div(
