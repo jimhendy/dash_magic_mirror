@@ -1,6 +1,5 @@
 """Constants for the Sports component."""
 
-
 # Where's The Match base URL
 WTM_BASE_URL: str = "https://www.wheresthematch.com"
 

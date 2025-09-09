@@ -199,7 +199,9 @@ def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div
     event_ends_here = event.end_datetime.date() == display_date
 
     border_radius = calculate_event_border_radius(
-        event_starts_here, event_ends_here, radius="6px",
+        event_starts_here,
+        event_ends_here,
+        radius="6px",
     )
     margin_left, margin_right = calculate_event_margins(
         event_starts_here,
