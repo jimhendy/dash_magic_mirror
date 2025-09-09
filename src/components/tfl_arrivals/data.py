@@ -1,5 +1,7 @@
 import datetime
+import json
 import os
+import time
 from typing import Any
 
 import httpx
@@ -8,13 +10,133 @@ from loguru import logger
 
 from utils.file_cache import cache_json
 
-# TFL API endpoints
-ARRIVALS_API_URL = "https://api.tfl.gov.uk/StopPoint/{stop_id}/Arrivals"
-LINE_STATUS_API_URL = "https://api.tfl.gov.uk/Line/{line_ids}/Status"
-STOPPOINT_DISRUPTION_API_URL = "https://api.tfl.gov.uk/StopPoint/{stop_ids}/Disruption"
-TIMETABLE_API_URL = (
-    "https://api.tfl.gov.uk/Line/{line_id}/Timetable/{from_stop_id}/to/{to_stop_id}"
+from .constants import (
+    ARRIVALS_API_URL,
+    FORWARD_DELTA_SECONDS,
+    LINE_STATUS_API_URL,
+    STOPPOINT_DISRUPTION_API_URL,
+    TIMETABLE_API_URL,
 )
+
+# --- Robust HTTP helpers ----------------------------------------------------------------------
+
+_MAX_RESPONSE_BYTES = 1_000_000  # 1MB safety cap
+
+
+def _empty_for(expected_type: str):  # helper to supply empty placeholder
+    return [] if expected_type == "list" else {}
+
+
+def _http_get_json(
+    url: str,
+    *,
+    timeout: float = 10.0,
+    expected_type: str = "list",  # 'list' or 'dict'
+    max_retries: int = 2,
+    retry_backoff_base: float = 0.25,
+) -> Any:
+    """HTTP GET + robust JSON parsing with limited retries.
+
+    Handles intermittent TFL API issues where multiple JSON payloads or partial content
+    cause json.JSONDecodeError (e.g. 'Extra data: line ...'). Attempts a truncation based
+    fallback for common cases where trailing noise was appended.
+    """
+    attempt = 0
+    while attempt <= max_retries:
+        try:
+            response = httpx.get(url, timeout=timeout)
+        except httpx.RequestError as e:
+            if attempt < max_retries:
+                sleep_for = retry_backoff_base * (2**attempt)
+                logger.warning(
+                    f"Request error {e} fetching {url}. Retry {attempt + 1}/{max_retries} in {sleep_for:.2f}s",
+                )
+                time.sleep(sleep_for)
+                attempt += 1
+                continue
+            logger.error(f"Failed to fetch {url}: {e}")
+            return _empty_for(expected_type)
+
+        status = response.status_code
+        if status >= 500 and attempt < max_retries:
+            sleep_for = retry_backoff_base * (2**attempt)
+            logger.warning(
+                f"Server error {status} fetching {url}. Retry {attempt + 1}/{max_retries} in {sleep_for:.2f}s",
+            )
+            time.sleep(sleep_for)
+            attempt += 1
+            continue
+        if not response.is_success:
+            logger.error(f"Non-success status {status} fetching {url}")
+            return _empty_for(expected_type)
+
+        # Size guard
+        if len(response.content) > _MAX_RESPONSE_BYTES:
+            logger.error(
+                f"Aborting parse for {url} - response too large ({len(response.content)} bytes)",
+            )
+            return _empty_for(expected_type)
+
+        # Fast path
+        try:
+            parsed = response.json()
+            return (
+                parsed
+                if isinstance(parsed, (list, dict))
+                else _empty_for(expected_type)
+            )
+        except json.JSONDecodeError as e:
+            raw_text = response.text.strip()
+            logger.warning(
+                f"JSON decode error for {url}: {e}. Attempting fallback parse (attempt {attempt + 1}/{max_retries + 1})",
+            )
+            fallback = None
+            # Truncation-based salvage: find last closing bracket/brace matching first char
+            if raw_text.startswith("["):
+                last = raw_text.rfind("]")
+                if last != -1:
+                    candidate = raw_text[: last + 1]
+                    try:
+                        fallback = json.loads(candidate)
+                    except Exception:  # noqa: BLE001
+                        fallback = None
+            elif raw_text.startswith("{"):
+                last = raw_text.rfind("}")
+                if last != -1:
+                    candidate = raw_text[: last + 1]
+                    try:
+                        fallback = json.loads(candidate)
+                    except Exception:  # noqa: BLE001
+                        fallback = None
+            if fallback is not None:
+                logger.warning(
+                    f"Recovered JSON via truncation for {url} (len={len(raw_text)})",
+                )
+                return fallback
+
+            # Final retry decision
+            if attempt < max_retries:
+                sleep_for = retry_backoff_base * (2**attempt)
+                snippet_head = raw_text[:200].replace("\n", " ")
+                snippet_tail = (
+                    raw_text[-120:].replace("\n", " ") if len(raw_text) > 320 else ""
+                )
+                logger.debug(
+                    f"Retrying after decode failure. Head: {snippet_head} ... Tail: {snippet_tail}",
+                )
+                time.sleep(sleep_for)
+                attempt += 1
+                continue
+            snippet = raw_text[:300].replace("\n", " ")
+            logger.error(
+                f"Failed to parse JSON for {url} after {attempt + 1} attempts. Snippet: {snippet}",
+            )
+            return _empty_for(expected_type)
+        except Exception as e:  # noqa: BLE001 - unexpected parsing path
+            logger.error(f"Unexpected error parsing JSON for {url}: {e}")
+            return _empty_for(expected_type)
+
+    return _empty_for(expected_type)
 
 
 # Station IDs from environment variables
@@ -26,26 +148,13 @@ def get_transfer_station_id() -> str:
 @cache_json(valid_lifetime=datetime.timedelta(minutes=5))
 def fetch_timetable(line_id: str, from_stop_id: str, to_stop_id: str) -> dict:
     """Fetch timetable data between two stops to check calling patterns."""
-    try:
-        response = httpx.get(
-            TIMETABLE_API_URL.format(
-                line_id=line_id,
-                from_stop_id=from_stop_id,
-                to_stop_id=to_stop_id,
-            ),
-            timeout=10,
-        )
-        if response.is_success:
-            return response.json()
-        logger.error(
-            f"Failed to fetch timetable for {line_id} from {from_stop_id} to {to_stop_id}: {response.status_code}",
-        )
-        return {}
-    except httpx.RequestError as e:
-        logger.error(
-            f"Error fetching timetable for {line_id} from {from_stop_id} to {to_stop_id}: {e}",
-        )
-        return {}
+    url = TIMETABLE_API_URL.format(
+        line_id=line_id,
+        from_stop_id=from_stop_id,
+        to_stop_id=to_stop_id,
+    )
+    data = _http_get_json(url, expected_type="dict")
+    return data if isinstance(data, dict) else {}
 
 
 @cache_json(valid_lifetime=datetime.timedelta(seconds=60))
@@ -58,6 +167,7 @@ def fetch_transfer_station_arrivals() -> list[dict]:
 
 
 # --- Transfer station matching improvements ----------------------------------------------------
+
 
 def _normalise_destination(name: str) -> str:
     if not name:
@@ -131,8 +241,6 @@ def check_stops_at_transfer_station(
         return False
 
     # Minimum forward delta (seconds) to regard transfer station as ahead (guard against clock jitter)
-    FORWARD_DELTA_SECONDS = 15
-
     for ts_arr in transfer_station_arrivals:
         # Lines must match for a valid comparison.
         if ts_arr.get("lineId") != line_id:
@@ -140,7 +248,9 @@ def check_stops_at_transfer_station(
 
         ts_vehicle_id = ts_arr.get("vehicleId") or ""
         ts_dest_id = ts_arr.get("destinationNaptanId") or ""
-        ts_dest_name_norm = normalize_destination_name(ts_arr.get("destinationName", ""))
+        ts_dest_name_norm = normalize_destination_name(
+            ts_arr.get("destinationName", ""),
+        )
 
         matched = False
 
@@ -153,7 +263,7 @@ def check_stops_at_transfer_station(
             else:
                 matched = False
         # 3: Fallback (only when vehicleId missing on either side): match by line + destination.
-        elif (not vehicle_id or not ts_vehicle_id):
+        elif not vehicle_id or not ts_vehicle_id:
             if dest_id and ts_dest_id:
                 matched = dest_id == ts_dest_id
             elif (
@@ -175,9 +285,8 @@ def check_stops_at_transfer_station(
         delta = (ts_expected_dt - arrival_expected_dt).total_seconds()
         if delta > FORWARD_DELTA_SECONDS:
             return True  # Transfer station still ahead
-        else:
-            # Transfer station prediction is earlier/same -> it is behind or at this stop already
-            continue
+        # Transfer station prediction is earlier/same -> it is behind or at this stop already
+        continue
 
     return False
 
@@ -210,25 +319,19 @@ def get_transfer_station_indicator(
 @cache_json(valid_lifetime=datetime.timedelta(seconds=60))
 def fetch_arrivals_for_stop(stop_id: str) -> list[dict]:
     """Fetch arrivals for a single stop."""
-    try:
-        response = httpx.get(ARRIVALS_API_URL.format(stop_id=stop_id), timeout=10)
-        if response.is_success:
-            arrivals = response.json()
-            if arrivals:
-                # Add stop info to each arrival
-                for arrival in arrivals:
-                    arrival["stopId"] = stop_id
-                # Sort by expected arrival time
-                arrivals.sort(key=lambda x: x.get("expectedArrival", ""))
-                return arrivals
-            return []
-        logger.error(
-            f"Failed to fetch arrivals for stop {stop_id}: {response.status_code}",
-        )
+    url = ARRIVALS_API_URL.format(stop_id=stop_id)
+    data = _http_get_json(url, expected_type="list")
+    if not isinstance(data, list):
         return []
-    except httpx.RequestError as e:
-        logger.error(f"Error fetching arrivals for stop {stop_id}: {e}")
-        return []
+    arrivals: list[dict] = data
+    if arrivals:
+        for arrival in arrivals:
+            arrival["stopId"] = stop_id
+        try:
+            arrivals.sort(key=lambda x: x.get("expectedArrival", ""))
+        except Exception:  # noqa: BLE001
+            pass
+    return arrivals
 
 
 @cache_json(valid_lifetime=datetime.timedelta(minutes=2))
@@ -236,22 +339,10 @@ def fetch_line_status(line_ids: list[str]) -> list[dict]:
     """Fetch line status for given line IDs."""
     if not line_ids:
         return []
-
     line_ids_str = ",".join(line_ids)
-    try:
-        response = httpx.get(
-            LINE_STATUS_API_URL.format(line_ids=line_ids_str),
-            timeout=10,
-        )
-        if response.is_success:
-            return response.json()
-        logger.error(
-            f"Failed to fetch line status for lines {line_ids_str}: {response.status_code}",
-        )
-        return []
-    except httpx.RequestError as e:
-        logger.error(f"Error fetching line status for lines {line_ids_str}: {e}")
-        return []
+    url = LINE_STATUS_API_URL.format(line_ids=line_ids_str)
+    data = _http_get_json(url, expected_type="list")
+    return data if isinstance(data, list) else []
 
 
 @cache_json(valid_lifetime=datetime.timedelta(minutes=2))
@@ -259,24 +350,10 @@ def fetch_stoppoint_disruptions(stop_ids: list[str]) -> list[dict]:
     """Fetch stoppoint disruptions for given stop IDs."""
     if not stop_ids:
         return []
-
     stop_ids_str = ",".join(stop_ids)
-    try:
-        response = httpx.get(
-            STOPPOINT_DISRUPTION_API_URL.format(stop_ids=stop_ids_str),
-            timeout=10,
-        )
-        if response.is_success:
-            return response.json()
-        logger.error(
-            f"Failed to fetch stoppoint disruptions for stops {stop_ids_str}: {response.status_code}",
-        )
-        return []
-    except httpx.RequestError as e:
-        logger.error(
-            f"Error fetching stoppoint disruptions for stops {stop_ids_str}: {e}",
-        )
-        return []
+    url = STOPPOINT_DISRUPTION_API_URL.format(stop_ids=stop_ids_str)
+    data = _http_get_json(url, expected_type="list")
+    return data if isinstance(data, list) else []
 
 
 def get_all_stop_ids() -> list[str]:

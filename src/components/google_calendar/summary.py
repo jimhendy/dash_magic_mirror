@@ -5,6 +5,7 @@ import datetime
 from dash import html
 
 from utils.calendar import get_event_color_by_event, truncate_event_title
+from utils.styles import FONT_SIZES
 
 from .data import CalendarEvent, get_events_for_date
 from .utils import (
@@ -70,12 +71,15 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
             event_ends_here,
         )
         event_styles = get_common_event_styles()
+        accent_color = get_event_color_by_event(event.id)
         event_styles.update(
             {
-                "backgroundColor": get_event_color_by_event(event.id),
+                # Neutral background; color only on border
+                "background": "rgba(255,255,255,0.04)",
+                "border": f"1px solid {accent_color}",
                 "borderRadius": border_radius,
-                "marginLeft": "auto",  # if event_starts_here else margin_left,
-                "marginRight": "auto",  # if event_ends_here else margin_right,
+                "marginLeft": "auto",
+                "marginRight": "auto",
                 "position": "relative",
                 "width": "97%",
             },
@@ -121,6 +125,8 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
             "gap": "8px",
             "cursor": "pointer",
             "alignItems": "stretch",
+            # inherit font
+            "fontSize": FONT_SIZES["summary_secondary"],
         },
         children=[
             *[_render_multi_day_event(event) for event in multi_day_events],
@@ -159,14 +165,14 @@ def _render_day_column(
             "flex": "1",
             "display": "flex",
             "flexDirection": "column",
-            "backgroundColor": "rgba(255, 255, 255, 0.05)",
+            "paddingTop": "4px",
         },
         children=[
             # Events container
             html.Div(
                 style={
                     "flex": "1",
-                    "padding": "8px",
+                    "padding": "4px 6px 8px 6px",
                     "display": "flex",
                     "flexDirection": "column",
                     "gap": "4px",
@@ -192,26 +198,16 @@ def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div
     event_starts_here = event.start_datetime.date() == display_date
     event_ends_here = event.end_datetime.date() == display_date
 
-    # Use common utility functions for styling
-    border_radius = calculate_event_border_radius(event_starts_here, event_ends_here)
+    border_radius = calculate_event_border_radius(
+        event_starts_here, event_ends_here, radius="6px",
+    )
     margin_left, margin_right = calculate_event_margins(
         event_starts_here,
         event_ends_here,
     )
 
-    # Get base event styles and customize for summary view
-    event_styles = get_common_event_styles()
-    event_styles.update(
-        {
-            "backgroundColor": get_event_color_by_event(event.id),
-            "borderRadius": border_radius,
-            "marginLeft": margin_left,
-            "marginRight": margin_right,
-            "position": "relative",
-        },
-    )
+    accent_color = get_event_color_by_event(event.id)
 
-    # Generate time display using common utility
     time_display = generate_event_time_display(
         event,
         event_starts_here,
@@ -219,23 +215,41 @@ def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div
     )
 
     return html.Div(
-        style=event_styles,
+        style={
+            "padding": "6px 8px 6px 10px",
+            "fontSize": FONT_SIZES["summary_meta"],
+            "lineHeight": "1.25",
+            "fontWeight": "500",
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "whiteSpace": "nowrap",
+            "borderRadius": border_radius,
+            "marginLeft": margin_left,
+            "marginRight": margin_right,
+            "position": "relative",
+            "background": "rgba(255,255,255,0.04)",
+            "border": f"1px solid {accent_color}",
+            "boxShadow": "0 1px 2px rgba(0,0,0,0.4)",
+            "display": "flex",
+            "flexDirection": "column",
+        },
         children=[
             html.Div(
-                truncate_event_title(event.title, 25),
+                truncate_event_title(event.title, 40),
                 style={
-                    "fontWeight": "500",
-                    "marginBottom": "2px" if time_display else "0px",
+                    "fontWeight": "600",
+                    "marginBottom": "1px" if time_display else "0px",
                     "overflow": "hidden",
                     "textOverflow": "ellipsis",
                     "whiteSpace": "nowrap",
+                    "fontSize": FONT_SIZES["summary_secondary"],
                 },
             ),
             html.Div(
                 time_display,
                 style={
-                    "fontSize": "10px",
-                    "opacity": "0.9",
+                    "fontSize": FONT_SIZES["summary_small"],
+                    "opacity": 0.85,
                     "overflow": "hidden",
                     "textOverflow": "ellipsis",
                     "whiteSpace": "nowrap",

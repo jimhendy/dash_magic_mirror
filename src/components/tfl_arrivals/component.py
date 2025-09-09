@@ -3,7 +3,6 @@ from loguru import logger
 
 from components.base import BaseComponent
 from utils.models import FullScreenResult
-from utils.styles import FONT_FAMILY
 
 from .data import (
     fetch_arrivals_for_stop,
@@ -71,7 +70,7 @@ class TFLArrivals(BaseComponent):
                     style={
                         "color": "#FFFFFF",
                         "fontSize": "16px",  # Increased from 14px
-                        "fontFamily": FONT_FAMILY,
+                        # inherit font
                     },
                 ),
             ],
@@ -155,7 +154,7 @@ class TFLArrivals(BaseComponent):
                         "color": "#999999",
                         "textAlign": "center",
                         "padding": "20px",
-                        "fontFamily": FONT_FAMILY,
+                        # inherit font
                     },
                 )
 
@@ -210,7 +209,7 @@ class TFLArrivals(BaseComponent):
                         "textAlign": "center",
                         "padding": "40px",
                         "fontSize": "1.5rem",
-                        "fontFamily": FONT_FAMILY,
+                        # inherit font
                     },
                 )
 
@@ -236,7 +235,7 @@ class TFLArrivals(BaseComponent):
                         "textAlign": "center",
                         "padding": "40px",
                         "fontSize": "1.5rem",
-                        "fontFamily": FONT_FAMILY,
+                        # inherit font
                     },
                 ),
                 title="Transport Unavailable",

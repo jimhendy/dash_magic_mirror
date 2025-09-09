@@ -6,29 +6,29 @@ from loguru import logger
 
 from utils.file_cache import cache_json
 
+from .constants import BASE_URL, FORECAST_DAYS, HOURLY_WINDOW_DAYS, HTTP_TIMEOUT
+
 
 @cache_json(valid_lifetime=datetime.timedelta(minutes=15))
 def fetch_weather_data(api_key: str, postcode: str) -> dict[str, Any]:
     """Fetch weather data from WeatherAPI.com."""
-    base_url = "http://api.weatherapi.com/v1"
-
     try:
-        # Get current weather and 3-day forecast in one call
-        forecast_url = f"{base_url}/forecast.json"
+        # Get current weather and multi-day forecast in one call
+        forecast_url = f"{BASE_URL}/forecast.json"
         params = {
             "key": api_key,
             "q": postcode,
-            "days": 3,
+            "days": FORECAST_DAYS,
             "aqi": "no",
             "alerts": "no",
         }
 
-        response = httpx.get(forecast_url, params=params, timeout=10)
+        response = httpx.get(forecast_url, params=params, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
 
         return response.json()
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to fetch weather data: {e}")
         return {}
 
@@ -142,18 +142,16 @@ def process_detailed_weather_data(
     postcode: str,
 ) -> dict[str, Any]:
     """Process weather data for detailed/full-screen view."""
-    current_time = datetime.datetime.now()
     forecast_days = raw_data.get("forecast", {}).get("forecastday", [])
 
     # Get next 24 hours of hourly data
     hourly_data = []
-    for day in forecast_days[:2]:  # Today and tomorrow
+    for day in forecast_days[:HOURLY_WINDOW_DAYS]:  # Today and tomorrow
         hours = day.get("hour", [])
         for hour in hours:
-            hour_time = datetime.datetime.fromisoformat(hour.get("time", ""))
             hourly_data.append(_extract_hourly_details(hour))
 
-    # Get daily forecasts for next 3 days
+    # Get daily forecasts for next N days
     daily_data = []
     for day_data in forecast_days:
         daily_data.append(_extract_daily_details(day_data))

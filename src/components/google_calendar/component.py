@@ -9,7 +9,6 @@ from loguru import logger
 
 from components.base import BaseComponent
 from utils.models import FullScreenResult
-from utils.styles import FONT_FAMILY
 
 from .data import fetch_calendar_events, process_calendar_events
 
@@ -74,7 +73,7 @@ class GoogleCalendar(BaseComponent):
                     style={
                         "color": "#FFFFFF",
                         "fontSize": "14px",
-                        "fontFamily": FONT_FAMILY,
+                        # inherit font
                         "width": "100%",
                     },
                 ),

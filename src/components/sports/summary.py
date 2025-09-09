@@ -5,7 +5,7 @@ from dash import html
 from dash_iconify import DashIconify
 
 from utils.dates import _opacity_from_days_away
-from utils.styles import COLORS, FONT_FAMILY
+from utils.styles import COLORS, FONT_SIZES
 
 
 def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
@@ -21,8 +21,8 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
                 "color": COLORS["soft_gray"],
                 "textAlign": "center",
                 "padding": "1rem",
-                "fontSize": "1.1rem",  # Increased from 0.9rem
-                "fontFamily": FONT_FAMILY,
+                "fontSize": FONT_SIZES["summary_primary"],
+                # inherit font
             },
         )
 
@@ -65,15 +65,15 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
                                             COLORS["blue"],
                                         ),
                                         "flexShrink": "0",
-                                        "fontSize": "1.4rem",  # Increased from 1.2rem
+                                        "fontSize": FONT_SIZES["summary_heading"],
                                         "display": "none" if crest else "block",
                                     },
                                 ),
                                 html.Img(
                                     src=crest,
                                     style={
-                                        "height": "30px",
-                                        "width": "30px",
+                                        "height": "34px",
+                                        "width": "34px",
                                         "objectFit": "contain",
                                         "marginRight": "8px",
                                         "display": "block" if crest else "none",
@@ -83,13 +83,13 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
                                 html.Span(
                                     f"{fx.get('home', '?')} vs {fx.get('away', '?')}",
                                     style={
-                                        "fontWeight": "bold" if is_today else "500",
+                                        "fontWeight": "600" if is_today else "500",
                                         "color": COLORS["white"],
                                         "flex": "1",
                                         "textOverflow": "ellipsis",
                                         "whiteSpace": "nowrap",
-                                        "fontSize": "1.1rem",  # Added explicit font size
-                                        "fontFamily": FONT_FAMILY,
+                                        "fontSize": FONT_SIZES["summary_primary"],
+                                        # inherit font
                                     },
                                 ),
                             ],
@@ -109,10 +109,10 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
                                         "color": COLORS["gold"]
                                         if is_today
                                         else COLORS["soft_gray"],
-                                        "fontWeight": "bold" if is_today else "400",
+                                        "fontWeight": "600" if is_today else "400",
                                         "marginRight": "6px",
-                                        "fontSize": "1rem",  # Increased from 0.85rem
-                                        "fontFamily": FONT_FAMILY,
+                                        "fontSize": FONT_SIZES["summary_secondary"],
+                                        # inherit font
                                     },
                                 ),
                                 html.Span(
@@ -120,8 +120,8 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
                                     style={
                                         "color": COLORS["orange"],
                                         "fontWeight": "500",
-                                        "fontSize": "1rem",  # Increased from 0.85rem
-                                        "fontFamily": FONT_FAMILY,
+                                        "fontSize": FONT_SIZES["summary_secondary"],
+                                        # inherit font
                                     },
                                 ),
                             ],
@@ -144,15 +144,15 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
             ],
             className="text-s centered-content",
             style={
-                "border": f"1px solid {COLORS['gold']}"
+                "border": f"2px solid {COLORS['gold']}"
                 if is_today
-                else "1px solid rgba(255,255,255,0.08)",
-                "borderRadius": "6px",
-                "padding": "8px 10px",  # Increased padding from 6px 8px
+                else "1px solid rgba(255,255,255,0.12)",
+                "borderRadius": "8px",
+                "padding": "12px 14px",
                 "marginBottom": "4px",
                 "backdropFilter": "blur(10px)",
-                "fontSize": "1rem",  # Increased from 0.9rem
-                "fontFamily": FONT_FAMILY,
+                "fontSize": FONT_SIZES["summary_secondary"],
+                # inherit font
                 "opacity": _opacity_from_days_away(date_obj),
             },
         )
@@ -164,8 +164,8 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
         style={
             "display": "flex",
             "flexDirection": "column",
-            "gap": "4px",
+            "gap": "6px",
             "width": "100%",
-            "fontFamily": FONT_FAMILY,
+            # inherit font
         },
     )

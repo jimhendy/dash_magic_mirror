@@ -9,7 +9,7 @@ from loguru import logger
 
 from components.base import BaseComponent
 from utils.file_cache import cache_json
-from utils.styles import COLORS, FONT_FAMILY
+from utils.styles import COLORS
 
 FEEDS = {
     "BBC News": "https://feeds.bbci.co.uk/news/rss.xml",
@@ -644,7 +644,7 @@ class NewsComplimentsFeed(BaseComponent):
                         "gap": "8px",
                         "width": "100%",
                         "color": COLORS["white"],
-                        "fontFamily": FONT_FAMILY,
+                        # inherit font
                     },
                 ),
             ],

@@ -21,15 +21,39 @@ COLORS = {
     "gray": "#888888",
 }
 
-# Consistent font family for the entire application
-FONT_FAMILY = "'Inter', 'Roboto', 'Segoe UI', 'Helvetica Neue', sans-serif"
+# Centralized font scale tuned for 7" viewing distance (≈1–1.2m)
+# Naming is semantic so components don't use raw numeric values.
+FONT_SIZES: dict[str, str] = {
+    "summary_heading": "1.45rem",  # Section titles / key labels
+    "summary_primary": "1.25rem",  # Main data (times, team names, temps)
+    "summary_secondary": "1.05rem",  # Secondary labels
+    "summary_meta": "0.85rem",  # Subtext / meta info
+    "summary_small": "0.75rem",  # Rare very small annotations
+}
+
+LINE_HEIGHT_DEFAULT = "1.25"  # Slightly relaxed for legibility
+
+TEXT_STYLES = {
+    "heading": {"fontSize": FONT_SIZES["summary_heading"], "fontWeight": "600"},
+    "primary": {"fontSize": FONT_SIZES["summary_primary"], "fontWeight": "500"},
+    "secondary": {"fontSize": FONT_SIZES["summary_secondary"], "fontWeight": "400"},
+    "meta": {
+        "fontSize": FONT_SIZES["summary_meta"],
+        "fontWeight": "400",
+        "opacity": 0.9,
+    },
+    "small": {
+        "fontSize": FONT_SIZES["summary_small"],
+        "fontWeight": "400",
+        "opacity": 0.85,
+    },
+}
 
 # Common compact style combinations for Python components
 COMPACT_STYLES = {
     "base_container": {
-        "fontFamily": FONT_FAMILY,
         "background": COLORS["black"],
-        "lineHeight": "1.1",
+        "lineHeight": LINE_HEIGHT_DEFAULT,
         "width": "100vw",
         "height": "100vh",
         "position": "relative",

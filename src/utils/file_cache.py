@@ -68,11 +68,9 @@ def cache_json(valid_lifetime: datetime.timedelta) -> Callable:
             """Wrapper function that checks for a cached result and returns it if valid,
             otherwise calls the original function and caches its result.
             """
-            # Ensure the cache directory exists
             arg_hash = reproduce_hash(*args, **kwargs)
             cache_file_name = f"{cache_key}_{arg_hash}_{{write_time}}.json"
             now = datetime.datetime.now(tz=datetime.UTC)
-            # Find the most recent valid cache file
             cache_files = {
                 f: datetime.datetime.strptime(
                     f.stem.split("_")[-1],
@@ -84,23 +82,42 @@ def cache_json(valid_lifetime: datetime.timedelta) -> Callable:
                 f: t for f, t in cache_files.items() if t + valid_lifetime > now
             }
             if valid_files:
-                # Use the most recent valid cache file
                 latest_file = max(valid_files, key=valid_files.get)
-                with open(latest_file) as f:
-                    return json.load(f)
+                try:
+                    with open(latest_file) as f:
+                        return json.load(f)
+                except json.JSONDecodeError as e:
+                    logger.warning(
+                        f"Corrupt cache file {latest_file.name} for {cache_key}: {e}. Refetching...",
+                    )
+                    try:
+                        latest_file.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                except OSError as e:
+                    logger.warning(
+                        f"Failed reading cache file {latest_file.name} for {cache_key}: {e}. Refetching...",
+                    )
             else:
-                logger.critical(f"No valid cache found for {cache_key}")
-                # Remove old cache files
+                logger.debug(f"No valid cache found for {cache_key}")
                 for f in cache_files:
-                    f.unlink(missing_ok=True)
-                # Call the function and cache its result
-                result = func(*args, **kwargs)
-                cache_file = CACHE_PATH / cache_file_name.format(
-                    write_time=now.strftime(DT_FORMAT),
-                )
+                    try:
+                        f.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+            # Call the function and cache its result
+            result = func(*args, **kwargs)
+            cache_file = CACHE_PATH / cache_file_name.format(
+                write_time=now.strftime(DT_FORMAT),
+            )
+            try:
                 with open(cache_file, "w") as f:
                     json.dump(result, f, indent=4)
-                return result
+            except OSError as e:
+                logger.error(
+                    f"Failed writing cache file {cache_file.name} for {cache_key}: {e}",
+                )
+            return result
 
         return wrapper
 

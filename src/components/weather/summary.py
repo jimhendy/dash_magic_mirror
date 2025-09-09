@@ -5,6 +5,8 @@ import dash_mantine_components as dmc
 from dash import html
 from dash_iconify import DashIconify
 
+from utils.styles import FONT_SIZES
+
 
 def _high_low_rain(day_data: dict[str, Any]) -> html.Div:
     """Create high/low temperature and rain chance display."""
@@ -86,9 +88,20 @@ def render_weather_summary(
                                 children=[
                                     html.Div(
                                         current.get("temperature", "?"),
-                                        className="text-l",
+                                        style={
+                                            "fontSize": FONT_SIZES["summary_heading"],
+                                            "fontWeight": "600",
+                                            # inherit font
+                                        },
                                     ),
-                                    html.Div("°C", className="text-m degrees"),
+                                    html.Div(
+                                        "°C",
+                                        style={
+                                            "fontSize": FONT_SIZES["summary_secondary"],
+                                            "marginLeft": "4px",
+                                            # inherit font
+                                        },
+                                    ),
                                 ],
                                 style={"display": "flex", "alignItems": "baseline"},
                             ),
@@ -103,20 +116,16 @@ def render_weather_summary(
                     _high_low_rain(today),
                 ],
             ),
-            # Vertical line to separate current and tomorrow weather
-            # Cool gradient from black to white and back to black in non-linear fashion
             html.Div(
-                "\u00a0",  # Non-breaking space to give the div content
+                "\u00a0",  # separator
                 style={
-                    # "height": "100%",
-                    "minHeight": "80px",  # Ensure minimum height
+                    "minHeight": "80px",
                     "background": "linear-gradient(180deg, #000000 0%, #ffffff 50%, #000000 100%)",
                     "width": "2px",
-                    "alignSelf": "stretch",  # Make it stretch to fill parent height
+                    "alignSelf": "stretch",
                     "borderRadius": "1px",
                 },
             ),
-            # Tomorrow
             html.Div(
                 id=f"{component_id}-tomorrow-weather",
                 style={"width": "48%"},
@@ -128,7 +137,11 @@ def render_weather_summary(
                                 children=[
                                     html.Div(
                                         _tomorrow_day(),
-                                        className="text-ml",
+                                        style={
+                                            "fontSize": FONT_SIZES["summary_primary"],
+                                            "fontWeight": "600",
+                                            # inherit font
+                                        },
                                     ),
                                 ],
                                 style={"display": "flex", "alignItems": "baseline"},

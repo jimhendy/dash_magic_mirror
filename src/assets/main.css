@@ -8,6 +8,7 @@ body {
     padding: 0;
     line-height: 1;
     color: #ffffff;
+    font-family: 'Roboto', sans-serif; /* Added per request */
     /* Prevent text selection and cursor */
     user-select: none;
     -webkit-user-select: none;

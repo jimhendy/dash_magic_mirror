@@ -4,7 +4,7 @@ from typing import Any
 from dash import dcc, html
 from dash_iconify import DashIconify
 
-from utils.styles import COLORS, FONT_FAMILY
+from utils.styles import COLORS
 
 from .data import SPORTS, get_full_screen_fixtures
 
@@ -261,7 +261,7 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
                             "gap": "4px",
                         },
                         style={
-                            "fontFamily": FONT_FAMILY,
+                            # inherit font
                             "fontSize": "0.9rem",
                             "display": "flex",
                             "flexWrap": "wrap",
@@ -290,6 +290,6 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
         ],
         style={
             "color": COLORS["white"],
-            "fontFamily": FONT_FAMILY,
+            # inherit font
         },
     )

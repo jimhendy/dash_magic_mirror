@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from dash import dcc, html
 from dash_iconify import DashIconify
 
-from utils.styles import COLORS, FONT_FAMILY
+from utils.styles import COLORS
 
 
 def _format_day_name(date_str: str) -> str:
@@ -375,7 +375,7 @@ def render_weather_fullscreen(
             "height": "100vh",
             "color": "white",
             "backgroundColor": "black",
-            "fontFamily": FONT_FAMILY,
+            # inherit font
             "display": "flex",
             "flexDirection": "column",
         },

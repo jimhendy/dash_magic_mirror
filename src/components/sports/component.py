@@ -3,7 +3,6 @@ from loguru import logger
 
 from components.base import BaseComponent
 from utils.models import FullScreenResult
-from utils.styles import FONT_FAMILY
 
 from .data import process_sports_data
 from .full_screen import render_sports_fullscreen
@@ -89,7 +88,7 @@ class Sports(BaseComponent):
                         "textAlign": "center",
                         "padding": "1rem",
                         "fontSize": "1.1rem",
-                        "fontFamily": FONT_FAMILY,
+                        # inherit font
                     },
                 )
 
@@ -144,7 +143,7 @@ class Sports(BaseComponent):
                         "textAlign": "center",
                         "padding": "2rem",
                         "fontSize": "1.5rem",
-                        "fontFamily": FONT_FAMILY,
+                        # inherit font
                     },
                 ),
                 title="Sports unavailable",

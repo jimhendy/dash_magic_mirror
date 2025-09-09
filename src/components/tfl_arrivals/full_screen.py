@@ -1,6 +1,6 @@
 from dash import html
 
-from utils.styles import COLORS, FONT_FAMILY
+from utils.styles import COLORS
 
 from .data import get_time_color_and_weight
 
@@ -97,7 +97,7 @@ def render_tfl_fullscreen(
         style={
             "padding": "20px",
             "color": COLORS["white"],
-            "fontFamily": FONT_FAMILY,
+            # inherit font
         },
     )
 

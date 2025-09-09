@@ -9,6 +9,8 @@ from loguru import logger
 
 from utils.file_cache import cache_json
 
+from .constants import FETCH_RANGE_DAYS, HTTP_TIMEOUT, USER_AGENT
+
 
 @dataclass(frozen=True, kw_only=True)
 class Sport:
@@ -76,12 +78,6 @@ SPORT_TEAM_CRESTS: dict[str, dict[str, str]] = {
     },
 }
 
-FETCH_RANGE_DAYS = 31
-USER_AGENT = (
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/122.0 Safari/537.36"
-)
-
 
 def _date_str(d: datetime.date) -> str:
     return d.strftime("%Y%m%d")
@@ -98,7 +94,7 @@ def fetch_raw_html_for_sport(sport: Sport) -> str:
     )
     logger.info(f"Fetching raw HTML for sport={sport.url} url={url}")
     try:
-        resp = httpx.get(url, headers={"User-Agent": USER_AGENT}, timeout=20)
+        resp = httpx.get(url, headers={"User-Agent": USER_AGENT}, timeout=HTTP_TIMEOUT)
         resp.raise_for_status()
         return resp.text
     except Exception as e:
