@@ -2,12 +2,13 @@
 
 Migrated from the deprecated presence module.
 """
+
 from __future__ import annotations
 
 import subprocess
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, Optional
 
 from loguru import logger
 from scapy.all import ARP, Ether, srp  # type: ignore
@@ -23,7 +24,8 @@ class PersonPresence:
 
 
 def _norm(mac: str) -> str:
-    return mac.strip().strip('"').lower().replace('-', ':')
+    return mac.strip().strip('"').lower().replace("-", ":")
+
 
 # Backwards compatibility alias
 _norm_mac = _norm  # type: ignore
@@ -34,6 +36,7 @@ def ping_ip(ip: str, attempts: int = 5, wait: float = 0.5) -> bool:
         try:
             result = subprocess.run(
                 ["ping", "-c", "1", "-W", "1", ip],
+                check=False,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
@@ -45,7 +48,7 @@ def ping_ip(ip: str, attempts: int = 5, wait: float = 0.5) -> bool:
     return False
 
 
-def get_mac_for_ip(ip: str, timeout: int) -> Optional[str]:
+def get_mac_for_ip(ip: str, timeout: int) -> str | None:
     try:
         arp = ARP(pdst=ip)
         ether = Ether(dst="ff:ff:ff:ff:ff:ff")
@@ -89,11 +92,12 @@ def update_people_presence_by_ip(
             f"Presence update name={person.name} ip={ip} expected_mac={expected_mac} present={person.is_home}",
         )
 
+
 __all__ = [
     "PersonPresence",
     "_norm",
     "_norm_mac",
-    "ping_ip",
     "get_mac_for_ip",
+    "ping_ip",
     "update_people_presence_by_ip",
 ]

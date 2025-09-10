@@ -4,11 +4,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from components.google_calendar import GoogleCalendar
+from components.header import Header
 from components.header.component import PersonPresence, _norm
 from components.sports import Sports
 from components.tfl_arrivals import TFLArrivals
 from components.weather import Weather
-from components.header import Header
 
 env_path = Path(__file__).parents[2] / ".env"
 load_dotenv(env_path)
@@ -24,10 +24,10 @@ ips: dict[str, str] = {}
 macs: dict[str, str] = {}
 for k, v in os.environ.items():
     if k.startswith("MAGIC_MIRROR_PRESENCE_IP_"):
-        name = k[len("MAGIC_MIRROR_PRESENCE_IP_"):].upper()
+        name = k[len("MAGIC_MIRROR_PRESENCE_IP_") :].upper()
         ips[name] = v.strip()
     elif k.startswith("MAGIC_MIRROR_PRESENCE_MAC_"):
-        name = k[len("MAGIC_MIRROR_PRESENCE_MAC_"):].upper()
+        name = k[len("MAGIC_MIRROR_PRESENCE_MAC_") :].upper()
         macs[name] = _norm(v)
 
 # Validate pairing
@@ -42,7 +42,7 @@ if errors:
     raise RuntimeError("Presence configuration errors: " + "; ".join(errors))
 
 for key in sorted(all_keys):
-    raw_name = key.title().replace('_', ' ')
+    raw_name = key.title().replace("_", " ")
     people.append(PersonPresence(name=raw_name, mac=macs[key], ip=ips[key]))
 
 # TFL configuration

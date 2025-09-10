@@ -3,15 +3,18 @@
 Currently minimal because the header layout is defined inside the component.
 This module exists for parity with other components and future extension.
 """
+
 from __future__ import annotations
 
 from dash import html
+
+from utils.styles import COLORS, FONT_SIZES
+
 from .data import PersonPresence
-from utils.styles import FONT_SIZES, COLORS
 
 
 def render_presence_badges(people: list[PersonPresence]):
-    return [ _person_badge(p) for p in people ]
+    return [_person_badge(p) for p in people]
 
 
 def _person_badge(person: PersonPresence):
@@ -50,5 +53,6 @@ def _person_badge(person: PersonPresence):
             "background": "rgba(255,255,255,0.04)" if is_home else "transparent",
         },
     )
+
 
 __all__ = ["render_presence_badges"]

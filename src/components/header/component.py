@@ -7,26 +7,27 @@ and data helpers now live in `header.data`; summary badge rendering in
 `header.summary`. A placeholder full screen view exists in `header.full_screen`.
 """
 import time
+
 from dash import Input, Output, dcc, html
 from loguru import logger
 
 from components.base import BaseComponent
-from utils.styles import COLORS, FONT_SIZES
+from utils.styles import COLORS
 
 from .constants import (
-    PRESENCE_POLL_INTERVAL_MS,
-    DEFAULT_GRACE_SECONDS,
     DEFAULT_ARP_TIMEOUT,
+    DEFAULT_GRACE_SECONDS,
     DEFAULT_PING_ATTEMPTS,
     DEFAULT_PING_WAIT,
+    PRESENCE_POLL_INTERVAL_MS,
 )
 from .data import (
     PersonPresence,
-    update_people_presence_by_ip,
     _norm,
+    update_people_presence_by_ip,
 )
-from .summary import render_presence_badges
 from .full_screen import render_header_fullscreen
+from .summary import render_presence_badges
 
 
 class Header(BaseComponent):
@@ -183,7 +184,7 @@ class Header(BaseComponent):
             )
             duration = time.time() - start
             logger.debug(
-                f"Header presence scan {duration:.2f}s people={len(self.people)}"
+                f"Header presence scan {duration:.2f}s people={len(self.people)}",
             )
             for person in self.people:
                 logger.debug(
