@@ -1,6 +1,5 @@
 import datetime
 import json
-import os
 import time
 from typing import Any
 
@@ -139,15 +138,10 @@ def _http_get_json(
     return _empty_for(expected_type)
 
 
-# Station IDs from environment variables
-def get_transfer_station_id() -> str:
-    """Get the transfer station ID for checking connections."""
-    return os.environ.get("TFL_TRANSFER_STATION_ID", "")
+# --- Data fetch functions (parameterised, no env reads) ----------------------------------------
 
 
-@cache_json(valid_lifetime=datetime.timedelta(minutes=5))
 def fetch_timetable(line_id: str, from_stop_id: str, to_stop_id: str) -> dict:
-    """Fetch timetable data between two stops to check calling patterns."""
     url = TIMETABLE_API_URL.format(
         line_id=line_id,
         from_stop_id=from_stop_id,
@@ -158,15 +152,50 @@ def fetch_timetable(line_id: str, from_stop_id: str, to_stop_id: str) -> dict:
 
 
 @cache_json(valid_lifetime=datetime.timedelta(seconds=60))
-def fetch_transfer_station_arrivals() -> list[dict]:
-    """Fetch arrivals at transfer station."""
-    transfer_station_id = get_transfer_station_id()
+def fetch_arrivals_for_stop(stop_id: str) -> list[dict]:
+    url = ARRIVALS_API_URL.format(stop_id=stop_id)
+    data = _http_get_json(url, expected_type="list")
+    if not isinstance(data, list):
+        return []
+    arrivals: list[dict] = data
+    if arrivals:
+        for arrival in arrivals:
+            arrival["stopId"] = stop_id
+        try:
+            arrivals.sort(key=lambda x: x.get("expectedArrival", ""))
+        except Exception:  # noqa: BLE001
+            pass
+    return arrivals
+
+
+@cache_json(valid_lifetime=datetime.timedelta(seconds=60))
+def fetch_transfer_station_arrivals(transfer_station_id: str) -> list[dict]:
     if not transfer_station_id:
         return []
     return fetch_arrivals_for_stop(transfer_station_id)
 
 
-# --- Transfer station matching improvements ----------------------------------------------------
+@cache_json(valid_lifetime=datetime.timedelta(minutes=2))
+def fetch_line_status(line_ids: list[str]) -> list[dict]:
+    if not line_ids:
+        return []
+    line_ids_str = ",".join(line_ids)
+    url = LINE_STATUS_API_URL.format(line_ids=line_ids_str)
+    data = _http_get_json(url, expected_type="list")
+    return data if isinstance(data, list) else []
+
+
+@cache_json(valid_lifetime=datetime.timedelta(minutes=2))
+def fetch_stoppoint_disruptions(stop_ids: list[str]) -> list[dict]:
+    if not stop_ids:
+        return []
+    stop_ids_str = ",".join(stop_ids)
+    url = STOPPOINT_DISRUPTION_API_URL.format(stop_ids=stop_ids_str)
+    data = _http_get_json(url, expected_type="list")
+    return data if isinstance(data, list) else []
+
+
+# --- Transfer station matching ---------------------------------------------------------------
 
 
 def _normalise_destination(name: str) -> str:
@@ -176,13 +205,6 @@ def _normalise_destination(name: str) -> str:
 
 
 def build_transfer_station_index(transfer_station_arrivals: list[dict]) -> dict:
-    """Build lookup structures for efficient transfer station matching.
-
-    Returns dict with:
-      by_vehicle: vehicleId -> list[arrivals]
-      by_line_dest: (lineId, destinationKey) -> list[arrivals]
-    destinationKey prefers destinationNaptanId; falls back to normalised destination name.
-    """
     by_vehicle: dict[str, list] = {}
     by_line_dest: dict[tuple[str, str], list] = {}
     for arr in transfer_station_arrivals:
@@ -210,59 +232,35 @@ def _parse_expected(dt_str: str) -> datetime.datetime | None:
 def check_stops_at_transfer_station(
     arrival: dict,
     transfer_station_arrivals: list[dict],
+    transfer_station_id: str,
 ) -> bool:
-    """Determine if the given arrival will also call at the configured transfer station *after* this stop.
-
-    Additional rule vs previous implementation:
-      Only return True if the matched prediction at the transfer station has an expectedArrival
-      strictly later than the expectedArrival at the current stop (i.e. the transfer station is
-      still ahead). If the transfer station time is earlier or equal, the train has already
-      passed it, so we suppress the indicator.
-    """
-    if not transfer_station_arrivals:
+    if not transfer_station_arrivals or not transfer_station_id:
         return False
-
-    transfer_station_id = get_transfer_station_id()
-
-    # If this prediction is already for the transfer station, no indicator needed.
     if arrival.get("naptanId") == transfer_station_id:
         return False
-
     vehicle_id = arrival.get("vehicleId") or ""
     line_id = arrival.get("lineId") or ""
     dest_id = arrival.get("destinationNaptanId") or ""
     dest_name_norm = normalize_destination_name(arrival.get("destinationName", ""))
-
     if not line_id:
         return False
-
     arrival_expected_dt = _parse_expected(arrival.get("expectedArrival"))
     if not arrival_expected_dt:
         return False
-
-    # Minimum forward delta (seconds) to regard transfer station as ahead (guard against clock jitter)
     for ts_arr in transfer_station_arrivals:
-        # Lines must match for a valid comparison.
         if ts_arr.get("lineId") != line_id:
             continue
-
         ts_vehicle_id = ts_arr.get("vehicleId") or ""
         ts_dest_id = ts_arr.get("destinationNaptanId") or ""
         ts_dest_name_norm = normalize_destination_name(
             ts_arr.get("destinationName", ""),
         )
-
         matched = False
-
-        # 1 & 2: vehicleId led matching.
         if vehicle_id and ts_vehicle_id and vehicle_id == ts_vehicle_id:
             if dest_id and ts_dest_id:
                 matched = dest_id == ts_dest_id
             elif dest_name_norm and ts_dest_name_norm:
                 matched = dest_name_norm == ts_dest_name_norm
-            else:
-                matched = False
-        # 3: Fallback (only when vehicleId missing on either side): match by line + destination.
         elif not vehicle_id or not ts_vehicle_id:
             if dest_id and ts_dest_id:
                 matched = dest_id == ts_dest_id
@@ -273,26 +271,18 @@ def check_stops_at_transfer_station(
                 and dest_name_norm == ts_dest_name_norm
             ):
                 matched = True
-
         if not matched:
             continue
-
-        # Ordering check – ensure transfer station call is after current stop.
         ts_expected_dt = _parse_expected(ts_arr.get("expectedArrival"))
         if not ts_expected_dt:
-            continue  # cannot confirm ordering, be conservative (no indicator)
-
+            continue
         delta = (ts_expected_dt - arrival_expected_dt).total_seconds()
         if delta > FORWARD_DELTA_SECONDS:
-            return True  # Transfer station still ahead
-        # Transfer station prediction is earlier/same -> it is behind or at this stop already
-        continue
-
+            return True
     return False
 
 
 def normalize_destination_name(name: str) -> str:
-    """Normalize destination/station names for comparison."""
     if not name:
         return ""
     return clean_station_name(name).strip().lower()
@@ -301,10 +291,14 @@ def normalize_destination_name(name: str) -> str:
 def get_transfer_station_indicator(
     arrival: dict,
     transfer_station_arrivals: list[dict],
+    transfer_station_id: str,
     is_summary: bool = False,
 ) -> str:
-    """Get indicator symbol for trains that stop at transfer station."""
-    if check_stops_at_transfer_station(arrival, transfer_station_arrivals):
+    if check_stops_at_transfer_station(
+        arrival,
+        transfer_station_arrivals,
+        transfer_station_id,
+    ):
         if is_summary:
             return DashIconify(
                 icon="mdi:alpha-b-circle-outline",
@@ -312,94 +306,32 @@ def get_transfer_station_indicator(
                 width=30,
                 height=30,
             )
-        return "✓"  # Tick for full screen
+        return "✓"
     return ""
 
 
-@cache_json(valid_lifetime=datetime.timedelta(seconds=60))
-def fetch_arrivals_for_stop(stop_id: str) -> list[dict]:
-    """Fetch arrivals for a single stop."""
-    url = ARRIVALS_API_URL.format(stop_id=stop_id)
-    data = _http_get_json(url, expected_type="list")
-    if not isinstance(data, list):
-        return []
-    arrivals: list[dict] = data
-    if arrivals:
-        for arrival in arrivals:
-            arrival["stopId"] = stop_id
-        try:
-            arrivals.sort(key=lambda x: x.get("expectedArrival", ""))
-        except Exception:  # noqa: BLE001
-            pass
-    return arrivals
-
-
-@cache_json(valid_lifetime=datetime.timedelta(minutes=2))
-def fetch_line_status(line_ids: list[str]) -> list[dict]:
-    """Fetch line status for given line IDs."""
-    if not line_ids:
-        return []
-    line_ids_str = ",".join(line_ids)
-    url = LINE_STATUS_API_URL.format(line_ids=line_ids_str)
-    data = _http_get_json(url, expected_type="list")
-    return data if isinstance(data, list) else []
-
-
-@cache_json(valid_lifetime=datetime.timedelta(minutes=2))
-def fetch_stoppoint_disruptions(stop_ids: list[str]) -> list[dict]:
-    """Fetch stoppoint disruptions for given stop IDs."""
-    if not stop_ids:
-        return []
-    stop_ids_str = ",".join(stop_ids)
-    url = STOPPOINT_DISRUPTION_API_URL.format(stop_ids=stop_ids_str)
-    data = _http_get_json(url, expected_type="list")
-    return data if isinstance(data, list) else []
-
-
-def get_all_stop_ids() -> list[str]:
-    """Get all TFL stop IDs from environment variables."""
-    return [
-        os.environ[stop_id]
-        for stop_id in os.environ
-        if stop_id.startswith("TFL_STOP_ID_")
-    ]
-
-
-def get_primary_stop_id() -> str:
-    """Get the primary TFL stop ID (TFL_STOP_ID_1) for summary view."""
-    return os.environ.get("TFL_STOP_ID_1", "")
+# --- Processing ------------------------------------------------------------------------------
 
 
 def process_arrivals_data(
     arrivals: list[dict],
+    transfer_station_arrivals: list[dict],
+    transfer_station_id: str,
+    ignore_destination: str,
     is_summary: bool = False,
 ) -> dict[str, Any]:
-    """Process arrivals data for rendering."""
     if not arrivals:
         return {
             "arrivals": [],
             "line_ids": [],
             "station_name": "",
         }
-
-    # Extract unique line IDs for status checking
     line_ids = list(
         set(arrival.get("lineId", "") for arrival in arrivals if arrival.get("lineId")),
     )
-
-    # Get station name from first arrival
     station_name = arrivals[0].get("stationName", "Unknown Station")
-
-    # Fetch transfer station arrivals once
-    transfer_station_arrivals = fetch_transfer_station_arrivals()
-
-    # Get ignore destination for summary filtering
-    ignore_destination = os.environ.get("TFL_SUMMARY_IGNORE_DESTINATION", "")
-
-    # Process arrivals for display
     processed_arrivals = []
     for arrival in arrivals:
-        # Filter out ignored destinations in summary view
         destination = arrival.get("destinationName", "")
         if (
             is_summary
@@ -407,8 +339,6 @@ def process_arrivals_data(
             and ignore_destination.lower() in destination.lower()
         ):
             continue
-
-        # Calculate time until arrival
         arrival_time_str = arrival.get("expectedArrival", "")
         if arrival_time_str:
             try:
@@ -418,15 +348,12 @@ def process_arrivals_data(
                 now = datetime.datetime.now(datetime.UTC)
                 time_diff = (arrival_time - now).total_seconds()
                 minutes = max(0, int(time_diff // 60))
-
-                # Skip arrivals that have already passed or are too far away
                 if minutes < 0 or minutes > 60:
                     continue
-
                 processed_arrival = {
                     "id": arrival.get("id", ""),
                     "minutes": minutes,
-                    "arrival_time": arrival_time,  # Store the actual arrival time
+                    "arrival_time": arrival_time,
                     "destination": clean_station_name(destination),
                     "platform": arrival.get("platformName", "Unknown"),
                     "line_name": arrival.get("lineName", ""),
@@ -437,6 +364,7 @@ def process_arrivals_data(
                     "transfer_station_indicator": get_transfer_station_indicator(
                         arrival,
                         transfer_station_arrivals,
+                        transfer_station_id,
                         is_summary,
                     ),
                 }
@@ -444,7 +372,6 @@ def process_arrivals_data(
             except (ValueError, TypeError) as e:
                 logger.error(f"Error processing arrival time: {e}")
                 continue
-
     return {
         "arrivals": processed_arrivals,
         "line_ids": line_ids,
@@ -516,6 +443,9 @@ def process_stoppoint_disruptions(disruption_data: list[dict]) -> dict[str, list
                 )
 
     return disruptions_dict
+
+
+# --- Misc utilities -------------------------------------------------------------------------
 
 
 def clean_station_name(station_name: str) -> str:

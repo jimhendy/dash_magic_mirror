@@ -1,5 +1,1 @@
-"""TFL Arrivals component for Magic Mirror."""
-
-from .component import TFLArrivals
-
-__all__ = ["TFLArrivals"]
+from .component import TFLArrivals as TFLArrivals

@@ -2,6 +2,28 @@
 
 A modern, customizable magic mirror dashboard built with Dash and Python. Features a clean single-line layout with real-time data from multiple sources including London Transport arrivals, weather, calendar events, sports fixtures, and news feeds.
 
+## Recent Refactor Highlights
+
+The legacy separate Clock and Presence components have been merged into a unified `Header` component (`components.header.Header`). Presence detection logic now lives in a structured submodule:
+
+```
+components/header/
+  __init__.py          # exports Header, PersonPresence
+  component.py         # layout + callbacks
+  constants.py         # timing defaults
+  data.py              # presence dataclass + network helpers
+  summary.py           # badge rendering helpers
+  full_screen.py       # placeholder full-screen renderer
+```
+
+The deprecated `components/presence` package has been removed (left as empty stubs temporarily). Import `PersonPresence` and helpers from `components.header` instead.
+
+Presence detection now uses a deterministic, per‑device targeted flow:
+1. (Optional wake) ICMP ping attempts per configured IP
+2. Targeted ARP request for that IP
+3. MAC match validation (with warning on mismatch)
+4. Grace window debouncing (device considered home until grace expires after last positive sighting)
+
 ## Setup
 
 ### Local Development
@@ -64,99 +86,46 @@ A modern, customizable magic mirror dashboard built with Dash and Python. Featur
 
 The application uses environment variables and `src/app/config.py` for configuration. 
 
-### Component Configuration
+### Presence Configuration (Header Component)
 
-All components can be enabled/disabled and configured with header icons and titles in `src/app/config.py`:
-
-```python
-# Component definitions with header icons and titles
-COMPONENTS = {
-    "clock": {
-        "enabled": True,
-        "component": ClockComponent(),
-        "header_icon": "tabler:clock",
-        "header_title": "Time"
-    },
-    "weather": {
-        "enabled": True, 
-        "component": WeatherComponent(),
-        "header_icon": "tabler:cloud",
-        "header_title": "Weather"
-    },
-    "google_calendar": {
-        "enabled": True,
-        "component": GoogleCalendarComponent(),
-        "header_icon": "tabler:calendar",
-        "header_title": "Calendar"
-    },
-    "tfl_arrivals": {
-        "enabled": True,
-        "component": TFLArrivalsComponent(), 
-        "header_icon": "tabler:train",
-        "header_title": "Transport"
-    },
-    "sports": {
-        "enabled": True,
-        "component": SportsComponent(),
-        "header_icon": "tabler:ball-football",
-        "header_title": "Sports"
-    },
-    "news": {
-        "enabled": True,
-        "component": NewsComponent(),
-        "header_icon": "tabler:news", 
-        "header_title": "News"
-    },
-    "compliments_jokes": {
-        "enabled": True,
-        "component": ComplimentsJokesComponent(),
-        "header_icon": "tabler:mood-smile",
-        "header_title": "Daily Inspiration"
-    }
-}
+Presence devices now require paired IP + MAC environment variables. For a person named `Alice`:
 ```
+MAGIC_MIRROR_PRESENCE_IP_ALICE=192.168.1.42
+MAGIC_MIRROR_PRESENCE_MAC_ALICE=AA:BB:CC:DD:EE:FF
+```
+All names are uppercased when pairing; MACs are normalized automatically (case-insensitive, hyphens converted to colons). A configuration error is raised if any IP lacks a matching MAC (or vice versa).
+
+Tuning parameters (all optional, with defaults shown):
+```
+MAGIC_MIRROR_PRESENCE_GRACE=180           # seconds to keep a device 'home' after last sighting
+MAGIC_MIRROR_PRESENCE_ARP_TIMEOUT=2       # per targeted ARP request timeout (seconds)
+MAGIC_MIRROR_PRESENCE_PING_ATTEMPTS=6     # ICMP attempts before ARP
+MAGIC_MIRROR_PRESENCE_PING_WAIT=0.5       # delay between ping attempts
+```
+
+Grant raw socket capability (needed for ARP) to your Python binary if running outside Docker:
+```sh
+sudo setcap cap_net_raw,cap_net_admin=eip "$(readlink -f "$(uv run which python)")"
+```
+
+### Weather, Calendar, Transport, Sports
+(unchanged – see earlier sections for detailed setup)
 
 ### Environment Variables
 
 Copy `.env.example` to `.env` and customize:
 
+- **Presence**: Paired IP/MAC variables as described above
 - **TFL Stops**: Configure transport stop IDs and display names
 - **Weather**: Set your postcode and WeatherAPI key  
 - **Google Calendar**: Configure calendar integration (optional)
 - **Layout**: Adjust component positioning and sizing
 
-## API Setup
-
-### TFL Stop IDs
-
-To find your local London transport stops:
-1. Visit https://api.tfl.gov.uk/StopPoint/Search/{your-area}
-2. Find your stop and note the `id` field
-3. Update your `.env` file with the stop ID and display name
-
-### Weather API
-
-1. Get a free API key from [WeatherAPI.com](https://www.weatherapi.com/signup.aspx)
-2. Add your API key to `.env` as `WEATHER_API_KEY`
-3. Set your postcode in `WEATHER_POSTCODE` (e.g., "SW1A 1AA")
-
-### Google Calendar (Optional)
-
-1. Set up Google Calendar API credentials
-2. Place `google_calendar_credentials.json` in the `credentials/` folder
-3. The component will automatically integrate calendar events
-
-### Sports & News
-
-- Sports fixtures are fetched from BBC Sport
-- News feeds use RSS sources (configurable in component)
-- Both work out-of-the-box without additional API keys
-
 ## Features
 
 ### Core Components
 
-- **🕐 Live Clock** - Real-time display with date formatting
+- **🕐 Header (Clock + Presence)** - Unified time + household presence badges
 - **🌤️ Weather Forecast** - Current conditions and 3-day outlook with WeatherAPI integration
 - **📅 Google Calendar** - Upcoming events with smart date formatting and birthday icons
 - **🚇 TFL Transport** - Real-time London public transport arrivals with color-coded timing
@@ -373,3 +342,8 @@ While the `cache_json` decorator provides effective rate limiting, there are som
 - **Mitigation**: Consider background cache refresh for critical components
 
 Despite these limitations, the `cache_json` decorator provides a robust, simple solution for most Magic Mirror component caching needs.
+
+# Allow `just run` to test sockets
+```sh
+sudo setcap cap_net_raw,cap_net_admin=eip "$(readlink -f "$(uv run which python)")"
+```

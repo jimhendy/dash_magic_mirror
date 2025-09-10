@@ -177,7 +177,6 @@ def _render_calendar_day(day_info: dict, font_size: str) -> html.Div:
     date = day_info["date"]
     is_today = day_info["is_today"]
     is_past = day_info["is_past"]
-    events = day_info["events"]
 
     # Check if it's a weekend (Saturday = 5, Sunday = 6)
     is_weekend = date.weekday() >= 5
@@ -236,11 +235,6 @@ def _render_calendar_day(day_info: dict, font_size: str) -> html.Div:
                 "backgroundColor": "rgba(255, 255, 255, 0.05)",
             },
         )
-
-    # Count events that start on this day
-    events_starting_today = [
-        event for event in events if event.start_datetime.date() == date
-    ]
 
     return html.Div(
         style=cell_style,

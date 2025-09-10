@@ -1,0 +1,15 @@
+"""Constants for the Header component (clock + presence)."""
+
+PRESENCE_POLL_INTERVAL_MS: int = 60_000  # 1 minute
+DEFAULT_GRACE_SECONDS: int = 180
+DEFAULT_ARP_TIMEOUT: int = 2
+DEFAULT_PING_ATTEMPTS: int = 6
+DEFAULT_PING_WAIT: float = 0.5
+
+__all__ = [
+    "PRESENCE_POLL_INTERVAL_MS",
+    "DEFAULT_GRACE_SECONDS",
+    "DEFAULT_ARP_TIMEOUT",
+    "DEFAULT_PING_ATTEMPTS",
+    "DEFAULT_PING_WAIT",
+]

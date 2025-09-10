@@ -1,1 +1,1 @@
-from .component import GoogleCalendar
+from .component import GoogleCalendar as GoogleCalendar

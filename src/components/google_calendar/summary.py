@@ -106,7 +106,6 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
                 html.Div(
                     time_display,
                     style={
-                        "fontSize": "10px",
                         "opacity": "0.9",
                         "overflow": "hidden",
                         "textOverflow": "ellipsis",

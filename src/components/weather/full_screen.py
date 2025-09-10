@@ -10,17 +10,18 @@ from dash_iconify import DashIconify
 from utils.styles import COLORS
 
 
-def _format_day_name(date_str: str) -> str:
+def _format_day_name(date_str: str | datetime.date) -> str:
     """Format date to day name (e.g., '2025-08-25' -> 'Sunday')."""
-    try:
+    if isinstance(date_str, str):
         dt = datetime.datetime.strptime(date_str, "%Y-%m-%d")
-        if dt.date() == datetime.date.today():
-            return "Today"
-        if dt.date() == datetime.date.today() + datetime.timedelta(days=1):
-            return "Tomorrow"
-        return dt.strftime("%A")
-    except:
-        return date_str
+    else:
+        dt = date_str
+
+    if dt.date() == datetime.date.today():
+        return "Today"
+    if dt.date() == datetime.date.today() + datetime.timedelta(days=1):
+        return "Tomorrow"
+    return dt.strftime("%A")
 
 
 @dataclass
@@ -86,18 +87,18 @@ def _create_hourly_timeseries(
         ),
     )
 
-    # Cloud cover (right axis, blue, dotted)
-    fig.add_trace(
-        go.Scatter(
-            x=[hd.time for hd in hour_data],
-            y=[hd.cloud_cover for hd in hour_data],
-            mode="lines",
-            name="Cloud Cover",
-            line=dict(color=COLORS["blue_dimmed"], width=2, dash="dot"),
-            yaxis="y2",
-            line_shape=line_shape,
-        ),
-    )
+    # # Cloud cover (right axis, blue, dotted)
+    # fig.add_trace(
+    #     go.Scatter(
+    #         x=[hd.time for hd in hour_data],
+    #         y=[hd.cloud_cover for hd in hour_data],
+    #         mode="lines",
+    #         name="Cloud Cover",
+    #         line=dict(color=COLORS["blue_dimmed"], width=2, dash="dot"),
+    #         yaxis="y2",
+    #         line_shape=line_shape,
+    #     ),
+    # )
 
     # Temperature line
     fig.add_trace(
@@ -111,17 +112,17 @@ def _create_hourly_timeseries(
         ),
     )
 
-    # Feels like temperature (subtle line)
-    fig.add_trace(
-        go.Scatter(
-            x=[hd.time for hd in hour_data],
-            y=[hd.feels_like for hd in hour_data],
-            mode="lines",
-            name="Feels Like",
-            line=dict(color=COLORS["dimmed_red"], width=2, dash="dot"),
-            # line_shape=line_shape,
-        ),
-    )
+    # # Feels like temperature (subtle line)
+    # fig.add_trace(
+    #     go.Scatter(
+    #         x=[hd.time for hd in hour_data],
+    #         y=[hd.feels_like for hd in hour_data],
+    #         mode="lines",
+    #         name="Feels Like",
+    #         line=dict(color=COLORS["dimmed_red"], width=2, dash="dot"),
+    #         # line_shape=line_shape,
+    #     ),
+    # )
 
     # Maximized layout with no legend and tight margins
     fig.update_layout(

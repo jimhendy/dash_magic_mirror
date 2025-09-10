@@ -15,9 +15,11 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "beautifulsoup4>=4.12.3",
     "dash-iconify>=0.1.2",
+    "scapy>=2.5.0",  # optional: active ARP scanning for Presence
 ]
 
 [dependency-groups]
 dev = [
     "ruff>=0.12.8",
+    "pytest>=8.3.0",
 ]

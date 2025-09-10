@@ -1,1 +1,1 @@
-from .component import Weather
+from .component import Weather as Weather

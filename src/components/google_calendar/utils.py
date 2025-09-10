@@ -209,8 +209,6 @@ def create_event_spans(
     # Process each day to find event spans
     for week_idx, week in enumerate(calendar_grid):
         for day_idx, day_info in enumerate(week):
-            current_date = day_info["date"]
-
             for event in day_info["events"]:
                 event_key = (event.id, event.start_datetime.date())
 

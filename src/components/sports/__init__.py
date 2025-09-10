@@ -1,3 +1,1 @@
-from .component import Sports
-
-__all__ = ["Sports"]
+from .component import Sports as Sports
