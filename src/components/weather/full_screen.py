@@ -10,18 +10,23 @@ from dash_iconify import DashIconify
 from utils.styles import COLORS
 
 
-def _format_day_name(date_str: str | datetime.date) -> str:
+def _format_day_name(date: str | datetime.date | datetime.datetime) -> str:
     """Format date to day name (e.g., '2025-08-25' -> 'Sunday')."""
-    if isinstance(date_str, str):
-        dt = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+    if isinstance(date, datetime.date):
+        pass
+    elif isinstance(date, str):
+        date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+    elif isinstance(date, datetime.datetime):
+        date = date.date()
     else:
-        dt = date_str
+        msg = f"Invalid date type: {type(date)}"
+        raise ValueError(msg)
 
-    if dt.date() == datetime.date.today():
+    if date == datetime.date.today():
         return "Today"
-    if dt.date() == datetime.date.today() + datetime.timedelta(days=1):
+    if date == datetime.date.today() + datetime.timedelta(days=1):
         return "Tomorrow"
-    return dt.strftime("%A")
+    return date.strftime("%A")
 
 
 @dataclass
@@ -373,7 +378,7 @@ def render_weather_fullscreen(
             ),
         ],
         style={
-            "height": "100vh",
+            "height": "100%",
             "color": "white",
             "backgroundColor": "black",
             # inherit font

@@ -1,8 +1,18 @@
+# Explicit London timezone conversion (container may run in UTC)
+from datetime import UTC
+
 from dash import html
 
 from utils.styles import COLORS
 
 from .data import get_time_color_and_weight
+
+try:  # Python 3.9+
+    from zoneinfo import ZoneInfo  # type: ignore
+
+    LONDON_TZ = ZoneInfo("Europe/London")
+except Exception:  # pragma: no cover
+    LONDON_TZ = None
 
 
 def render_tfl_fullscreen(
@@ -156,8 +166,14 @@ def _create_arrivals_table(arrivals: list) -> html.Div:
         # Format combined time display (actual time and expected)
         actual_time_text = ""
         if arrival.get("arrival_time"):
-            # Convert to local time for display
-            local_time = arrival["arrival_time"].astimezone()
+            dt = arrival["arrival_time"]
+            # If naive assume UTC
+            if getattr(dt, "tzinfo", None) is None:
+                dt = dt.replace(tzinfo=UTC)
+            if LONDON_TZ:
+                local_time = dt.astimezone(LONDON_TZ)
+            else:  # Fallback to system local
+                local_time = dt.astimezone()
             actual_time_text = local_time.strftime("%H:%M")
 
         expected_text = f"{arrival['minutes']}m" if arrival["minutes"] > 0 else "Due"
