@@ -3,18 +3,21 @@ version: '3.8'
 services:
   magic-mirror:
     build: .
-    ports:
-      - "8050:8050"
+    # Use host networking so ARP (presence detection) can see LAN devices.
+    # NOTE: Works only on Linux. Remove this if deploying on non-Linux environments.
+    network_mode: host
+    # Port mapping unnecessary with host networking; the app will listen directly on :8050
+    # ports:
+    #   - "8050:8050"
     environment:
-      # Default environment variables
       - PYTHONUNBUFFERED=1
     volumes:
-      # Mount credentials directory (make sure to create .env file)
       - ./credentials:/app/credentials
-      # Optional: mount .env file if you have one
       - ./.env:/app/.env:ro
-      # Persistent cache directory
       - ./magic-mirror-cache:/root/.cache/magic_mirror
+    # Optional: ensure raw socket capability (usually present for root already)
+    cap_add:
+      - NET_RAW
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8050/"]
