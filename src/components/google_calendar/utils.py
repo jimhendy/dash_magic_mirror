@@ -55,7 +55,7 @@ def get_common_event_styles() -> dict[str, Any]:
 def calculate_event_border_radius(
     event_starts_here: bool,
     event_ends_here: bool,
-    radius: str = "8px",
+    radius: str = "20px",
 ) -> str:
     """Calculate border radius for an event based on where it starts/ends.
 
