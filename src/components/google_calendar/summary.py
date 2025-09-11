@@ -76,7 +76,7 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
             {
                 # Neutral background; color only on border
                 "background": "rgba(255,255,255,0.04)",
-                "border": f"1px solid {accent_color}",
+                "border": f"3px solid {accent_color}",
                 "borderRadius": border_radius,
                 "marginLeft": "auto",
                 "marginRight": "auto",
@@ -230,8 +230,7 @@ def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div
             "marginRight": margin_right,
             "position": "relative",
             "background": "rgba(255,255,255,0.04)",
-            "border": f"1px solid {accent_color}",
-            "boxShadow": "0 1px 2px rgba(0,0,0,0.4)",
+            "border": f"3px solid {accent_color}",
             "display": "flex",
             "flexDirection": "column",
         },
