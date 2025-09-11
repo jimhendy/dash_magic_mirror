@@ -1,15 +1,14 @@
 from dash import Input, Output, State, dcc, html
 from loguru import logger
 
-from components.base import BaseComponent
-from utils.models import FullScreenResult
+from components.base import BaseComponent, PreloadedFullScreenMixin
 
 from .data import process_sports_data
 from .full_screen import render_sports_fullscreen
 from .summary import render_sports_summary
 
 
-class Sports(BaseComponent):
+class Sports(PreloadedFullScreenMixin, BaseComponent):
     """Sports component for the Magic Mirror application.
 
     Displays upcoming sports fixtures for configured teams.
@@ -36,12 +35,7 @@ class Sports(BaseComponent):
                     n_intervals=0,
                 ),
                 dcc.Store(id=f"{self.component_id}-store", data=None),
-                # New hidden stores for full screen prepopulation
-                dcc.Store(id=f"{self.component_id}-fullscreen-title-store", data=None),
-                dcc.Store(
-                    id=f"{self.component_id}-fullscreen-content-store",
-                    data=None,
-                ),
+                *self.preload_fullscreen_stores(),
                 html.Div(
                     id=f"{self.component_id}-content",
                     style={
@@ -94,10 +88,10 @@ class Sports(BaseComponent):
 
         # Populate full screen stores whenever data updates or on first click if not yet populated
         @app.callback(
-            Output(f"{self.component_id}-fullscreen-title-store", "data"),
-            Output(f"{self.component_id}-fullscreen-content-store", "data"),
+            Output(self.fullscreen_title_store_id(), "data"),
+            Output(self.fullscreen_content_store_id(), "data"),
             Input(f"{self.component_id}-store", "data"),
-            State(f"{self.component_id}-fullscreen-title-store", "data"),
+            State(self.fullscreen_title_store_id(), "data"),
             prevent_initial_call=False,
         )
         def populate_fullscreen_stores(data, existing_title):
@@ -126,25 +120,3 @@ class Sports(BaseComponent):
             Input(f"{self.component_id}-sport-filter", "value"),
             prevent_initial_call=False,
         )
-
-    def full_screen_content(self) -> FullScreenResult:
-        """Fallback path (not used in preloaded mode)."""
-        try:
-            data = process_sports_data()
-            content = render_sports_fullscreen(data, self.component_id)
-            return FullScreenResult(content=content, title="Sports Fixtures")
-        except Exception as e:
-            logger.error(f"Error loading full-screen sports: {e}")
-            return FullScreenResult(
-                content=html.Div(
-                    "Sports fixtures unavailable",
-                    style={
-                        "color": "#FF6B6B",
-                        "textAlign": "center",
-                        "padding": "2rem",
-                        "fontSize": "1.5rem",
-                        # inherit font
-                    },
-                ),
-                title="Sports unavailable",
-            )

@@ -2,6 +2,7 @@ from dash import Input, Output, State, get_app, html
 from dash.dependencies import Component
 
 from app.config import COMPONENTS
+from utils.constants import MODAL_CLOSE_PREFIX, MODAL_COUNTDOWN_START
 from utils.file_cache import clear_component_cache
 
 
@@ -41,25 +42,26 @@ def add_callbacks() -> None:
 
     # Main timer callback - handles countdown and mouse movement reset
     app.clientside_callback(
-        r"""
-        function(interval, countdown_text, current_style) {
+        rf"""
+        function(interval, countdown_text, current_style) {{
+            const prefix = '{MODAL_CLOSE_PREFIX}';
             const is_opened = current_style && current_style.display === "block";
-            if (!is_opened) {
+            if (!is_opened) {{
                 return [window.dash_clientside.no_update, window.dash_clientside.no_update];
-            }
-            if (!countdown_text || countdown_text === "Close in 0") {
-                let new_style = { ...current_style, display: "none" };
+            }}
+            if (!countdown_text || countdown_text === prefix + '0') {{
+                let new_style = {{ ...current_style, display: "none" }};
                 return [new_style, null];
-            }
-            const match = countdown_text.match(/Close in (\d+)/);
-            const current = match ? parseInt(match[1]) : 30;
+            }}
+            const match = countdown_text.startsWith(prefix) ? countdown_text.slice(prefix.length) : '{MODAL_COUNTDOWN_START}';
+            let current = parseInt(match) || {MODAL_COUNTDOWN_START};
             const lastMouseMove = window.lastMouseMove || 0;
             const now = Date.now();
-            if (now - lastMouseMove < 2000 && current <= 25) {
-                return [window.dash_clientside.no_update, "Close in 30"];
-            }
-            return [window.dash_clientside.no_update, "Close in " + Math.max(0, current - 1)];
-        }
+            if (now - lastMouseMove < 2000 && current <= {MODAL_COUNTDOWN_START - 5}) {{
+                return [window.dash_clientside.no_update, prefix + '{MODAL_COUNTDOWN_START}'];
+            }}
+            return [window.dash_clientside.no_update, prefix + Math.max(0, current - 1)];
+        }}
         """,
         [
             Output("full-screen-modal", "style", allow_duplicate=True),
@@ -75,14 +77,14 @@ def add_callbacks() -> None:
 
     # Separate callback to handle modal opening and set initial timer
     app.clientside_callback(
-        """
-        function(style) {
+        f"""
+        function(style) {{
             const opened = style && style.display === "block";
-            if (opened) {
-                return "Close in 30";
-            }
+            if (opened) {{
+                return '{MODAL_CLOSE_PREFIX}{MODAL_COUNTDOWN_START}';
+            }}
             return window.dash_clientside.no_update;
-        }
+        }}
         """,
         Output("full-screen-modal-timer", "children", allow_duplicate=True),
         Input("full-screen-modal", "style"),

@@ -7,13 +7,12 @@ Uses Google Calendar API for event data.
 from dash import Input, Output, dcc, html
 from loguru import logger
 
-from components.base import BaseComponent
-from utils.models import FullScreenResult
+from components.base import BaseComponent, PreloadedFullScreenMixin
 
 from .data import fetch_calendar_events, process_calendar_events
 
 
-class GoogleCalendar(BaseComponent):
+class GoogleCalendar(PreloadedFullScreenMixin, BaseComponent):
     """Google Calendar component for the Magic Mirror application.
 
     Displays today and tomorrow's events in a two-day calendar view.
@@ -62,12 +61,7 @@ class GoogleCalendar(BaseComponent):
                     interval=5 * 60 * 1000,  # Update every 5 minutes
                     n_intervals=0,
                 ),
-                # Stores for pre-populated full screen content
-                dcc.Store(id=f"{self.component_id}-fullscreen-title-store", data=None),
-                dcc.Store(
-                    id=f"{self.component_id}-fullscreen-content-store",
-                    data=None,
-                ),
+                *self.preload_fullscreen_stores(),
                 html.Div(
                     id=f"{self.component_id}-content",
                     style={
@@ -99,8 +93,8 @@ class GoogleCalendar(BaseComponent):
 
         # Populate full screen stores (separate processing without truncation)
         @app.callback(
-            Output(f"{self.component_id}-fullscreen-title-store", "data"),
-            Output(f"{self.component_id}-fullscreen-content-store", "data"),
+            Output(self.fullscreen_title_store_id(), "data"),
+            Output(self.fullscreen_content_store_id(), "data"),
             Input(f"{self.component_id}-interval", "n_intervals"),
             prevent_initial_call=False,
         )
@@ -121,25 +115,3 @@ class GoogleCalendar(BaseComponent):
             except Exception as e:
                 logger.error(f"Error preparing calendar full screen: {e}")
                 return None, None
-
-    def full_screen_content(self) -> FullScreenResult:
-        """Returns the full-screen layout of the Google Calendar component."""
-        try:
-            from .full_screen import render_calendar_fullscreen
-
-            processed_events = self._get_processed_events(truncate_to_tomorrow=False)
-            return render_calendar_fullscreen(processed_events)
-        except Exception as e:
-            logger.error(f"Error loading full-screen calendar: {e}")
-            return FullScreenResult(
-                content=html.Div(
-                    "Calendar unavailable",
-                    style={
-                        "color": "#FF6B6B",
-                        "textAlign": "center",
-                        "padding": "2rem",
-                        "fontSize": "1.5rem",
-                    },
-                ),
-                title="Calendar Unavailable",
-            )

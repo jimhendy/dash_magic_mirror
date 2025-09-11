@@ -11,7 +11,7 @@ from utils.styles import COLORS
 
 
 def _format_day_name(date: str | datetime.date | datetime.datetime) -> str:
-    """Format date to day name (e.g., '2025-08-25' -> 'Sunday')."""
+    """Format date to day name (e.g., '2025-08-25' -> '25th')."""
     if isinstance(date, datetime.date):
         pass
     elif isinstance(date, str):
@@ -22,11 +22,12 @@ def _format_day_name(date: str | datetime.date | datetime.datetime) -> str:
         msg = f"Invalid date type: {type(date)}"
         raise ValueError(msg)
 
-    if date == datetime.date.today():
-        return "Today"
-    if date == datetime.date.today() + datetime.timedelta(days=1):
-        return "Tomorrow"
-    return date.strftime("%A")
+    day = date.day
+    if 10 <= day % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+    return f"{day}{suffix}"
 
 
 @dataclass

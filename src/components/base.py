@@ -9,6 +9,26 @@ from utils.models import FullScreenResult
 _COMPONENT_COUNT = 0
 
 
+class PreloadedFullScreenMixin:
+    """Mixin to provide preloaded full screen store IDs and helper layout fragments."""
+
+    def fullscreen_title_store_id(self) -> str:
+        return f"{self.component_id}-fullscreen-title-store"
+
+    def fullscreen_content_store_id(self) -> str:
+        return f"{self.component_id}-fullscreen-content-store"
+
+    def preload_fullscreen_stores(
+        self,
+    ) -> list[Component]:  # to embed in summary layout
+        from dash import dcc
+
+        return [
+            dcc.Store(id=self.fullscreen_title_store_id(), data=None),
+            dcc.Store(id=self.fullscreen_content_store_id(), data=None),
+        ]
+
+
 class BaseComponent(ABC):
     """Base class for all components in the Magic Mirror application.
     Provides a common interface for rendering and updating components.
@@ -63,12 +83,11 @@ class BaseComponent(ABC):
         """Returns the summary layout for the component."""
         ...
 
-    def full_screen_content(self) -> FullScreenResult:
-        msg = "Full screen layout not implemented"
-        return FullScreenResult(
-            content=html.Div(msg),
-            title=self.name,
-        )
+    def full_screen_content(
+        self,
+    ) -> FullScreenResult:  # kept for backward compatibility if needed
+        msg = "Full screen content now provided via preloaded stores."
+        return FullScreenResult(content=html.Div(msg), title=self.name)
 
     def add_callbacks(self, app: Dash) -> None:
         """Adds callbacks to the component. This method should be implemented by subclasses
@@ -79,7 +98,7 @@ class BaseComponent(ABC):
         self._add_callbacks(app)
 
         if self.full_screen:
-            # Always add modal open (style) clientside callback
+            # Modal open (style)
             app.clientside_callback(
                 """
                 function(n_clicks, current_style) {
@@ -95,60 +114,24 @@ class BaseComponent(ABC):
                 prevent_initial_call=True,
             )
 
-            if self.preloaded_full_screen:
-                # Use pre-populated title/content from hidden stores (set up by subclass)
-                app.clientside_callback(
-                    """
-                    function(n_clicks, titleStore, contentStore) {
-                        if (!n_clicks || n_clicks === 0) {
-                            return [window.dash_clientside.no_update, window.dash_clientside.no_update];
-                        }
-                        if (!titleStore || !contentStore) {
-                            return ["Loading...", "Loading..."]; // Fallback
-                        }
-                        return [titleStore, contentStore];
+            # Preloaded content path only (all components must preload)
+            app.clientside_callback(
+                """
+                function(n_clicks, titleStore, contentStore) {
+                    if (!n_clicks || n_clicks === 0) {
+                        return [window.dash_clientside.no_update, window.dash_clientside.no_update];
                     }
-                    """,
-                    Output("full-screen-modal-title", "children", allow_duplicate=True),
-                    Output(
-                        "full-screen-modal-content",
-                        "children",
-                        allow_duplicate=True,
-                    ),
-                    Input(self.component_id, "n_clicks"),
-                    State(f"{self.component_id}-fullscreen-title-store", "data"),
-                    State(f"{self.component_id}-fullscreen-content-store", "data"),
-                    prevent_initial_call=True,
-                )
-            else:
-
-                @app.callback(
-                    Output("full-screen-modal-title", "children", allow_duplicate=True),
-                    Output(
-                        "full-screen-modal-content",
-                        "children",
-                        allow_duplicate=True,
-                    ),
-                    Input(self.component_id, "n_clicks"),
-                    prevent_initial_call=True,
-                )
-                def open_full_screen_modal(n_clicks: int):
-                    # Only open modal if there was an actual click (n_clicks > 0)
-                    # This prevents the modal from opening when components are re-rendered during cache clearing
-                    if not n_clicks or n_clicks == 0:
-                        from dash.exceptions import PreventUpdate
-
-                        raise PreventUpdate
-
-                    content = self.full_screen_content()
-                    return (
-                        html.Div(
-                            content.title,
-                            className="text-m",
-                            **{"data-component-name": self.name},
-                        ),
-                        content.content,
-                    )
+                    if (!titleStore || !contentStore) { return ["Loading...", "Loading..."]; }
+                    return [titleStore, contentStore];
+                }
+                """,
+                Output("full-screen-modal-title", "children", allow_duplicate=True),
+                Output("full-screen-modal-content", "children", allow_duplicate=True),
+                Input(self.component_id, "n_clicks"),
+                State(f"{self.component_id}-fullscreen-title-store", "data"),
+                State(f"{self.component_id}-fullscreen-content-store", "data"),
+                prevent_initial_call=True,
+            )
 
     @abstractmethod
     def _add_callbacks(self, app: Dash) -> None:

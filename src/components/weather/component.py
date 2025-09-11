@@ -1,8 +1,7 @@
 from dash import Input, Output, dcc, html
 from loguru import logger
 
-from components.base import BaseComponent
-from utils.models import FullScreenResult
+from components.base import BaseComponent, PreloadedFullScreenMixin
 
 from .data import (
     fetch_weather_data,
@@ -13,7 +12,7 @@ from .full_screen import render_weather_fullscreen
 from .summary import render_weather_summary
 
 
-class Weather(BaseComponent):
+class Weather(PreloadedFullScreenMixin, BaseComponent):
     """Weather component for the Magic Mirror application.
     Displays current weather, chance of rain, and 3-day forecast for a given UK postcode.
 
@@ -42,6 +41,7 @@ class Weather(BaseComponent):
                     interval=15 * 60 * 1000,  # Update every 15 minutes
                     n_intervals=0,
                 ),
+                *self.preload_fullscreen_stores(),
                 html.Div(
                     id=f"{self.component_id}-content",
                     style={
@@ -73,10 +73,23 @@ class Weather(BaseComponent):
                 logger.error(f"Error updating weather: {e}")
                 return html.Div("Weather unavailable", style={"color": "#FF6B6B"})
 
-    def full_screen_content(self) -> FullScreenResult:
-        """Returns the full-screen layout of the Weather component."""
-        api_data = fetch_weather_data(self.api_key, self.postcode)
-        weather_data = process_detailed_weather_data(api_data, self.postcode)
-        content = render_weather_fullscreen(weather_data, self.component_id)
-        title = weather_data["current"]["condition"]
-        return FullScreenResult(content=content, title=title)
+        @app.callback(
+            Output(self.fullscreen_title_store_id(), "data"),
+            Output(self.fullscreen_content_store_id(), "data"),
+            Input(f"{self.component_id}-interval", "n_intervals"),
+            prevent_initial_call=False,
+        )
+        def populate_weather_fullscreen(_n):
+            try:
+                api_data = fetch_weather_data(self.api_key, self.postcode)
+                weather_data = process_detailed_weather_data(api_data, self.postcode)
+                content = render_weather_fullscreen(weather_data, self.component_id)
+                title = html.Div(
+                    weather_data["current"]["condition"],
+                    className="text-m",
+                    **{"data-component-name": self.name},
+                )
+                return title, content
+            except Exception as e:
+                logger.error(f"Error preparing weather full screen: {e}")
+                return None, None

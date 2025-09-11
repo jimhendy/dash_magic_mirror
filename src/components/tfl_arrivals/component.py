@@ -1,8 +1,7 @@
 from dash import Input, Output, dcc, html
 from loguru import logger
 
-from components.base import BaseComponent
-from utils.models import FullScreenResult
+from components.base import BaseComponent, PreloadedFullScreenMixin
 
 from .data import (
     fetch_arrivals_for_stop,
@@ -17,7 +16,7 @@ from .full_screen import render_tfl_fullscreen
 from .summary import render_tfl_summary
 
 
-class TFLArrivals(BaseComponent):
+class TFLArrivals(PreloadedFullScreenMixin, BaseComponent):
     """TFL Arrivals component for the Magic Mirror application.
 
     Now fully parameterised; no direct environment reads in data layer.
@@ -47,16 +46,7 @@ class TFLArrivals(BaseComponent):
                     interval=30 * 1000,
                     n_intervals=0,
                 ),
-                dcc.Interval(
-                    id=f"{self.component_id}-fullscreen-interval",
-                    interval=30 * 1000,
-                    n_intervals=0,
-                ),
-                dcc.Store(id=f"{self.component_id}-fullscreen-title-store", data=None),
-                dcc.Store(
-                    id=f"{self.component_id}-fullscreen-content-store",
-                    data=None,
-                ),
+                *self.preload_fullscreen_stores(),
                 html.Div(
                     id=f"{self.component_id}-content",
                     style={
@@ -145,9 +135,9 @@ class TFLArrivals(BaseComponent):
                 )
 
         @app.callback(
-            Output(f"{self.component_id}-fullscreen-title-store", "data"),
-            Output(f"{self.component_id}-fullscreen-content-store", "data"),
-            Input(f"{self.component_id}-fullscreen-interval", "n_intervals"),
+            Output(self.fullscreen_title_store_id(), "data"),
+            Output(self.fullscreen_content_store_id(), "data"),
+            Input(f"{self.component_id}-interval", "n_intervals"),
             prevent_initial_call=False,
         )
         def populate_fullscreen(_n):
@@ -161,7 +151,7 @@ class TFLArrivals(BaseComponent):
                     stop_disruptions,
                 )
                 title = html.Div(
-                    "Transport Arrivals",
+                    "Transport",
                     className="text-m",
                     **{"data-component-name": self.name},
                 )
@@ -169,55 +159,3 @@ class TFLArrivals(BaseComponent):
             except Exception as e:
                 logger.error(f"Error preparing TFL full screen: {e}")
                 return None, None
-
-        @app.callback(
-            Output(f"{self.component_id}-fullscreen-content", "children"),
-            Input(f"{self.component_id}-fullscreen-interval", "n_intervals"),
-        )
-        def update_tfl_fullscreen(_):
-            try:
-                all_arrivals_data, line_status, stop_disruptions = (
-                    self._get_fullscreen_data()
-                )
-                return render_tfl_fullscreen(
-                    all_arrivals_data,
-                    line_status,
-                    stop_disruptions,
-                )
-            except Exception as e:
-                logger.error(f"Error updating TFL full screen: {e}")
-                return html.Div(
-                    "Transport data unavailable",
-                    style={
-                        "color": "#999999",
-                        "textAlign": "center",
-                        "padding": "40px",
-                        "fontSize": "1.5rem",
-                    },
-                )
-
-    def full_screen_content(self) -> FullScreenResult:
-        try:
-            all_arrivals_data, line_status, stop_disruptions = (
-                self._get_fullscreen_data()
-            )
-            content = render_tfl_fullscreen(
-                all_arrivals_data,
-                line_status,
-                stop_disruptions,
-            )
-            return FullScreenResult(content=content, title="Transport Arrivals")
-        except Exception as e:
-            logger.error(f"Error loading full-screen TFL arrivals: {e}")
-            return FullScreenResult(
-                content=html.Div(
-                    "Transport data unavailable",
-                    style={
-                        "color": "#ff6b6b",
-                        "textAlign": "center",
-                        "padding": "40px",
-                        "fontSize": "1.5rem",
-                    },
-                ),
-                title="Transport Unavailable",
-            )
