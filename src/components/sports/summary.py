@@ -146,7 +146,7 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
             style={
                 "border": f"2px solid {COLORS['gold']}"
                 if is_today
-                else None,#"1px solid rgba(255,255,255,0.12)",
+                else None,  # "1px solid rgba(255,255,255,0.12)",
                 "borderRadius": "8px",
                 "padding": "0px 14px",
                 "marginBottom": "3px",

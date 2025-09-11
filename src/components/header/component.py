@@ -1,11 +1,5 @@
 from __future__ import annotations
 
-"""Unified header component combining clock + presence badges.
-
-Replaces the separate Clock and Presence components. Presence scanning logic
-and data helpers now live in `header.data`; summary badge rendering in
-`header.summary`. A placeholder full screen view exists in `header.full_screen`.
-"""
 import time
 
 from dash import Input, Output, dcc, html
