@@ -184,14 +184,7 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
                         html.Div(
                             [
                                 html.Span(
-                                    "Competition: ",
-                                    style={
-                                        "color": COLORS["soft_gray"],
-                                        "fontWeight": "500",
-                                    },
-                                ),
-                                html.Span(
-                                    row["Competition"] or "N/A",
+                                    row["Competition"],
                                     style={
                                         "color": COLORS["blue"],
                                         "fontWeight": "500",
@@ -203,14 +196,7 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
                         html.Div(
                             [
                                 html.Span(
-                                    "Channel: ",
-                                    style={
-                                        "color": COLORS["soft_gray"],
-                                        "fontWeight": "500",
-                                    },
-                                ),
-                                html.Span(
-                                    row["Channel"] or "N/A",
+                                    row["Channel"],
                                     style={
                                         "color": COLORS["green"],
                                         "fontWeight": "bold",
