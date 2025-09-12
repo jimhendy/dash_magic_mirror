@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 from dash import dcc, html
 from dash_iconify import DashIconify
 
+from utils.dates import local_now
 from utils.styles import COLORS
 
 
@@ -53,7 +54,7 @@ def _create_hourly_timeseries(
 
     # Extract data for plotting
     hour_data = []
-    now = datetime.datetime.now()
+    now = local_now()
     tomorrow = now + datetime.timedelta(days=1)
 
     for hour in hourly_data:  # Show 24 hours

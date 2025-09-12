@@ -7,12 +7,16 @@ import httpx
 from dash_iconify import DashIconify
 from loguru import logger
 
+from utils.dates import utc_now
 from utils.file_cache import cache_json
 
 from .constants import (
     ARRIVALS_API_URL,
+    BUS_FALLBACK_COLOR,
     FORWARD_DELTA_SECONDS,
+    LINE_COLORS,
     LINE_STATUS_API_URL,
+    RAIL_FALLBACK_COLOR,
     STOPPOINT_DISRUPTION_API_URL,
     TIMETABLE_API_URL,
 )
@@ -345,19 +349,43 @@ def process_arrivals_data(
                 arrival_time = datetime.datetime.fromisoformat(
                     arrival_time_str.replace("Z", "+00:00"),
                 )
-                now = datetime.datetime.now(datetime.UTC)
+                now = utc_now()
                 time_diff = (arrival_time - now).total_seconds()
                 minutes = max(0, int(time_diff // 60))
                 if minutes < 0 or minutes > 60:
                     continue
+
+                # Determine mode, icon, and line colour
+                mode_name = (arrival.get("modeName") or "").lower()
+                line_name = arrival.get("lineName", "")
+                line_id = arrival.get("lineId", "")
+                # Prefer mapping by human-readable name, then by id
+                mapped_color = LINE_COLORS.get(line_name) or LINE_COLORS.get(line_id)
+                line_color = (
+                    mapped_color
+                    if mapped_color
+                    else (
+                        BUS_FALLBACK_COLOR
+                        if mode_name == "bus"
+                        else RAIL_FALLBACK_COLOR
+                    )
+                )
+                icon_name = (
+                    "tabler:bus"
+                    if mode_name == "bus"
+                    else "material-symbols:train-outline"
+                )
+
                 processed_arrival = {
                     "id": arrival.get("id", ""),
                     "minutes": minutes,
                     "arrival_time": arrival_time,
                     "destination": clean_station_name(destination),
                     "platform": arrival.get("platformName", "Unknown"),
-                    "line_name": arrival.get("lineName", ""),
-                    "line_id": arrival.get("lineId", ""),
+                    "line_name": line_name,
+                    "line_id": line_id,
+                    "line_color": line_color,
+                    "icon_name": icon_name,
                     "direction": arrival.get("direction", ""),
                     "mode": arrival.get("modeName", ""),
                     "station_name": clean_station_name(arrival.get("stationName", "")),

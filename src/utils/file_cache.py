@@ -8,6 +8,7 @@ from pathlib import Path
 from loguru import logger
 
 from components.base import BaseComponent
+from utils.dates import utc_now
 
 CACHE_PATH = Path.home() / ".cache" / "magic_mirror"
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
@@ -70,7 +71,7 @@ def cache_json(valid_lifetime: datetime.timedelta) -> Callable:
             """
             arg_hash = reproduce_hash(*args, **kwargs)
             cache_file_name = f"{cache_key}_{arg_hash}_{{write_time}}.json"
-            now = datetime.datetime.now(tz=datetime.UTC)
+            now = utc_now()
             cache_files = {
                 f: datetime.datetime.strptime(
                     f.stem.split("_")[-1],

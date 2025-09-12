@@ -160,6 +160,7 @@ def _create_station_disruption_indicator(station_name: str) -> html.Div:
 def _create_arrival_card(arrival: dict) -> html.Div:
     """Create an arrival card for summary view."""
     time_color, time_weight = get_time_color_and_weight(arrival["minutes"])
+    line_color = arrival.get("line_color") or COLORS["blue"]
 
     return html.Div(
         [
@@ -171,7 +172,7 @@ def _create_arrival_card(arrival: dict) -> html.Div:
                             html.Span(
                                 arrival["line_name"],
                                 style={
-                                    "color": COLORS["blue"],
+                                    "color": line_color,
                                     "fontWeight": "600",
                                     "fontSize": FONT_SIZES["summary_primary"],
                                     "marginRight": "8px",

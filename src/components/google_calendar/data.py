@@ -12,7 +12,7 @@ from googleapiclient.errors import HttpError
 from loguru import logger
 
 from components.base import BaseComponent
-from utils.dates import datetime_from_str
+from utils.dates import datetime_from_str, local_now, local_today
 from utils.file_cache import cache_json
 
 
@@ -70,12 +70,8 @@ def fetch_calendar_events(
         service = build("calendar", "v3", credentials=creds)
 
         # Get events from yesterday to next week to handle multi-day events
-        yesterday = (
-            datetime.datetime.now(tz=datetime.UTC) - datetime.timedelta(days=1)
-        ).isoformat()
-        end_date = (
-            datetime.datetime.now(tz=datetime.UTC) + datetime.timedelta(days=7 * 5)
-        ).isoformat()
+        yesterday = (local_now() - datetime.timedelta(days=1)).isoformat()
+        end_date = (local_now() + datetime.timedelta(days=7 * 5)).isoformat()
 
         events = []
         for calendar_id in calendar_ids:
@@ -123,7 +119,7 @@ def process_calendar_events(
 
     """
     processed_events = []
-    today = datetime.date.today()
+    today = local_today()
     tomorrow = today + datetime.timedelta(days=1)
 
     for event in raw_events:

@@ -1,7 +1,8 @@
 # Explicit London timezone conversion (container may run in UTC)
 from datetime import UTC
 
-from dash import html
+from dash import dcc, html
+from dash_iconify import DashIconify
 
 from utils.styles import COLORS
 
@@ -19,8 +20,9 @@ def render_tfl_fullscreen(
     all_arrivals_data: dict,
     line_status: dict,
     stop_disruptions: dict,
+    component_id: str,
 ) -> html.Div:
-    """Render TFL full screen view with all arrivals and status tables."""
+    """Render TFL full screen view with all arrivals and status tables plus a line filter."""
     # Combine all arrivals from all stops
     all_arrivals = []
     all_line_ids = set()
@@ -39,8 +41,63 @@ def render_tfl_fullscreen(
     # Limit to what fits on screen comfortably with the new layout
     display_arrivals = all_arrivals[:20]
 
+    # Build unique line filter options (modeled after Sports)
+    line_names = []
+    seen = set()
+    for a in all_arrivals:
+        name = a.get("line_name") or ""
+        if not name:
+            continue
+        key = name.lower()
+        if key not in seen:
+            seen.add(key)
+            line_names.append(name)
+
+    filter_options = [{"label": "All", "value": "all"}] + [
+        {"label": name, "value": name.lower()} for name in line_names
+    ]
+
     return html.Div(
         [
+            # Sticky filter bar at the very top
+            html.Div(
+                [
+                    dcc.RadioItems(
+                        id=f"{component_id}-line-filter",
+                        options=filter_options,
+                        value="all",
+                        inline=True,
+                        labelStyle={
+                            "marginRight": "12px",
+                            "cursor": "pointer",
+                            "display": "flex",
+                            "alignItems": "center",
+                            "gap": "4px",
+                        },
+                        style={
+                            "fontSize": "0.9rem",
+                            "display": "flex",
+                            "flexWrap": "wrap",
+                            "gap": "16px",
+                            "color": COLORS["white"],
+                            "marginBottom": "6px",
+                            "justifyContent": "center",
+                            "width": "100%",
+                        },
+                    ),
+                ],
+                style={
+                    "position": "sticky",
+                    "top": "0",
+                    "zIndex": 1,
+                    "background": COLORS["black"],
+                    "padding": "8px 10px 4px 10px",
+                    "borderBottom": f"1px solid {COLORS['soft_gray']}",
+                    "marginBottom": "10px",
+                    "display": "flex",
+                    "justifyContent": "center",
+                },
+            ),
             # Status tables section (top row)
             html.Div(
                 [
@@ -97,7 +154,7 @@ def render_tfl_fullscreen(
             # Arrivals table section (full width below status tables)
             html.Div(
                 [
-                    _create_arrivals_table(display_arrivals),
+                    _create_arrivals_table(display_arrivals, component_id),
                 ],
                 style={
                     "width": "100%",
@@ -105,14 +162,13 @@ def render_tfl_fullscreen(
             ),
         ],
         style={
-            "padding": "20px",
             "color": COLORS["white"],
             # inherit font
         },
     )
 
 
-def _create_arrivals_table(arrivals: list) -> html.Div:
+def _create_arrivals_table(arrivals: list, component_id: str) -> html.Div:
     """Create the arrivals table for full screen view."""
     if not arrivals:
         return html.Div(
@@ -163,6 +219,18 @@ def _create_arrivals_table(arrivals: list) -> html.Div:
         if station_name.startswith("London "):
             station_name = station_name.replace("London ", "")
 
+        # Use pre-shaped line color and mode icon
+        line_color = arrival.get("line_color") or (
+            COLORS["red"]
+            if (arrival.get("mode") or "").lower() == "bus"
+            else COLORS["blue"]
+        )
+        icon_name = arrival.get("icon_name") or (
+            "tabler:bus"
+            if (arrival.get("mode") or "").lower() == "bus"
+            else "material-symbols:train-outline"
+        )
+
         # Format combined time display (actual time and expected)
         actual_time_text = ""
         if arrival.get("arrival_time"):
@@ -201,13 +269,28 @@ def _create_arrivals_table(arrivals: list) -> html.Div:
                             },
                         ),
                         html.Div(
-                            arrival["line_name"],
+                            [
+                                DashIconify(
+                                    icon=icon_name,
+                                    color=line_color,
+                                    width=18,
+                                    height=18,
+                                ),
+                                html.Span(
+                                    arrival["line_name"],
+                                    style={
+                                        "color": line_color,
+                                        "fontSize": "0.9rem",
+                                        "fontWeight": "600",
+                                        "lineHeight": "1.2",
+                                    },
+                                ),
+                            ],
                             style={
-                                "color": COLORS["blue"],
-                                "fontSize": "0.85rem",
-                                "fontWeight": "400",
+                                "display": "flex",
+                                "alignItems": "center",
+                                "gap": "6px",
                                 "marginTop": "2px",
-                                "lineHeight": "1.2",
                             },
                         ),
                     ],
@@ -250,6 +333,8 @@ def _create_arrivals_table(arrivals: list) -> html.Div:
                     },
                 ),
             ],
+            id=f"{component_id}-arrival-row-{i}",
+            **{"data-line": (arrival.get("line_name") or "").lower()},
             style={
                 "display": "flex",
                 "alignItems": "stretch",  # Changed to stretch for multi-line content
@@ -263,7 +348,7 @@ def _create_arrivals_table(arrivals: list) -> html.Div:
         )
         rows.append(row)
 
-    return html.Div([header] + rows)
+    return html.Div([header] + rows, id=f"{component_id}-arrivals-wrapper")
 
 
 def _create_line_status_table(line_ids: set, line_status: dict) -> html.Div:
@@ -275,7 +360,6 @@ def _create_line_status_table(line_ids: set, line_status: dict) -> html.Div:
                 "textAlign": "center",
                 "color": COLORS["soft_gray"],
                 "fontSize": "1rem",
-                "padding": "20px",
             },
         )
 
@@ -350,7 +434,6 @@ def _create_station_status_table(
                 "textAlign": "center",
                 "color": COLORS["soft_gray"],
                 "fontSize": "1rem",
-                "padding": "20px",
             },
         )
 

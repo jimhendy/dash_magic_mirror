@@ -5,6 +5,7 @@ import dash_mantine_components as dmc
 from dash import html
 from dash_iconify import DashIconify
 
+from utils.dates import local_today
 from utils.styles import FONT_SIZES
 
 
@@ -60,7 +61,7 @@ def _high_low_rain(day_data: dict[str, Any]) -> html.Div:
 
 def _tomorrow_day() -> str:
     """Get tomorrow's day name."""
-    today = datetime.date.today()
+    today = local_today()
     tomorrow = today + datetime.timedelta(days=1)
     return tomorrow.strftime("%a")
 

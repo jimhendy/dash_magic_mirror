@@ -57,20 +57,6 @@ class TFLArrivals(PreloadedFullScreenMixin, BaseComponent):
             ],
         )
 
-    def _fullscreen_layout(self):
-        return html.Div(
-            [
-                dcc.Interval(
-                    id=f"{self.component_id}-fullscreen-interval",
-                    interval=30 * 1000,
-                    n_intervals=0,
-                ),
-                html.Div(
-                    id=f"{self.component_id}-fullscreen-content",
-                ),
-            ],
-        )
-
     def _get_summary_data(self):
         if not self.primary_stop_id:
             return {}, {}, {}
@@ -130,7 +116,6 @@ class TFLArrivals(PreloadedFullScreenMixin, BaseComponent):
                     style={
                         "color": "#999999",
                         "textAlign": "center",
-                        "padding": "20px",
                     },
                 )
 
@@ -149,6 +134,7 @@ class TFLArrivals(PreloadedFullScreenMixin, BaseComponent):
                     all_arrivals_data,
                     line_status,
                     stop_disruptions,
+                    self.component_id,
                 )
                 title = html.Div(
                     "Transport",
@@ -159,3 +145,13 @@ class TFLArrivals(PreloadedFullScreenMixin, BaseComponent):
             except Exception as e:
                 logger.error(f"Error preparing TFL full screen: {e}")
                 return None, None
+
+        # Client-side filtering of arrivals rows by selected line
+        app.clientside_callback(
+            "function(value){\n  try {\n    const wrapper = document.getElementById('"
+            f"{self.component_id}-arrivals-wrapper"
+            "');\n    if(!wrapper){return window.dash_clientside.no_update;}\n    const rows = wrapper.querySelectorAll('[data-line]');\n    if(!rows.length){return window.dash_clientside.no_update;}\n    const sel = (value || 'all').toLowerCase();\n    rows.forEach(r=>{\n      const line = (r.getAttribute('data-line') || '').toLowerCase();\n      if(sel==='all' || line===sel){\n        r.style.display = 'flex';\n      } else {\n        r.style.display = 'none';\n      }\n    });\n  } catch(e){ console.warn('tfl line filter failed', e); }\n  return '';\n}",
+            Output(f"{self.component_id}-line-filter", "title"),  # dummy no-op output
+            Input(f"{self.component_id}-line-filter", "value"),
+            prevent_initial_call=False,
+        )

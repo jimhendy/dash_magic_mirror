@@ -5,6 +5,7 @@ import datetime
 from dash import html
 
 from utils.calendar import get_event_color_by_event, truncate_event_title
+from utils.dates import local_today
 from utils.styles import FONT_SIZES
 
 from .data import CalendarEvent, get_events_for_date
@@ -30,7 +31,7 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
     # Prepare events with consistent color assignment and sorting
     sorted_events = prepare_events_for_rendering(events)
 
-    today = datetime.date.today()
+    today = local_today()
     tomorrow = today + datetime.timedelta(days=1)
 
     today_events = get_events_for_date(sorted_events, today)
@@ -220,8 +221,8 @@ def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div
         style={
             "padding": "6px 8px 6px 10px",
             "fontSize": FONT_SIZES["summary_meta"],
-            "lineHeight": "1.25",
-            "fontWeight": "500",
+            "lineHeight": "1.15",
+            "fontWeight": "350",
             "overflow": "hidden",
             "textOverflow": "ellipsis",
             "whiteSpace": "nowrap",

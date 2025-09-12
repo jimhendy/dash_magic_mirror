@@ -9,6 +9,7 @@ from utils.calendar import (
     get_contrasting_text_color,
     get_event_color_by_event,
 )
+from utils.dates import local_today
 from utils.models import FullScreenResult
 
 from .data import CalendarEvent
@@ -38,7 +39,7 @@ def render_calendar_fullscreen(
     # Prepare events with consistent color assignment and sorting
     sorted_events = prepare_events_for_rendering(events)
 
-    today = datetime.date.today()
+    today = local_today()
 
     # Start from the beginning of the current week
     start_of_week = today - datetime.timedelta(days=today.weekday())

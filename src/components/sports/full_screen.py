@@ -4,6 +4,7 @@ from typing import Any
 from dash import dcc, html
 from dash_iconify import DashIconify
 
+from utils.dates import local_today
 from utils.styles import COLORS
 
 from .data import SPORTS, get_full_screen_fixtures
@@ -38,7 +39,7 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
 
     # Create table data
     table_data = []
-    today = datetime.date.today()
+    today = local_today()
 
     for fx in fixtures:
         # Format date
@@ -274,6 +275,10 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
                     ),
                 ],
                 style={
+                    "position": "sticky",
+                    "top": "0",
+                    "zIndex": 1,
+                    "background": COLORS["black"],
                     "padding": "8px 10px 4px 10px",
                     "borderBottom": f"1px solid {COLORS['soft_gray']}",
                     "marginBottom": "10px",
@@ -285,7 +290,6 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
             html.Div(
                 fixture_cards,
                 id=f"{component_id}-fixtures-wrapper",
-                style={"padding": "0 20px"},
             ),
         ],
         style={

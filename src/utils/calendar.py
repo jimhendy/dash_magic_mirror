@@ -1,5 +1,7 @@
 """Calendar-related utility functions that can be used by multiple components."""
 
+from utils.dates import local_today
+
 
 def truncate_event_title(title: str, max_length: int = 30) -> str:
     """Truncate event title if too long.
@@ -106,7 +108,7 @@ def assign_event_colors_consistently(events: list, reference_date=None) -> None:
     import datetime
 
     if reference_date is None:
-        reference_date = datetime.date.today()
+        reference_date = local_today()
 
     global _event_color_assignments, _color_counter
 

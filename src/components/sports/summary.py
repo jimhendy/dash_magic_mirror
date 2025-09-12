@@ -4,7 +4,7 @@ from typing import Any
 from dash import html
 from dash_iconify import DashIconify
 
-from utils.dates import _opacity_from_days_away
+from utils.dates import _opacity_from_days_away, local_today
 from utils.styles import COLORS, FONT_SIZES
 
 
@@ -27,7 +27,7 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
         )
 
     fixture_cards = []
-    today = datetime.date.today()
+    today = local_today()
 
     for fx in fixtures:
         # Format date nicely and check if it's today

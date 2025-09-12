@@ -4,6 +4,7 @@ import datetime
 from typing import Any
 
 from utils.calendar import assign_event_colors_consistently
+from utils.dates import local_today
 
 from .data import CalendarEvent
 
@@ -19,7 +20,7 @@ def prepare_events_for_rendering(events: list[CalendarEvent]) -> list[CalendarEv
 
     """
     # Assign colors consistently based on today's events having priority
-    assign_event_colors_consistently(events, datetime.date.today())
+    assign_event_colors_consistently(events, local_today())
 
     # Sort events by start date, then by title for consistent color assignment
     # Handle timezone-aware/naive datetime comparison by using date() for sorting
@@ -77,7 +78,7 @@ def calculate_event_margins(
     event_starts_here: bool,
     event_ends_here: bool,
     edge_margin: str = "4px",
-    continuation_margin: str = "-8px",
+    continuation_margin: str = "0px",
 ) -> tuple[str, str]:
     """Calculate margins for an event based on where it starts/ends.
 
@@ -144,7 +145,7 @@ def generate_calendar_grid_weeks(
         Calendar grid as list of weeks, each week containing day info dictionaries
 
     """
-    today = datetime.date.today()
+    today = local_today()
     calendar_grid = []
 
     # Ensure start_date is a Monday

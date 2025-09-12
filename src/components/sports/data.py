@@ -7,6 +7,7 @@ import httpx
 from bs4 import BeautifulSoup
 from loguru import logger
 
+from utils.dates import local_today, utc_now
 from utils.file_cache import cache_json
 
 from .constants import FETCH_RANGE_DAYS, HTTP_TIMEOUT, USER_AGENT
@@ -86,7 +87,7 @@ def _date_str(d: datetime.date) -> str:
 @cache_json(valid_lifetime=datetime.timedelta(hours=36))
 def fetch_raw_html_for_sport(sport: Sport) -> str:
     """Cache the raw HTML response for better development iteration."""
-    start = datetime.date.today()
+    start = local_today()
     end = start + datetime.timedelta(days=FETCH_RANGE_DAYS)
     url = (
         f"https://www.wheresthematch.com/live-{sport.url}-on-tv/"
@@ -237,7 +238,7 @@ def _create_fixture_dict(
         "parsed_date": parsed_date.isoformat() if parsed_date else None,
         "sort_date": parsed_date or datetime.date.max,
         "date_time_raw": date_time_raw,
-        "fetched_at": datetime.datetime.now(datetime.UTC).isoformat(),
+        "fetched_at": utc_now().isoformat(),
         "crest": crest_path,
     }
 
@@ -358,7 +359,7 @@ def fetch_fixtures_for_sport(sport: Sport) -> list[dict[str, Any]]:
 def fetch_all_fixtures() -> dict[str, Any]:
     """Fetch all fixtures for all configured sports."""
     aggregate: dict[str, Any] = {
-        "updated": datetime.datetime.utcnow().isoformat(),
+        "updated": utc_now().isoformat(),
         "sports": {},
     }
     for sport in SPORTS:
@@ -386,7 +387,7 @@ def get_summary_fixtures(
             all_fixtures.extend(items)
 
     # Filter to next 7 days only
-    today = datetime.date.today()
+    today = local_today()
     cutoff_date = today + datetime.timedelta(days=days_ahead)
 
     filtered_fixtures = []
