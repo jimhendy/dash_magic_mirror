@@ -197,6 +197,20 @@ def _extract_competition(fixture_text: str) -> str:
     return ""
 
 
+def _tidy_channel_name(name: str) -> str:
+    """Tidy up channel names by removing common suffixes."""
+    name = name.strip()
+    for prefix, formatted_name in [
+        ("sky sports", "Sky Sports"),
+        ("sky", "Sky"),
+        ("bt sport", "BT Sport"),
+        ("bt", "BT"),
+    ]:
+        if name.lower().startswith(prefix):
+            return formatted_name + name.lower().removeprefix(prefix).strip().title()
+    return name
+
+
 def _create_fixture_dict(
     sport: Sport,
     home: str,
@@ -225,6 +239,7 @@ def _create_fixture_dict(
         if team_name in crest_map:
             crest_path = crest_map[team_name]
             break
+    channel = _tidy_channel_name(channel)
     return {
         "sport_icon": team_icon,
         "sport_icon_color": sport.icon_color,
@@ -253,96 +268,55 @@ def extract_fixtures_from_html(html: str, sport: Sport) -> list[dict[str, Any]]:
     team_subs = [t.lower() for t in sport.teams]
 
     # Try to find fixtures in table structure first
-    tables = soup.find_all("table")
-    for table in tables:
-        rows = table.find_all("tr")
-        for row in rows:
-            cells = row.find_all("td")
-            fixture_text = row.get_text(separator=" ").strip()
+    rows = soup.find_all("tr")
+    for row in rows:
+        cells = row.find_all("td")
+        fixture_text = row.get_text(separator=" ").strip()
 
-            if not fixture_text or not (
-                " v " in fixture_text or " vs " in fixture_text
-            ):
-                continue
+        if not fixture_text or not (" v " in fixture_text or " vs " in fixture_text):
+            continue
 
-            home, away = _extract_teams(fixture_text)
-            if not home or not away:
-                continue
+        home, away = _extract_teams(fixture_text)
+        if not home or not away:
+            continue
 
-            if not _is_team_match(home, away, team_subs):
-                continue
+        if not _is_team_match(home, away, team_subs):
+            continue
 
-            # Extract channel from channel-details cell
-            channel_info = ""
-            channel_cell = row.find("td", class_="channel-details")
-            if channel_cell:
-                img_tag = channel_cell.find("img")
-                if img_tag and img_tag.get("title"):
-                    channel_info = img_tag.get("title")
-                elif img_tag and img_tag.get("alt"):
-                    channel_info = img_tag.get("alt").replace(" logo", "")
+        # Extract channel from channel-details cell
+        channel_info = ""
+        channel_cell = row.find("td", class_="channel-details")
+        if channel_cell:
+            img_tag = channel_cell.find("img")
+            if img_tag and img_tag.get("title"):
+                channel_info = img_tag.get("title")
+            elif img_tag and img_tag.get("alt"):
+                channel_info = img_tag.get("alt").replace(" logo", "")
 
-            # Extract date/time from the row
-            parsed_date, time_str = None, ""
-            for cell in cells:
-                cell_text = cell.get_text().strip()
-                if cell_text:
-                    temp_date, temp_time = _parse_date_time(cell_text)
-                    if temp_date or temp_time:
-                        parsed_date, time_str = temp_date, temp_time
-                        break
+        # Extract date/time from the row
+        parsed_date, time_str = None, ""
+        for cell in cells:
+            cell_text = cell.get_text().strip()
+            if cell_text:
+                temp_date, temp_time = _parse_date_time(cell_text)
+                if temp_date or temp_time:
+                    parsed_date, time_str = temp_date, temp_time
+                    break
 
-            competition = _extract_competition(fixture_text)
+        competition = _extract_competition(fixture_text)
 
-            fixtures.append(
-                _create_fixture_dict(
-                    sport,
-                    home,
-                    away,
-                    parsed_date,
-                    time_str,
-                    competition,
-                    channel_info,
-                    fixture_text,
-                ),
-            )
-
-    # If no table fixtures found, fall back to text parsing
-    if not fixtures:
-        text_lines = soup.get_text().split("\n")
-        for i, line in enumerate(text_lines):
-            line = line.strip()
-            if not line or not (" v " in line or " vs " in line):
-                continue
-
-            home, away = _extract_teams(line)
-            if not home or not away:
-                continue
-
-            if not _is_team_match(home, away, team_subs):
-                continue
-
-            # Get the next few lines for date/time info
-            date_time_line = ""
-            if i + 1 < len(text_lines):
-                date_time_line = text_lines[i + 1].strip()
-
-            parsed_date, time_str = _parse_date_time(date_time_line)
-            competition = _extract_competition(line)
-
-            fixtures.append(
-                _create_fixture_dict(
-                    sport,
-                    home,
-                    away,
-                    parsed_date,
-                    time_str,
-                    competition,
-                    "",
-                    line,
-                    date_time_line,
-                ),
-            )
+        fixtures.append(
+            _create_fixture_dict(
+                sport,
+                home,
+                away,
+                parsed_date,
+                time_str,
+                competition,
+                channel_info,
+                fixture_text,
+            ),
+        )
 
     # Sort by date
     fixtures.sort(key=lambda x: x["sort_date"])
