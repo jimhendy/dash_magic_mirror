@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from dash import dcc, html
 from dash_iconify import DashIconify
 
-from utils.dates import local_now
+from utils.dates import get_app_timezone, local_now
 from utils.styles import COLORS
 
 
@@ -56,9 +56,13 @@ def _create_hourly_timeseries(
     hour_data = []
     now = local_now()
     tomorrow = now + datetime.timedelta(days=1)
+    tz = get_app_timezone()
 
     for hour in hourly_data:  # Show 24 hours
         dt = datetime.datetime.fromisoformat(hour.get("time", ""))
+        # Ensure timezone-aware in app timezone
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=tz)
         if dt < now or dt >= tomorrow:
             continue
         hour_data.append(
@@ -206,22 +210,28 @@ def _create_hourly_timeseries(
     ]
     sunsets = [dd.get("sunset", "") for dd in daily_data if dd.get("date", "") in days]
     for sr in sunrises:
-        if sr < now or sr >= tomorrow:
+        if not isinstance(sr, datetime.datetime):
+            continue
+        sr_dt = sr if sr.tzinfo is not None else sr.replace(tzinfo=tz)
+        if sr_dt < now or sr_dt >= tomorrow:
             continue
         fig.add_annotation(
-            x=sr,
+            x=sr_dt,
             y=max(hd.temp_c for hd in hour_data) + 1,
-            text=f"☀️ {sr.strftime('%-H:%M')}",
+            text=f"☀️ {sr_dt.strftime('%-H:%M')}",
             showarrow=False,
             font=dict(size=20),
         )
     for ss in sunsets:
-        if ss < now or ss >= tomorrow:
+        if not isinstance(ss, datetime.datetime):
+            continue
+        ss_dt = ss if ss.tzinfo is not None else ss.replace(tzinfo=tz)
+        if ss_dt < now or ss_dt >= tomorrow:
             continue
         fig.add_annotation(
-            x=ss,
+            x=ss_dt,
             y=max(hd.temp_c for hd in hour_data) + 1,
-            text=f"☽ {ss.strftime('%H:%M')}",
+            text=f"☽ {ss_dt.strftime('%H:%M')}",
             showarrow=False,
             font=dict(size=20),
         )
