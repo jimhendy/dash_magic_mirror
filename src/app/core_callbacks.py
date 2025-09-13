@@ -94,7 +94,10 @@ def add_callbacks() -> None:
     app.clientside_callback(
         """
         function(n_clicks, current_style) {
-            return { ...current_style, display: "none" };
+            if (n_clicks) {
+                return { ...current_style, display: "none" };
+            }
+            return window.dash_clientside.no_update;
         }
         """,
         Output("full-screen-modal", "style", allow_duplicate=True),

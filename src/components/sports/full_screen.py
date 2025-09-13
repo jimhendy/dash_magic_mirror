@@ -49,6 +49,8 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
         if fx.get("parsed_date"):
             try:
                 date_obj = datetime.date.fromisoformat(fx["parsed_date"])
+                if date_obj < today:
+                    continue  # Skip past fixtures
                 is_today = date_obj == today
 
                 if is_today:

@@ -8,8 +8,8 @@ except Exception:  # pragma: no cover
 
 
 # Centralized timezone for the app. Read once at import.
-# Prefer explicit APP_TIMEZONE, fall back to TZ, else UTC.
-_APP_TZ_NAME = os.environ.get("APP_TIMEZONE") or os.environ.get("TZ") or "UTC"
+# Prefer explicit APP_TIMEZONE else UTC.
+_APP_TZ_NAME = os.environ.get("APP_TIMEZONE", "UTC")
 _APP_TZ = None
 if ZoneInfo is not None:
     try:
