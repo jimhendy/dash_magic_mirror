@@ -1,23 +1,6 @@
 import datetime
 import os
-
-try:
-    from zoneinfo import ZoneInfo  # Python 3.9+
-except Exception:  # pragma: no cover
-    ZoneInfo = None  # type: ignore
-
-
-# Centralized timezone for the app. Read once at import.
-# Prefer explicit APP_TIMEZONE else UTC.
-_APP_TZ_NAME = os.environ.get("APP_TIMEZONE", "UTC")
-_APP_TZ = None
-if ZoneInfo is not None:
-    try:
-        _APP_TZ = ZoneInfo(_APP_TZ_NAME)
-    except Exception:  # invalid tz -> fallback to UTC
-        _APP_TZ = datetime.UTC
-else:
-    _APP_TZ = datetime.UTC
+from zoneinfo import ZoneInfo
 
 
 def get_app_timezone() -> datetime.tzinfo:
@@ -25,7 +8,8 @@ def get_app_timezone() -> datetime.tzinfo:
 
     Env vars checked: APP_TIMEZONE, then TZ. Defaults to UTC.
     """
-    return _APP_TZ  # type: ignore[return-value]
+    tz_name = os.environ.get("APP_TIMEZONE", "UTC")
+    return ZoneInfo(tz_name)  # type: ignore[return-value]
 
 
 def local_now() -> datetime.datetime:

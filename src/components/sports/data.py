@@ -103,49 +103,16 @@ def fetch_raw_html_for_sport(sport: Sport) -> str:
         return ""
 
 
-def _parse_date_time(date_str: str) -> tuple[datetime.date | None, str]:
-    """Parse date/time from strings like 'Fri 15th August 2025 08:10'."""
+def _date_time_from_iso(date_str: str) -> tuple[datetime.date | None, str]:
+    """Parse date/time from ISO 8601 strings like '2025-09-14T14:30:00Z'."""
     if not date_str.strip():
         return None, ""
 
-    # Extract time (HH:MM pattern)
-    time_match = re.search(r"\b(\d{1,2}:\d{2})\b", date_str)
-    time_str = time_match.group(1) if time_match else ""
-
-    # Parse date - look for day, month, year patterns
-    date_match = re.search(
-        r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{4})\b",
-        date_str.lower(),
-    )
-
-    if date_match:
-        day = int(date_match.group(1))
-        month_name = date_match.group(2)
-        year = int(date_match.group(3))
-
-        month_map = {
-            "january": 1,
-            "february": 2,
-            "march": 3,
-            "april": 4,
-            "may": 5,
-            "june": 6,
-            "july": 7,
-            "august": 8,
-            "september": 9,
-            "october": 10,
-            "november": 11,
-            "december": 12,
-        }
-
-        month = month_map.get(month_name)
-        if month:
-            try:
-                return datetime.date(year, month, day), time_str
-            except ValueError:
-                pass
-
-    return None, time_str
+    try:
+        dt = datetime.datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        return dt.date(), dt.strftime("%H:%M")
+    except ValueError:
+        return None, ""
 
 
 def _extract_teams(fixture_line: str) -> tuple[str, str]:
@@ -270,7 +237,6 @@ def extract_fixtures_from_html(html: str, sport: Sport) -> list[dict[str, Any]]:
     # Try to find fixtures in table structure first
     rows = soup.find_all("tr")
     for row in rows:
-        cells = row.find_all("td")
         fixture_text = row.get_text(separator=" ").strip()
 
         if not fixture_text or not (" v " in fixture_text or " vs " in fixture_text):
@@ -293,15 +259,14 @@ def extract_fixtures_from_html(html: str, sport: Sport) -> list[dict[str, Any]]:
             elif img_tag and img_tag.get("alt"):
                 channel_info = img_tag.get("alt").replace(" logo", "")
 
-        # Extract date/time from the row
-        parsed_date, time_str = None, ""
-        for cell in cells:
-            cell_text = cell.get_text().strip()
-            if cell_text:
-                temp_date, temp_time = _parse_date_time(cell_text)
-                if temp_date or temp_time:
-                    parsed_date, time_str = temp_date, temp_time
-                    break
+        # Extract the date/time from elements like: "<td class="\&quot;start-details\&quot;" itemprop="\&quot;startDate\&quot;" content="\&quot;2025-09-14T14:30:00Z\&quot;">"
+        date_time_cell = row.find("td", class_="start-details")
+        date_time_raw = ""
+        if date_time_cell and date_time_cell.get("content"):
+            date_time_raw = date_time_cell.get("content").strip()
+            parsed_date, time_str = _date_time_from_iso(date_time_raw)
+        else:
+            parsed_date, time_str = None, ""
 
         competition = _extract_competition(fixture_text)
 
