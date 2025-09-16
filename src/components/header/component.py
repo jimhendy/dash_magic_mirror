@@ -94,7 +94,7 @@ class Header(BaseComponent):
                                 "left": "50%",
                                 "transform": "translateX(-50%)",
                                 "top": "1.8rem",  # below date
-                                "fontSize": "5rem",
+                                "fontSize": "6rem",
                                 "fontWeight": "350",
                                 "color": COLORS["white"],
                                 "lineHeight": "1",

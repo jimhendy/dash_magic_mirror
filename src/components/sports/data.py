@@ -1,5 +1,7 @@
 import datetime
+import random
 import re
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -10,7 +12,7 @@ from loguru import logger
 from utils.dates import local_today, utc_now
 from utils.file_cache import cache_json
 
-from .constants import FETCH_RANGE_DAYS, HTTP_TIMEOUT, USER_AGENT
+from .constants import FETCH_RANGE_DAYS, HTTP_TIMEOUT, USER_AGENT, WTM_BASE_URL
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -80,6 +82,13 @@ SPORT_TEAM_CRESTS: dict[str, dict[str, str]] = {
 }
 
 
+# -------- Pagination configuration (kept local to avoid changing constants module) --------
+MAX_PAGES_PER_FETCH: int = 5  # safety cap
+REQUEST_JITTER_MIN: float = 1.2
+REQUEST_JITTER_MAX: float = 2.6
+MAX_RETRIES_PER_PAGE: int = 1  # in addition to the initial attempt
+
+
 def _date_str(d: datetime.date) -> str:
     return d.strftime("%Y%m%d")
 
@@ -90,7 +99,7 @@ def fetch_raw_html_for_sport(sport: Sport) -> str:
     start = local_today()
     end = start + datetime.timedelta(days=FETCH_RANGE_DAYS)
     url = (
-        f"https://www.wheresthematch.com/live-{sport.url}-on-tv/"
+        f"{WTM_BASE_URL}/live-{sport.url}-on-tv/"
         f"?showdatestart={_date_str(start)}&showdateend={_date_str(end)}"
     )
     logger.info(f"Fetching raw HTML for sport={sport.url} url={url}")
@@ -101,6 +110,63 @@ def fetch_raw_html_for_sport(sport: Sport) -> str:
     except Exception as e:
         logger.error(f"Failed to fetch {url}: {e}")
         return ""
+
+
+# -------- Pagination helpers --------
+
+
+def _pager_total_pages_from_html(html: str) -> int:
+    """Parse total pages from the pager anchors. Returns at least 1.
+
+    Looks for a table/div with id="gui-paging" and extracts the largest numeric link.
+    Falls back to scanning all anchors for numeric text.
+    """
+    if not html:
+        return 1
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        container = soup.find(id="gui-paging")
+        anchors = []
+        if container:
+            anchors = container.find_all("a")
+        if not anchors:
+            anchors = soup.find_all("a")
+        nums: list[int] = []
+        for a in anchors:
+            t = (a.get_text() or "").strip()
+            if t.isdigit():
+                try:
+                    nums.append(int(t))
+                except ValueError:
+                    pass
+        if nums:
+            return max(nums)
+    except Exception as e:
+        logger.debug(f"Failed parsing pager: {e}")
+    return 1
+
+
+def _extract_match_id_from_row(row: Any) -> str | None:
+    """Try to extract a stable numeric match id from the row's buy/watch link.
+
+    Expected formats include:
+      - /match/some-slug/187664/
+      - https://www.wheresthematch.com/match/some-slug/187664/
+    """
+    try:
+        a = row.find("a", class_=re.compile(r"\bmobile-buy-pass\b"))
+        href = a.get("href") if a else None
+        if not href:
+            return None
+        # Remove any surrounding quotes artefacts and domain prefix
+        href = href.replace("&quot;", "").replace('"', "").strip()
+        # Look for the numeric id
+        m = re.search(r"/match/[^/]+/(\d+)/", href)
+        if not m:
+            m = re.search(r"/(\d+)/?", href)
+        return m.group(1) if m else None
+    except Exception:
+        return None
 
 
 def _date_time_from_iso(date_str: str) -> tuple[datetime.date | None, str]:
@@ -188,6 +254,7 @@ def _create_fixture_dict(
     channel: str,
     raw_text: str,
     date_time_raw: str = "",
+    match_id: str | None = None,
 ) -> dict[str, Any]:
     """Create a standardized fixture dictionary."""
     # Determine if a specific team icon can override the generic sport icon
@@ -222,6 +289,7 @@ def _create_fixture_dict(
         "date_time_raw": date_time_raw,
         "fetched_at": utc_now().isoformat(),
         "crest": crest_path,
+        "match_id": match_id,
     }
 
 
@@ -259,7 +327,7 @@ def extract_fixtures_from_html(html: str, sport: Sport) -> list[dict[str, Any]]:
             elif img_tag and img_tag.get("alt"):
                 channel_info = img_tag.get("alt").replace(" logo", "")
 
-        # Extract the date/time from elements like: "<td class="\&quot;start-details\&quot;" itemprop="\&quot;startDate\&quot;" content="\&quot;2025-09-14T14:30:00Z\&quot;">"
+        # Extract the date/time
         date_time_cell = row.find("td", class_="start-details")
         date_time_raw = ""
         if date_time_cell and date_time_cell.get("content"):
@@ -269,6 +337,9 @@ def extract_fixtures_from_html(html: str, sport: Sport) -> list[dict[str, Any]]:
             parsed_date, time_str = None, ""
 
         competition = _extract_competition(fixture_text)
+
+        # Extract match id for dedupe
+        match_id = _extract_match_id_from_row(row)
 
         fixtures.append(
             _create_fixture_dict(
@@ -280,6 +351,8 @@ def extract_fixtures_from_html(html: str, sport: Sport) -> list[dict[str, Any]]:
                 competition,
                 channel_info,
                 fixture_text,
+                date_time_raw=date_time_raw,
+                match_id=match_id,
             ),
         )
 
@@ -289,10 +362,136 @@ def extract_fixtures_from_html(html: str, sport: Sport) -> list[dict[str, Any]]:
     return fixtures
 
 
+# -------- Multi-page fetching --------
+
+
+@cache_json(valid_lifetime=datetime.timedelta(hours=36))
+def fetch_paginated_html_for_sport(sport: Sport) -> list[str]:
+    """Fetch and cache all HTML pages for a sport within the date range.
+
+    Strategy:
+      - GET page 0 with date range
+      - Parse total pages from pager
+      - POST remaining pages with form fields (page, repost, showdatestart, showdateend)
+    """
+    start = local_today()
+    end = start + datetime.timedelta(days=FETCH_RANGE_DAYS)
+    start_s = _date_str(start)
+    end_s = _date_str(end)
+
+    first_url = (
+        f"{WTM_BASE_URL}/live-{sport.url}-on-tv/"
+        f"?showdatestart={start_s}&showdateend={end_s}"
+    )
+    post_url = f"{WTM_BASE_URL}/live-{sport.url}-on-tv/?paging=true"
+
+    pages_html: list[str] = []
+
+    headers_base = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-GB,en;q=0.9",
+    }
+
+    with httpx.Client(timeout=HTTP_TIMEOUT, headers=headers_base) as client:
+        # First page (GET)
+        logger.info(f"Fetching page 0 for sport={sport.url} url={first_url}")
+        try:
+            r0 = client.get(first_url)
+            r0.raise_for_status()
+            html0 = r0.text
+        except Exception as e:
+            logger.error(f"Failed to fetch first page for {sport.url}: {e}")
+            html0 = ""
+        pages_html.append(html0)
+
+        total_pages = _pager_total_pages_from_html(html0)
+        if total_pages <= 1:
+            return pages_html
+
+        # Remaining pages via POST
+        for page_index in range(1, min(total_pages, MAX_PAGES_PER_FETCH)):
+            form = {
+                "page": str(page_index),
+                "repost": "True",
+                "showdatestart": start_s,
+                "showdateend": end_s,
+            }
+            headers = {
+                **headers_base,
+                "Origin": WTM_BASE_URL,
+                "Referer": first_url,
+                "Content-Type": "application/x-www-form-urlencoded",
+            }
+
+            attempt = 0
+            html_i = ""
+            while attempt <= MAX_RETRIES_PER_PAGE:
+                try:
+                    logger.info(
+                        f"Fetching page {page_index} for sport={sport.url} via POST {post_url}",
+                    )
+                    resp = client.post(post_url, data=form, headers=headers)
+                    resp.raise_for_status()
+                    html_i = resp.text
+                    break
+                except Exception as e:
+                    attempt += 1
+                    if attempt > MAX_RETRIES_PER_PAGE:
+                        logger.error(
+                            f"Failed to fetch page {page_index} for {sport.url}: {e}",
+                        )
+                        html_i = ""
+                        break
+                    # small backoff before retry
+                    time.sleep(random.uniform(REQUEST_JITTER_MIN, REQUEST_JITTER_MAX))
+
+            pages_html.append(html_i)
+
+            # polite pacing
+            time.sleep(random.uniform(REQUEST_JITTER_MIN, REQUEST_JITTER_MAX))
+
+    return pages_html
+
+
 def fetch_fixtures_for_sport(sport: Sport) -> list[dict[str, Any]]:
-    """Fetch and extract fixtures for a sport."""
-    html = fetch_raw_html_for_sport(sport)
-    return extract_fixtures_from_html(html, sport)
+    """Fetch and extract fixtures for a sport across all paginated pages.
+
+    Aggregates fixtures from all pages, de-duplication by match id (if available)
+    falling back to a composite key.
+    """
+    pages = fetch_paginated_html_for_sport(sport)
+
+    seen_keys: set[str] = set()
+    results: list[dict[str, Any]] = []
+
+    for page_html in pages:
+        fixtures = extract_fixtures_from_html(page_html, sport)
+        for fx in fixtures:
+            # Build dedupe key
+            if fx.get("match_id"):
+                key = f"id:{fx['match_id']}"
+            else:
+                key = ":".join(
+                    [
+                        fx.get("date_time_raw")
+                        or f"{fx.get('parsed_date')} {fx.get('time')}",
+                        fx.get("home", "").lower(),
+                        fx.get("away", "").lower(),
+                        fx.get("competition", "").lower(),
+                    ],
+                )
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            results.append(fx)
+
+    # Sort by date
+    results.sort(key=lambda x: x.get("sort_date", datetime.date.max))
+    logger.info(
+        f"Total fixtures aggregated for sport={sport.url}: {len(results)} across {len(pages)} page(s)",
+    )
+    return results
 
 
 def fetch_all_fixtures() -> dict[str, Any]:

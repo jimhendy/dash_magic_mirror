@@ -90,7 +90,7 @@ def render_weather_summary(
                                     html.Div(
                                         current.get("temperature", "?"),
                                         style={
-                                            "fontSize": "1.8rem",
+                                            "fontSize": "4rem",
                                             "fontWeight": "350",
                                             # inherit font
                                         },
@@ -102,6 +102,7 @@ def render_weather_summary(
                                             "marginLeft": "4px",
                                             # inherit font
                                         },
+                                        className="degrees",
                                     ),
                                 ],
                                 style={"display": "flex", "alignItems": "baseline"},
