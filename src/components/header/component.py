@@ -108,7 +108,7 @@ class Header(BaseComponent):
                             style={
                                 "position": "absolute",
                                 # Offset: move to center then shift right by fixed px (tweakable)
-                                "left": "calc(50% + 100px)",  # adjust if font/spacing changes
+                                "left": "calc(50% + 120px)",  # adjust if font/spacing changes
                                 "top": "2.1rem",  # align near top of hour digits
                                 "fontSize": "1.1rem",
                                 "color": COLORS["gray"],
