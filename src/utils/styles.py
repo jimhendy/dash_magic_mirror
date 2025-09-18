@@ -25,10 +25,10 @@ COLORS = {
 # Naming is semantic so components don't use raw numeric values.
 FONT_SIZES: dict[str, str] = {
     "summary_heading": "1.45rem",  # Section titles / key labels
-    "summary_primary": "1.25rem",  # Main data (times, team names, temps)
-    "summary_secondary": "1.05rem",  # Secondary labels
-    "summary_meta": "0.85rem",  # Subtext / meta info
-    "summary_small": "0.75rem",  # Rare very small annotations
+    "summary_primary": "1.35rem",  # Main data (times, team names, temps)
+    "summary_secondary": "1.25rem",  # Secondary labels
+    "summary_meta": "0.95rem",  # Subtext / meta info
+    "summary_small": "0.85rem",  # Rare very small annotations
 }
 
 LINE_HEIGHT_DEFAULT = "1.25"  # Slightly relaxed for legibility
