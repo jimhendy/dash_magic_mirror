@@ -99,7 +99,7 @@ class Header(BaseComponent):
                                 "color": COLORS["white"],
                                 "lineHeight": "1",
                                 "whiteSpace": "nowrap",
-                                "zIndex": 1,
+                                "zIndex": 9050,  # above global-idle-dimmer (9000), below modal (9999)
                             },
                         ),
                         # Seconds positioned to the right of the centered hour:minute without shifting it
@@ -122,7 +122,7 @@ class Header(BaseComponent):
                         "height": "7.5rem",  # enough to contain large digits
                         "display": "block",
                         "margin": "0 auto",
-                        "zIndex": 1,
+                        # removed zIndex to avoid creating a stacking context
                     },
                 ),
             ],
@@ -148,7 +148,7 @@ class Header(BaseComponent):
                     month: 'short',
                     day: 'numeric'
                 });
-                const hours = now.getHours().toString().padStart(2, '0');
+                const hours = now.getHours().toString();
                 const minutes = now.getMinutes().toString().padStart(2, '0');
                 const hourMinute = `${hours}:${minutes}`;
                 const seconds = now.getSeconds().toString().padStart(2, '0');

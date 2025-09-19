@@ -25,11 +25,16 @@ def add_callbacks() -> None:
     app.clientside_callback(
         r"""
         function() {
-            // Set up mouse movement tracking once
+            // Set up mouse movement & activity tracking once
             if (!window.mouseTrackingInitialized) {
-                document.addEventListener('mousemove', function() {
-                    window.lastMouseMove = Date.now();
-                });
+                const setNow = () => { window.lastActivityTs = Date.now(); };
+                document.addEventListener('mousemove', () => { window.lastMouseMove = Date.now(); setNow(); });
+                document.addEventListener('keydown', setNow);
+                document.addEventListener('touchstart', setNow, {passive: true});
+                document.addEventListener('click', setNow, {passive: true});
+                // initialize timestamps
+                window.lastMouseMove = Date.now();
+                window.lastActivityTs = Date.now();
                 window.mouseTrackingInitialized = true;
             }
             return window.dash_clientside.no_update;
@@ -73,6 +78,34 @@ def add_callbacks() -> None:
             State("full-screen-modal", "style"),
         ],
         prevent_initial_call=True,
+    )
+
+    # Inactivity dimmer: show after 5 minutes no activity; hide on activity; don't show when modal open
+    app.clientside_callback(
+        """
+        function(_tick, modalStyle, currentStyle) {
+            const FIVE_MIN_MS = 10 * 60 * 1000; 
+            const last = window.lastActivityTs || Date.now();
+            const now = Date.now();
+            const inactive = (now - last) >= FIVE_MIN_MS;
+            const modalOpen = modalStyle && modalStyle.display === 'block';
+            const shouldShow = inactive && !modalOpen;
+
+            const desiredDisplay = shouldShow ? 'block' : 'none';
+            let next = currentStyle || {};
+            if (next.display !== desiredDisplay) {
+                next = { ...next, display: desiredDisplay };
+            }
+            return next;
+        }
+        """,
+        Output("global-idle-dimmer", "style"),
+        Input("one-second-timer", "n_intervals"),
+        [
+            State("full-screen-modal", "style"),
+            State("global-idle-dimmer", "style"),
+        ],
+        prevent_initial_call=False,
     )
 
     # Separate callback to handle modal opening and set initial timer
