@@ -1,5 +1,8 @@
 """Calendar-related utility functions that can be used by multiple components."""
 
+import datetime
+from typing import Any
+
 from utils.dates import local_today
 
 
@@ -97,7 +100,9 @@ def get_event_color_by_event(event_id: str) -> str:
     return color
 
 
-def assign_event_colors_consistently(events: list, reference_date=None) -> None:
+def assign_event_colors_consistently(
+    events: list, reference_date: datetime.date | None = None,
+) -> None:
     """Assign colors to events consistently based on their relationship to a reference date.
 
     Args:
@@ -105,8 +110,6 @@ def assign_event_colors_consistently(events: list, reference_date=None) -> None:
         reference_date: Reference date (defaults to today)
 
     """
-    import datetime
-
     if reference_date is None:
         reference_date = local_today()
 
@@ -116,10 +119,11 @@ def assign_event_colors_consistently(events: list, reference_date=None) -> None:
     reset_event_color_assignments()
 
     # Sort events: today events first, then by start date and title
-    def sort_key(event):
+    def sort_key(event: Any):
         event_date = event.start_datetime.date()
         is_today = event_date == reference_date
-        is_yesterday = event_date == reference_date - datetime.timedelta(days=1)
+        ref_date = reference_date or datetime.date.min
+        is_yesterday = event_date == ref_date - datetime.timedelta(days=1)
         is_multi_day = event.start_datetime.date() != event.end_datetime.date()
 
         # Priority: today events first, then multi-day events that include today,

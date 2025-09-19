@@ -322,17 +322,17 @@ JOKES = [
     "Why don't scientists trust ties? Because they're always in a knot!",
     "What do you call a pig that's a pilot? Captain Ham-solo!",
     "Why did the dragon fruit go to the party? To add some fire to the mix!",
-    "What do you call a fish that's a photographer? A snap-per!",
-    "Why don't scientists trust belts? Because they always hold things together!",
-    "What do you call a cow that's a mathematician? A cow-culator!",
-    "Why did the passion fruit get excited? Because it found its calling!",
-    "What do you call a fish that's a mechanic? A tuna-up specialist!",
-    "Why don't scientists trust watches? Because they're always ticking!",
-    "What do you call a pig that's a therapist? A ham-pathy expert!",
-    "Why did the star fruit shine so bright? Because it was stellar!",
     "What do you call a fish that's a DJ? A bass master!",
-    "Why don't scientists trust rings? Because they're always going in circles!",
-    "What do you call a cow that's a weather forecaster? A moo-teorologist!",
+    "Why don't scientists trust belts? Because they always hold things together!",
+    "What do you call a cow that's a life coach? A moo-tivational speaker!",
+    "Why did the durian clear the room? Because it had a strong personality!",
+    "What do you call a fish that's a comedian? A funny fish!",
+    "Why don't scientists trust bracelets? Because they're always circling around!",
+    "What do you call a pig that's a personal trainer? A ham-strong instructor!",
+    "Why did the jackfruit join the gym? To work on its core!",
+    "What do you call a fish that's a news anchor? A bass-caster!",
+    "Why don't scientists trust anklets? Because they're always at your feet!",
+    "What do you call a cow that's a leadership coach? A moo-nificent mentor!",
     "Why did the lychee go to the spa? To get some inner peace!",
     "What do you call a fish that's a dancer? A tango fish!",
     "Why don't scientists trust necklaces? Because they're always hanging around!",
@@ -341,29 +341,13 @@ JOKES = [
     "What do you call a fish that's a singer? A bass-o profundo!",
     "Why don't scientists trust earrings? Because they're always dangling!",
     "What do you call a cow that's a travel agent? A moo-ving specialist!",
-    "Why did the durian clear the room? Because it had a strong personality!",
-    "What do you call a fish that's a comedian? A funny fish!",
-    "Why don't scientists trust bracelets? Because they're always circling around!",
-    "What do you call a pig that's a personal trainer? A ham-strong instructor!",
-    "Why did the jackfruit join the gym? To work on its core!",
-    "What do you call a fish that's a news anchor? A bass-caster!",
-    "Why don't scientists trust anklets? Because they're always at your feet!",
-    "What do you call a cow that's a life coach? A moo-tivational speaker!",
-    "Why did the breadfruit go to cooking school? To rise to the occasion!",
+    "Why did the soursop smile? Because it was having a sweet day!",
     "What do you call a fish that's a fashion designer? A style-fish!",
     "Why don't scientists trust pins? Because they're always poking around!",
     "What do you call a pig that's a massage therapist? A ham-assage expert!",
     "Why did the cherimoya meditate? To find inner sweetness!",
     "What do you call a fish that's a real estate agent? A house-fish!",
     "Why don't scientists trust buttons? Because they're always pushing it!",
-    "What do you call a cow that's a yoga instructor? A moo-ga teacher!",
-    "Why did the soursop smile? Because it was having a sweet day!",
-    "What do you call a fish that's a taxi driver? A cab-fish!",
-    "Why don't scientists trust zippers? Because they're always opening up!",
-    "What do you call a pig that's a barista? A ham-ccino maker!",
-    "Why did the ackee feel accomplished? Because it finally cracked the code!",
-    "What do you call a fish that's a mail carrier? A post-fish!",
-    "Why don't scientists trust snaps? Because they're always fastening things!",
     "What do you call a cow that's a crossing guard? A moo-ving traffic director!",
     "Why did the plantain feel versatile? Because it could be sweet or savory!",
     "What do you call a fish that's a firefighter? A hose-fish!",
@@ -564,7 +548,7 @@ JOKES = [
 ]
 
 
-def is_informative(title):
+def is_informative(title: str | None) -> bool:
     if not title:
         return False
     title_clean = title.strip().lower()
@@ -576,13 +560,13 @@ def is_informative(title):
     return True
 
 
-def fetch_rss_feed(name, url, limit=10):
+def fetch_rss_feed(name: str, url: str, limit: int = 10) -> list[dict]:
     try:
         response = httpx.get(url, timeout=10)
         response.raise_for_status()
         root = ET.fromstring(response.text)
 
-        items = []
+        items: list[dict] = []
         for item in root.findall("./channel/item")[:limit]:  # take only top N
             title = item.findtext("title")
             description = item.findtext("description") or ""
@@ -592,7 +576,7 @@ def fetch_rss_feed(name, url, limit=10):
                 items.append(
                     {
                         "source": name,
-                        "title": title.strip(),
+                        "title": title.strip() if title else "",
                         "link": item.findtext("link"),
                         "description": description.strip(),
                         "pubDate": pub_date,

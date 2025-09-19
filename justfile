@@ -1,4 +1,3 @@
-
 _default:
     # Default target to show available commands
     @just --list
@@ -26,3 +25,7 @@ _lint:
 
 # Make code pretty
 ruff: _format _lint
+
+# Run static type checks with Astral ty
+types:
+    uvx ty check

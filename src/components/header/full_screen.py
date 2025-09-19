@@ -17,7 +17,7 @@ from .summary import render_presence_badges
 def render_header_fullscreen(people: list[PersonPresence]) -> FullScreenResult:
     # Simple placeholder layout
     return FullScreenResult(
-        layout=html.Div(
+        content=html.Div(
             [
                 html.H2("Status", style={"marginBottom": "12px"}),
                 html.Div(

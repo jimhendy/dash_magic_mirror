@@ -4,6 +4,7 @@ from collections.abc import Callable
 from functools import wraps
 from hashlib import md5
 from pathlib import Path
+from typing import Any, TypeVar, cast
 
 from loguru import logger
 
@@ -14,7 +15,7 @@ CACHE_PATH = Path.home() / ".cache" / "magic_mirror"
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
 DT_FORMAT = "%Y%m%d-%H%M%S"
-_CACHED_FUNCTION_NAMES = set()
+_CACHED_FUNCTION_NAMES: set[str] = set()
 
 
 def reproduce_hash(*args, **kwargs) -> str:
@@ -54,18 +55,26 @@ def clear_component_cache(component_name: str) -> int:
     return removed_count
 
 
-def cache_json(valid_lifetime: datetime.timedelta) -> Callable:
-    """Decorator to cache the result of a function to a file for a specified duration."""
+F = TypeVar("F", bound=Callable[..., Any])
 
-    def decorator(func: Callable) -> Callable:
-        cache_key = f"{func.__module__}.{func.__name__}"
+
+def cache_json(valid_lifetime: datetime.timedelta) -> Callable[[F], F]:
+    """Decorator to cache the result of a function to a file for a specified duration.
+
+    The wrapped function preserves its parameter and return types for type checkers.
+    """
+
+    def decorator(func: F) -> F:
+        mod = getattr(func, "__module__", func.__class__.__module__)
+        name = getattr(func, "__name__", func.__class__.__name__)
+        cache_key = f"{mod}.{name}"
 
         if cache_key in _CACHED_FUNCTION_NAMES:
             raise ValueError(f"Function {cache_key} is already cached.")
         _CACHED_FUNCTION_NAMES.add(cache_key)
 
         @wraps(func)
-        def wrapper(*args, **kwargs) -> dict:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             """Wrapper function that checks for a cached result and returns it if valid,
             otherwise calls the original function and caches its result.
             """
@@ -120,6 +129,6 @@ def cache_json(valid_lifetime: datetime.timedelta) -> Callable:
                 )
             return result
 
-        return wrapper
+        return cast("F", wrapper)
 
     return decorator

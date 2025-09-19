@@ -4,6 +4,7 @@ import time
 from typing import Any
 
 import httpx
+from dash.development.base_component import Component
 from dash_iconify import DashIconify
 from loguru import logger
 
@@ -26,7 +27,7 @@ from .constants import (
 _MAX_RESPONSE_BYTES = 1_000_000  # 1MB safety cap
 
 
-def _empty_for(expected_type: str):  # helper to supply empty placeholder
+def _empty_for(expected_type: str) -> list | dict:  # helper to supply empty placeholder
     return [] if expected_type == "list" else {}
 
 
@@ -224,7 +225,7 @@ def build_transfer_station_index(transfer_station_arrivals: list[dict]) -> dict:
     return {"by_vehicle": by_vehicle, "by_line_dest": by_line_dest}
 
 
-def _parse_expected(dt_str: str) -> datetime.datetime | None:
+def _parse_expected(dt_str: str | None) -> datetime.datetime | None:
     if not dt_str:
         return None
     try:
@@ -297,7 +298,7 @@ def get_transfer_station_indicator(
     transfer_station_arrivals: list[dict],
     transfer_station_id: str,
     is_summary: bool = False,
-) -> str:
+) -> str | Component:
     if check_stops_at_transfer_station(
         arrival,
         transfer_station_arrivals,

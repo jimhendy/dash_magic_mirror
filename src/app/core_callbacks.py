@@ -89,7 +89,12 @@ def add_callbacks() -> None:
             const now = Date.now();
             const inactive = (now - last) >= FIVE_MIN_MS;
             const modalOpen = modalStyle && modalStyle.display === 'block';
-            const shouldShow = inactive && !modalOpen;
+
+            // Only dim at night: after 21:00 and before 06:00 (local time)
+            const hour = new Date().getHours();
+            const isNight = (hour >= 21 || hour < 6);
+
+            const shouldShow = inactive && isNight && !modalOpen;
 
             const desiredDisplay = shouldShow ? 'block' : 'none';
             let next = currentStyle || {};
