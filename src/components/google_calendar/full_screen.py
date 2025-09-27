@@ -306,12 +306,20 @@ def _render_single_event_span(event_span: dict, font_size: str) -> html.Div:
     tooltip_text = create_event_tooltip(event)
 
     # Calculate event height and font size based on input font size
-    event_height = 24
+    event_height = 22
     event_font_size = "12px"
-    event_margin = 2  # Space between stacked events
+    event_margin = 4  # Space between stacked events
+    base_offset = 1  # distance from top of day cell to first event
+    track_spacing = event_height + event_margin
 
     # For multi-week events, we need to create multiple spans
     event_segments = []
+
+    def _top_position(week_index: int) -> str:
+        offset_px = base_offset + (track - 1) * track_spacing
+        return (
+            f"calc({header_height}px + {week_height_percent}% * {week_index} + {offset_px}px)"
+        )
 
     if start_week == end_week:
         # Same week - single span
@@ -321,7 +329,7 @@ def _render_single_event_span(event_span: dict, font_size: str) -> html.Div:
 
         left_pos = f"calc({day_width_percent * start_day}% + {left_offset}px)"
         width = f"calc({day_width_percent * (end_day - start_day + 1)}% - {left_offset + right_offset}px)"
-        top_pos = f"calc({header_height}px + {week_height_percent}% * {start_week} + {28 + track * (event_height + event_margin)}px)"
+        top_pos = _top_position(start_week)
 
         event_segments.append(
             html.Div(
@@ -376,7 +384,7 @@ def _render_single_event_span(event_span: dict, font_size: str) -> html.Div:
                 show_title = True  # Show title on new row (middle weeks)
                 border_radius = "0"
 
-            top_pos = f"calc({header_height}px + {week_height_percent}% * {week} + {28 + track * (event_height + event_margin)}px)"
+            top_pos = _top_position(week)
 
             event_segments.append(
                 html.Div(

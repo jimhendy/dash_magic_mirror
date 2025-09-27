@@ -233,8 +233,10 @@ def create_event_spans(
                 )
                 end_week, end_day = date_positions.get(end_date, (week_idx, day_idx))
 
-                # Assign vertical track for each week this event spans
-                event_track = 0
+                # Assign vertical track for each week this event spans.
+                # We need a track index that is simultaneously free in every
+                # affected week to avoid overlaps.
+                union_used_tracks: set[int] = set()
                 for week in range(start_week, end_week + 1):
                     if week not in week_event_tracks:
                         week_event_tracks[week] = []
@@ -262,10 +264,12 @@ def create_event_spans(
                         ):
                             used_tracks.add(existing_event["track"])
 
-                    # Find first available track
-                    event_track = 0
-                    while event_track in used_tracks:
-                        event_track += 1
+                    union_used_tracks.update(used_tracks)
+
+                # Smallest track index not used in any spanned week
+                event_track = 0
+                while event_track in union_used_tracks:
+                    event_track += 1
 
                 # Create event span
                 event_span = {

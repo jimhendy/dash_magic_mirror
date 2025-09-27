@@ -2,6 +2,7 @@
 
 import asyncio
 import datetime
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -37,6 +38,29 @@ TOKEN_FILE = BaseComponent.credentials_dir() / ".google_calendar_token.json"
 CREDS_FILE = BaseComponent.credentials_dir() / "google_calendar_credentials.json"
 
 
+def _load_client_config() -> dict[str, Any]:
+    """Load the Google OAuth client configuration, tolerating wrapped JSON."""
+
+    if not CREDS_FILE.exists():
+        msg = "Google Calendar credentials file not found"
+        raise FileNotFoundError(msg)
+
+    raw = CREDS_FILE.read_text(encoding="utf-8")
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        sanitized = "".join(raw.splitlines())
+        try:
+            config = json.loads(sanitized)
+        except json.JSONDecodeError as exc_final:
+            raise ValueError("Invalid Google Calendar credentials JSON") from exc_final
+        logger.warning(
+            "Sanitized Google Calendar credentials JSON (wrapped lines detected): %s",
+            exc,
+        )
+        return config
+
+
 @cache_json(valid_lifetime=datetime.timedelta(minutes=5))
 def fetch_calendar_events(
     calendar_ids: list[str],
@@ -58,10 +82,12 @@ def fetch_calendar_events(
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            if not CREDS_FILE.exists():
-                logger.error("Google Calendar credentials file not found")
+            try:
+                client_config = _load_client_config()
+            except (FileNotFoundError, ValueError) as exc:
+                logger.error("%s", exc)
                 return []
-            flow = InstalledAppFlow.from_client_secrets_file(CREDS_FILE, SCOPES)
+            flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
             creds = flow.run_local_server(port=0)
 
         with open(TOKEN_FILE, "w") as token:
