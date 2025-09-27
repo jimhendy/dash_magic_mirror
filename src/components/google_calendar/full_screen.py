@@ -317,9 +317,7 @@ def _render_single_event_span(event_span: dict, font_size: str) -> html.Div:
 
     def _top_position(week_index: int) -> str:
         offset_px = base_offset + (track - 1) * track_spacing
-        return (
-            f"calc({header_height}px + {week_height_percent}% * {week_index} + {offset_px}px)"
-        )
+        return f"calc({header_height}px + {week_height_percent}% * {week_index} + {offset_px}px)"
 
     if start_week == end_week:
         # Same week - single span

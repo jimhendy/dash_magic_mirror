@@ -40,7 +40,6 @@ CREDS_FILE = BaseComponent.credentials_dir() / "google_calendar_credentials.json
 
 def _load_client_config() -> dict[str, Any]:
     """Load the Google OAuth client configuration, tolerating wrapped JSON."""
-
     if not CREDS_FILE.exists():
         msg = "Google Calendar credentials file not found"
         raise FileNotFoundError(msg)
