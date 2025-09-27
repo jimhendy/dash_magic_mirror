@@ -101,7 +101,8 @@ def get_event_color_by_event(event_id: str) -> str:
 
 
 def assign_event_colors_consistently(
-    events: list, reference_date: datetime.date | None = None,
+    events: list,
+    reference_date: datetime.date | None = None,
 ) -> None:
     """Assign colors to events consistently based on their relationship to a reference date.
 

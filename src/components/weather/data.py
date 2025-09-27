@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 from typing import Any
 
@@ -31,6 +32,11 @@ def fetch_weather_data(api_key: str, postcode: str) -> dict[str, Any]:
     except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to fetch weather data: {e}")
         return {}
+
+
+async def async_fetch_weather_data(api_key: str, postcode: str) -> dict[str, Any]:
+    """Async wrapper for fetching weather data."""
+    return await asyncio.to_thread(fetch_weather_data, api_key, postcode)
 
 
 def _icon_url(icon: str) -> str:

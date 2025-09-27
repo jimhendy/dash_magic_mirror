@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import random
 import re
@@ -508,6 +509,11 @@ def fetch_all_fixtures() -> dict[str, Any]:
 def process_sports_data() -> dict[str, Any]:
     """Process and return sports fixture data."""
     return fetch_all_fixtures()
+
+
+async def async_process_sports_data() -> dict[str, Any]:
+    """Async wrapper to fetch sports data without blocking the event loop."""
+    return await asyncio.to_thread(process_sports_data)
 
 
 def get_summary_fixtures(

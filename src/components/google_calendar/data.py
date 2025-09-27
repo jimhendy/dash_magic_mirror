@@ -1,5 +1,6 @@
 """Data fetching and processing for Google Calendar component."""
 
+import asyncio
 import datetime
 from dataclasses import dataclass
 from typing import Any
@@ -101,6 +102,13 @@ def fetch_calendar_events(
     except HttpError as error:
         logger.error(f"Google Calendar API error: {error}")
         return []
+
+
+async def async_fetch_calendar_events(
+    calendar_ids: list[str],
+) -> list[dict[str, Any]]:
+    """Async wrapper around :func:`fetch_calendar_events`."""
+    return await asyncio.to_thread(fetch_calendar_events, calendar_ids)
 
 
 def process_calendar_events(

@@ -1,7 +1,10 @@
-from dash import Input, Output, dcc, html
+import asyncio
+
+from dash import Input, Output, dcc, html, no_update
 from loguru import logger
 
 from components.base import BaseComponent, PreloadedFullScreenMixin
+from utils.data_repository import ComponentPayload, get_repository
 
 from .data import (
     fetch_arrivals_for_stop,
@@ -37,18 +40,112 @@ class TFLArrivals(PreloadedFullScreenMixin, BaseComponent):
         self.summary_ignore_destination = summary_ignore_destination
         if not self.primary_stop_id:
             logger.warning("Primary stop id not provided for TFLArrivals")
+        self._repository = get_repository()
+        self._data_key = self.name
+        self._refresh_seconds = 30
+        try:
+            self._repository.register_component(
+                self._data_key,
+                refresh_coro=self._build_payload,
+                interval_seconds=self._refresh_seconds,
+                jitter_seconds=10,
+            )
+            self._initial_payload = self._repository.refresh_now_sync(self._data_key)
+        except ValueError:
+            self._initial_payload = self._repository.get_payload_snapshot(
+                self._data_key,
+            )
+
+    async def _build_payload(self) -> ComponentPayload | None:
+        return await asyncio.to_thread(self._compute_payload_sync)
+
+    def _compute_payload_sync(self) -> ComponentPayload:
+        if not self.primary_stop_id:
+            return ComponentPayload(
+                summary=self._build_placeholder("Transport stop not configured"),
+            )
+
+        try:
+            summary_arrivals, line_status, stop_disruptions = self._get_summary_data()
+            summary_children = render_tfl_summary(
+                summary_arrivals,
+                line_status,
+                stop_disruptions,
+            )
+
+            all_arrivals, fs_line_status, fs_disruptions = self._get_fullscreen_data()
+            fullscreen_content = render_tfl_fullscreen(
+                all_arrivals,
+                fs_line_status,
+                fs_disruptions,
+                self.component_id,
+            )
+
+        except Exception:  # noqa: BLE001
+            logger.exception("Error building TFL payload")
+            return ComponentPayload(
+                summary=self._build_placeholder("Transport data unavailable"),
+            )
+
+        title = html.Div(
+            "Transport",
+            className="text-m",
+            **{"data-component-name": self.name},
+        )
+
+        return ComponentPayload(
+            summary=summary_children,
+            fullscreen_title=title,
+            fullscreen_content=fullscreen_content,
+            raw={
+                "summary": summary_arrivals,
+                "summary_status": line_status,
+                "summary_disruptions": stop_disruptions,
+                "full": all_arrivals,
+                "full_status": fs_line_status,
+                "full_disruptions": fs_disruptions,
+            },
+        )
+
+    def _build_placeholder(self, message: str) -> html.Div:
+        return html.Div(
+            message,
+            style={
+                "color": "#999999",
+                "textAlign": "center",
+                "padding": "1rem",
+                "fontSize": "1.1rem",
+            },
+        )
+
+    def _latest_payload(self) -> ComponentPayload | None:
+        return (
+            self._repository.get_payload_snapshot(self._data_key)
+            or self._initial_payload
+        )
 
     def _summary_layout(self):
+        payload = self._latest_payload()
+        summary_children = (
+            payload.summary
+            if payload and payload.summary is not None
+            else self._build_placeholder("Loading transport data...")
+        )
+        stores = self.preload_fullscreen_stores(
+            title=payload.fullscreen_title if payload else None,
+            content=payload.fullscreen_content if payload else None,
+        )
         return html.Div(
             [
                 dcc.Interval(
                     id=f"{self.component_id}-interval",
-                    interval=30 * 1000,
+                    interval=self._refresh_seconds * 1000,
                     n_intervals=0,
                 ),
-                *self.preload_fullscreen_stores(),
+                *stores,
                 html.Div(
                     id=f"{self.component_id}-content",
+                    children=summary_children,
                     style={
                         "color": "#FFFFFF",
                         "fontSize": "16px",
@@ -101,50 +198,32 @@ class TFLArrivals(PreloadedFullScreenMixin, BaseComponent):
         return all_arrivals_data, line_status, stop_disruptions
 
     def _add_callbacks(self, app):
-        @app.callback(
-            Output(f"{self.component_id}-content", "children"),
-            Input(f"{self.component_id}-interval", "n_intervals"),
-        )
-        def update_tfl_summary(_):
-            try:
-                arrivals_data, line_status, stop_disruptions = self._get_summary_data()
-                return render_tfl_summary(arrivals_data, line_status, stop_disruptions)
-            except Exception as e:
-                logger.error(f"Error updating TFL summary: {e}")
-                return html.Div(
-                    "Transport data unavailable",
-                    style={
-                        "color": "#999999",
-                        "textAlign": "center",
-                    },
-                )
+        repo = self._repository
+        data_key = self._data_key
 
         @app.callback(
+            Output(f"{self.component_id}-content", "children"),
             Output(self.fullscreen_title_store_id(), "data"),
             Output(self.fullscreen_content_store_id(), "data"),
             Input(f"{self.component_id}-interval", "n_intervals"),
             prevent_initial_call=False,
         )
-        def populate_fullscreen(_n):
-            try:
-                all_arrivals_data, line_status, stop_disruptions = (
-                    self._get_fullscreen_data()
-                )
-                content = render_tfl_fullscreen(
-                    all_arrivals_data,
-                    line_status,
-                    stop_disruptions,
-                    self.component_id,
-                )
-                title = html.Div(
-                    "Transport",
-                    className="text-m",
-                    **{"data-component-name": self.name},
-                )
-                return title, content
-            except Exception as e:
-                logger.error(f"Error preparing TFL full screen: {e}")
-                return None, None
+        async def hydrate_tfl(_n):
+            payload = await repo.get_payload_async(data_key)
+            if payload is not None:
+                self._initial_payload = payload
+            else:
+                payload = self._latest_payload()
+
+            if payload is None:
+                placeholder = self._build_placeholder("Transport data unavailable")
+                return placeholder, no_update, no_update
+
+            return (
+                payload.summary,
+                payload.fullscreen_title,
+                payload.fullscreen_content,
+            )
 
         # Client-side filtering of arrivals rows by selected line
         app.clientside_callback(

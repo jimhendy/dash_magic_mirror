@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "dash>=3.2.0",
+    "dash[async]>=3.2.0",
     "dash-mantine-components>=2.1.0",
     "google-api-python-client>=2.178.0",
     "google-auth-httplib2>=0.2.0",
@@ -15,7 +15,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "beautifulsoup4>=4.12.3",
     "dash-iconify>=0.1.2",
-    "scapy>=2.5.0",  # optional: active ARP scanning for Presence
+    "scapy>=2.5.0", # optional: active ARP scanning for Presence
 ]
 
 [dependency-groups]

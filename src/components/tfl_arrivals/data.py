@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import time
@@ -198,6 +199,24 @@ def fetch_stoppoint_disruptions(stop_ids: list[str]) -> list[dict]:
     url = STOPPOINT_DISRUPTION_API_URL.format(stop_ids=stop_ids_str)
     data = _http_get_json(url, expected_type="list")
     return data if isinstance(data, list) else []
+
+
+async def async_fetch_arrivals_for_stop(stop_id: str) -> list[dict]:
+    return await asyncio.to_thread(fetch_arrivals_for_stop, stop_id)
+
+
+async def async_fetch_transfer_station_arrivals(
+    transfer_station_id: str,
+) -> list[dict]:
+    return await asyncio.to_thread(fetch_transfer_station_arrivals, transfer_station_id)
+
+
+async def async_fetch_line_status(line_ids: list[str]) -> list[dict]:
+    return await asyncio.to_thread(fetch_line_status, line_ids)
+
+
+async def async_fetch_stoppoint_disruptions(stop_ids: list[str]) -> list[dict]:
+    return await asyncio.to_thread(fetch_stoppoint_disruptions, stop_ids)
 
 
 # --- Transfer station matching ---------------------------------------------------------------

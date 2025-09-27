@@ -3,6 +3,7 @@ from dash.dependencies import Component
 
 from app.config import COMPONENTS
 from utils.constants import MODAL_CLOSE_PREFIX, MODAL_COUNTDOWN_START
+from utils.data_repository import get_repository
 from utils.file_cache import clear_component_cache
 
 
@@ -186,6 +187,11 @@ def add_callbacks() -> None:
                 component_name = props.get("data-component-name")
             if component_name:
                 clear_component_cache(component_name)
+                repo = get_repository()
+                try:
+                    repo.refresh_now_sync(component_name)
+                except KeyError:
+                    pass
                 new_refresh_count = (current_refresh_count or 0) + 1
                 closed_modal_style = {**(current_modal_style or {}), "display": "none"}
                 return new_refresh_count, closed_modal_style

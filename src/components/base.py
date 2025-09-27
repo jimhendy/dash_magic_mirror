@@ -20,12 +20,22 @@ class PreloadedFullScreenMixin:
 
     def preload_fullscreen_stores(
         self,
+        *,
+        title: Component | None = None,
+        content: Component | None = None,
     ) -> list[Component]:  # to embed in summary layout
         from dash import dcc
 
+        serialized_title = (
+            title.to_plotly_json() if isinstance(title, Component) else title
+        )
+        serialized_content = (
+            content.to_plotly_json() if isinstance(content, Component) else content
+        )
+
         return [
-            dcc.Store(id=self.fullscreen_title_store_id(), data=None),
-            dcc.Store(id=self.fullscreen_content_store_id(), data=None),
+            dcc.Store(id=self.fullscreen_title_store_id(), data=serialized_title),
+            dcc.Store(id=self.fullscreen_content_store_id(), data=serialized_content),
         ]
 
 
