@@ -13,19 +13,7 @@ def render_tfl_summary(
     """Render TFL summary view with next 2 departures and status indicators."""
     arrivals = arrivals_data.get("arrivals", [])
     station_name = arrivals_data.get("station_name", "")
-    line_ids = arrivals_data.get("line_ids", [])
-
-    if not arrivals:
-        return html.Div(
-            "No transport arrivals",
-            style={
-                "fontSize": FONT_SIZES["summary_primary"],
-                "color": COLORS["soft_gray"],
-                "textAlign": "center",
-                "padding": "2rem",
-                # fontFamily removed (inherit from body)
-            },
-        )
+    line_ids = arrivals_data.get("line_ids") or list(line_status.keys())
 
     # Get next 2 arrivals
     next_arrivals = arrivals[:2]
@@ -37,6 +25,7 @@ def render_tfl_summary(
         stop_disruptions,
         station_name,
     )
+    has_status = bool(status_indicators.children)
 
     # Create arrival cards
     arrival_cards = []
@@ -44,24 +33,39 @@ def render_tfl_summary(
         arrival_card = _create_arrival_card(arrival)
         arrival_cards.append(arrival_card)
 
-    return html.Div(
-        [
-            # Status indicators
-            status_indicators,
-            # Arrival cards
+    children: list[html.Div] = []
+    if has_status:
+        children.append(status_indicators)
+
+    if arrival_cards:
+        children.append(
             html.Div(
                 arrival_cards,
                 style={
                     "display": "flex",
                     "flexDirection": "column",
                     "gap": "8px",
-                    "marginTop": "12px" if status_indicators.children else "0px",
+                    "marginTop": "12px" if has_status else "0px",
                 },
             ),
-        ],
+        )
+    else:
+        children.append(
+            html.Div(
+                "No transport arrivals",
+                style={
+                    "fontSize": FONT_SIZES["summary_primary"],
+                    "color": COLORS["soft_gray"],
+                    "textAlign": "center",
+                    "padding": "1.5rem 1rem 0.5rem 1rem",
+                },
+            ),
+        )
+
+    return html.Div(
+        children,
         style={
             "color": COLORS["white"],
-            # fontFamily inheriting
         },
     )
 
@@ -76,11 +80,14 @@ def _create_status_indicators(
     indicators = []
 
     # Line status indicators
-    for line_id in line_ids:
-        if line_id in line_status:
-            status = line_status[line_id]
+    seen = set()
+    resolved_line_ids = line_ids or list(line_status.keys())
+    for line_id in resolved_line_ids:
+        status = line_status.get(line_id)
+        if status and line_id not in seen:
             indicator = _create_line_status_indicator(status)
             indicators.append(indicator)
+            seen.add(line_id)
 
     # Station disruption indicators
     if stop_disruptions:

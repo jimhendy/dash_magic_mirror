@@ -54,6 +54,11 @@ TFL_ALL_STOP_IDS = [
 ]
 TFL_TRANSFER_STATION_ID = os.environ.get("TFL_TRANSFER_STATION_ID", "")
 TFL_SUMMARY_IGNORE_DESTINATION = os.environ.get("TFL_SUMMARY_IGNORE_DESTINATION", "")
+TFL_LINE_STATUS_IDS = [
+    value.strip()
+    for value in os.environ.get("TFL_LINE_STATUS", "").split(",")
+    if value.strip()
+]
 
 # Component instances
 COMPONENTS = [
@@ -80,6 +85,7 @@ COMPONENTS = [
         all_stop_ids=TFL_ALL_STOP_IDS,
         transfer_station_id=TFL_TRANSFER_STATION_ID,
         summary_ignore_destination=TFL_SUMMARY_IGNORE_DESTINATION,
+        line_status_ids=TFL_LINE_STATUS_IDS,
     ),
     Sports(),
 ]

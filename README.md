@@ -117,6 +117,7 @@ Copy `.env.example` to `.env` and customize:
 
 - **Presence**: Paired IP/MAC variables as described above
 - **TFL Stops**: Configure transport stop IDs and display names
+- **TFL Line Status**: Optional comma-separated list (e.g. `metropolitan,circle`) to force status indicators when arrivals are missing
 - **Weather**: Set your postcode and WeatherAPI key  
 - **Google Calendar**: Configure calendar integration (optional)
 - **Layout**: Adjust component positioning and sizing

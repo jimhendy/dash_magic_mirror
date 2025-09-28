@@ -31,6 +31,7 @@ class TFLArrivals(PreloadedFullScreenMixin, BaseComponent):
         all_stop_ids: list[str],
         transfer_station_id: str = "",
         summary_ignore_destination: str = "",
+        line_status_ids: list[str] | None = None,
         **kwargs,
     ):
         super().__init__(name="tfl_arrivals", preloaded_full_screen=True, **kwargs)
@@ -38,6 +39,7 @@ class TFLArrivals(PreloadedFullScreenMixin, BaseComponent):
         self.all_stop_ids = all_stop_ids
         self.transfer_station_id = transfer_station_id
         self.summary_ignore_destination = summary_ignore_destination
+        self._line_status_ids = list(line_status_ids or [])
         if not self.primary_stop_id:
             logger.warning("Primary stop id not provided for TFLArrivals")
         self._repository = get_repository()
@@ -166,6 +168,9 @@ class TFLArrivals(PreloadedFullScreenMixin, BaseComponent):
             is_summary=True,
         )
         line_ids = arrivals_data.get("line_ids", [])
+        if not line_ids and self._line_status_ids:
+            line_ids = list(self._line_status_ids)
+            arrivals_data["line_ids"] = line_ids
         line_status_raw = fetch_line_status(line_ids) if line_ids else []
         line_status = process_line_status_data(line_status_raw)
         stop_disruptions_raw = fetch_stoppoint_disruptions([self.primary_stop_id])
@@ -191,6 +196,8 @@ class TFLArrivals(PreloadedFullScreenMixin, BaseComponent):
             )
             all_arrivals_data[stop_id] = arrivals_data
             all_line_ids.update(arrivals_data.get("line_ids", []))
+        if not all_line_ids and self._line_status_ids:
+            all_line_ids.update(self._line_status_ids)
         line_status_raw = fetch_line_status(list(all_line_ids)) if all_line_ids else []
         line_status = process_line_status_data(line_status_raw)
         stop_disruptions_raw = fetch_stoppoint_disruptions(self.all_stop_ids)
