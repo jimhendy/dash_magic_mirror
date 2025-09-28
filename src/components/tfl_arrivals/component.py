@@ -167,10 +167,12 @@ class TFLArrivals(PreloadedFullScreenMixin, BaseComponent):
             self.summary_ignore_destination,
             is_summary=True,
         )
-        line_ids = arrivals_data.get("line_ids", [])
-        if not line_ids and self._line_status_ids:
+        if self._line_status_ids:
             line_ids = list(self._line_status_ids)
-            arrivals_data["line_ids"] = line_ids
+        else:
+            line_ids = arrivals_data.get("line_ids", [])
+
+        arrivals_data["line_ids"] = line_ids
         line_status_raw = fetch_line_status(line_ids) if line_ids else []
         line_status = process_line_status_data(line_status_raw)
         stop_disruptions_raw = fetch_stoppoint_disruptions([self.primary_stop_id])
@@ -181,7 +183,7 @@ class TFLArrivals(PreloadedFullScreenMixin, BaseComponent):
         if not self.all_stop_ids:
             return {}, {}, {}
         all_arrivals_data = {}
-        all_line_ids = set()
+        all_line_ids = set(self._line_status_ids or [])
         transfer_station_arrivals = fetch_transfer_station_arrivals(
             self.transfer_station_id,
         )
@@ -194,10 +196,15 @@ class TFLArrivals(PreloadedFullScreenMixin, BaseComponent):
                 self.summary_ignore_destination,
                 is_summary=False,
             )
+            if self._line_status_ids:
+                line_ids = list(self._line_status_ids)
+            else:
+                line_ids = arrivals_data.get("line_ids", [])
+
+            arrivals_data["line_ids"] = line_ids
+
             all_arrivals_data[stop_id] = arrivals_data
-            all_line_ids.update(arrivals_data.get("line_ids", []))
-        if not all_line_ids and self._line_status_ids:
-            all_line_ids.update(self._line_status_ids)
+            all_line_ids.update(line_ids)
         line_status_raw = fetch_line_status(list(all_line_ids)) if all_line_ids else []
         line_status = process_line_status_data(line_status_raw)
         stop_disruptions_raw = fetch_stoppoint_disruptions(self.all_stop_ids)

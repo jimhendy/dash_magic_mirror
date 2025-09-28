@@ -127,8 +127,16 @@ def _create_line_status_indicator(status: dict) -> html.Div:
                 },
             ),
             html.Span(
-                f"{status['line_name']}: {status['status_text']}",
-                style=TEXT_STYLES["secondary"] | {"color": COLORS["white"]},
+                status["line_name"],
+                style=TEXT_STYLES["secondary"]
+                | {
+                    "color": COLORS["white"],
+                    "marginRight": "6px",
+                },
+            ),
+            html.Span(
+                status["status_text"],
+                style=TEXT_STYLES["secondary"] | {"color": status_color},
             ),
         ],
         style={

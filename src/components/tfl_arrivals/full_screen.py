@@ -108,7 +108,6 @@ def render_tfl_fullscreen(
                                 "Line Status",
                                 style={
                                     "fontSize": "1.5rem",
-                                    "fontWeight": "500",
                                     "color": COLORS["blue"],
                                     "marginBottom": "15px",
                                     "textAlign": "center",
