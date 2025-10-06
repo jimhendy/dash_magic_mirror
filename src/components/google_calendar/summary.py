@@ -136,6 +136,7 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
                 style={
                     "display": "flex",
                     "gap": "8px",
+                    "justifyContent": "space-around",
                 },
                 children=[
                     _render_day_column(today, single_today_events, "Today"),
@@ -167,7 +168,7 @@ def _render_day_column(
             "flex": "1",
             "display": "flex",
             "flexDirection": "column",
-            "paddingTop": "4px",
+            "maxWidth": "48.5%",
         },
         children=[
             # Events container
