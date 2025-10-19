@@ -70,8 +70,8 @@ SPORT_TEAM_CRESTS: dict[str, dict[str, str]] = {
     "rugby-union": {
         "munster": "/assets/crests/munster.svg",
         "glasgow warriors": "/assets/crests/glasgow.png",
-        "scotland": "/assets/crests/scotland-rugby.svg",
-        "ireland": "/assets/crests/ireland-rugby.svg",
+        "scotland": "/assets/crests/scottish_rugby.ico",
+        "ireland": "/assets/crests/ireland-rugby.jpg",
     },
     "cricket": {
         "england": "/assets/crests/england-cricket.svg",
