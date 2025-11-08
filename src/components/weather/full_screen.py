@@ -98,19 +98,6 @@ def _create_hourly_timeseries(
         ),
     )
 
-    # # Cloud cover (right axis, blue, dotted)
-    # fig.add_trace(
-    #     go.Scatter(
-    #         x=[hd.time for hd in hour_data],
-    #         y=[hd.cloud_cover for hd in hour_data],
-    #         mode="lines",
-    #         name="Cloud Cover",
-    #         line=dict(color=COLORS["blue_dimmed"], width=2, dash="dot"),
-    #         yaxis="y2",
-    #         line_shape=line_shape,
-    #     ),
-    # )
-
     # Temperature line
     fig.add_trace(
         go.Scatter(
@@ -122,18 +109,6 @@ def _create_hourly_timeseries(
             # line_shape=line_shape,
         ),
     )
-
-    # # Feels like temperature (subtle line)
-    # fig.add_trace(
-    #     go.Scatter(
-    #         x=[hd.time for hd in hour_data],
-    #         y=[hd.feels_like for hd in hour_data],
-    #         mode="lines",
-    #         name="Feels Like",
-    #         line=dict(color=COLORS["dimmed_red"], width=2, dash="dot"),
-    #         # line_shape=line_shape,
-    #     ),
-    # )
 
     # Maximized layout with no legend and tight margins
     fig.update_layout(

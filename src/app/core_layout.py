@@ -216,22 +216,6 @@ def core_layout() -> Component:
                         "justifyContent": "space-between",
                     },
                 ),
-                # Global inactivity dimmer overlay (hidden by default)
-                html.Div(
-                    id="global-idle-dimmer",
-                    style={
-                        "position": "fixed",
-                        "top": "0",
-                        "left": "0",
-                        "width": "100vw",
-                        "height": "100vh",
-                        "background": "rgba(0, 0, 0, 0.9)",  # ~10% brightness
-                        "zIndex": 9000,  # below full-screen modal (9999)
-                        "display": "none",
-                        "pointerEvents": "none",  # don't block interactions
-                        "transition": "opacity 0.3s ease",
-                    },
-                ),
             ],
         ),
     )

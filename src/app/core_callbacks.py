@@ -81,39 +81,6 @@ def add_callbacks() -> None:
         prevent_initial_call=True,
     )
 
-    # Inactivity dimmer: show after 5 minutes no activity; hide on activity; don't show when modal open
-    app.clientside_callback(
-        """
-        function(_tick, modalStyle, currentStyle) {
-            const FIVE_MIN_MS = 10 * 60 * 1000; 
-            const last = window.lastActivityTs || Date.now();
-            const now = Date.now();
-            const inactive = (now - last) >= FIVE_MIN_MS;
-            const modalOpen = modalStyle && modalStyle.display === 'block';
-
-            // Only dim at night: after 21:00 and before 06:00 (local time)
-            const hour = new Date().getHours();
-            const isNight = (hour >= 21 || hour < 6);
-
-            const shouldShow = inactive && isNight && !modalOpen;
-
-            const desiredDisplay = shouldShow ? 'block' : 'none';
-            let next = currentStyle || {};
-            if (next.display !== desiredDisplay) {
-                next = { ...next, display: desiredDisplay };
-            }
-            return next;
-        }
-        """,
-        Output("global-idle-dimmer", "style"),
-        Input("one-second-timer", "n_intervals"),
-        [
-            State("full-screen-modal", "style"),
-            State("global-idle-dimmer", "style"),
-        ],
-        prevent_initial_call=False,
-    )
-
     # Separate callback to handle modal opening and set initial timer
     app.clientside_callback(
         f"""
