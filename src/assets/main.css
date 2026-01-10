@@ -41,17 +41,17 @@ input, textarea, [contenteditable] {
     pointer-events: none;
 }
 
-.text-vs { font-size: 0.8rem; }
-.text-s { font-size: 1rem; }
-.text-ms { font-size: 1.3rem; }
-.text-m { font-size: 2rem; }
-.text-ml { font-size: 2.5rem; }
-.text-l { font-size: 3rem; }
-.text-dimmed { opacity: 0.6; }
+.text-vs { font-size: 1.0rem; }
+.text-s { font-size: 1.2rem; }
+.text-ms { font-size: 1.6rem; }
+.text-m { font-size: 2.4rem; }
+.text-ml { font-size: 3.0rem; }
+.text-l { font-size: 3.6rem; }
+.text-dimmed { opacity: 0.7; }
 
-.text-sm { font-size: 0.875rem; }
-.text-md { font-size: 1rem; }
-.text-lg { font-size: 1.125rem; }
+.text-sm { font-size: 1.1rem; }
+.text-md { font-size: 1.3rem; }
+.text-lg { font-size: 1.5rem; }
 
 .gap-s { gap: 0.2rem; }
 .gap-m { gap: 0.4rem; }

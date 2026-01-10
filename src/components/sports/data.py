@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import random
 import re
-import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -373,7 +372,7 @@ def fetch_paginated_html_for_sport(sport: Sport) -> list[str]:
     Strategy:
       - GET page 0 with date range
       - Parse total pages from pager
-      - POST remaining pages with form fields (page, repost, showdatestart, showdateend)
+      - POST remaining pages in parallel with controlled rate limiting
     """
     start = local_today()
     end = start + datetime.timedelta(days=FETCH_RANGE_DAYS)
@@ -394,63 +393,89 @@ def fetch_paginated_html_for_sport(sport: Sport) -> list[str]:
         "Accept-Language": "en-GB,en;q=0.9",
     }
 
-    with httpx.Client(timeout=HTTP_TIMEOUT, headers=headers_base) as client:
-        # First page (GET)
-        logger.info(f"Fetching page 0 for sport={sport.url} url={first_url}")
-        try:
+    # First page (GET) - must be synchronous to get total pages
+    logger.info(f"Fetching page 0 for sport={sport.url} url={first_url}")
+    try:
+        with httpx.Client(timeout=HTTP_TIMEOUT, headers=headers_base) as client:
             r0 = client.get(first_url)
             r0.raise_for_status()
             html0 = r0.text
-        except Exception as e:
-            logger.error(f"Failed to fetch first page for {sport.url}: {e}")
-            html0 = ""
-        pages_html.append(html0)
+    except Exception as e:
+        logger.error(f"Failed to fetch first page for {sport.url}: {e}")
+        html0 = ""
+    pages_html.append(html0)
 
-        total_pages = _pager_total_pages_from_html(html0)
-        if total_pages <= 1:
-            return pages_html
+    total_pages = _pager_total_pages_from_html(html0)
+    if total_pages <= 1:
+        return pages_html
 
-        # Remaining pages via POST
-        for page_index in range(1, min(total_pages, MAX_PAGES_PER_FETCH)):
-            form = {
-                "page": str(page_index),
-                "repost": "True",
-                "showdatestart": start_s,
-                "showdateend": end_s,
-            }
-            headers = {
-                **headers_base,
-                "Origin": WTM_BASE_URL,
-                "Referer": first_url,
-                "Content-Type": "application/x-www-form-urlencoded",
-            }
+    # Fetch remaining pages in parallel using asyncio
+    import asyncio
 
-            attempt = 0
-            html_i = ""
-            while attempt <= MAX_RETRIES_PER_PAGE:
-                try:
-                    logger.info(
-                        f"Fetching page {page_index} for sport={sport.url} via POST {post_url}",
+    async def _fetch_page_async(
+        page_index: int,
+        session: httpx.AsyncClient,
+    ) -> tuple[int, str]:
+        """Fetch a single page asynchronously with retry logic."""
+        # Add jitter before each request for rate limiting
+        await asyncio.sleep(random.uniform(REQUEST_JITTER_MIN, REQUEST_JITTER_MAX))
+
+        form = {
+            "page": str(page_index),
+            "repost": "True",
+            "showdatestart": start_s,
+            "showdateend": end_s,
+        }
+        headers = {
+            **headers_base,
+            "Origin": WTM_BASE_URL,
+            "Referer": first_url,
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+
+        attempt = 0
+        while attempt <= MAX_RETRIES_PER_PAGE:
+            try:
+                logger.info(
+                    f"Fetching page {page_index} for sport={sport.url} via POST {post_url}",
+                )
+                resp = await session.post(post_url, data=form, headers=headers)
+                resp.raise_for_status()
+                return (page_index, resp.text)
+            except Exception as e:
+                attempt += 1
+                if attempt > MAX_RETRIES_PER_PAGE:
+                    logger.error(
+                        f"Failed to fetch page {page_index} for {sport.url}: {e}",
                     )
-                    resp = client.post(post_url, data=form, headers=headers)
-                    resp.raise_for_status()
-                    html_i = resp.text
-                    break
-                except Exception as e:
-                    attempt += 1
-                    if attempt > MAX_RETRIES_PER_PAGE:
-                        logger.error(
-                            f"Failed to fetch page {page_index} for {sport.url}: {e}",
-                        )
-                        html_i = ""
-                        break
-                    # small backoff before retry
-                    time.sleep(random.uniform(REQUEST_JITTER_MIN, REQUEST_JITTER_MAX))
+                    return (page_index, "")
+                # Backoff before retry
+                await asyncio.sleep(
+                    random.uniform(REQUEST_JITTER_MIN, REQUEST_JITTER_MAX),
+                )
+        return (page_index, "")
 
-            pages_html.append(html_i)
+    async def _fetch_all_pages() -> list[tuple[int, str]]:
+        """Fetch all remaining pages in parallel."""
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as session:
+            tasks = [
+                _fetch_page_async(page_index, session)
+                for page_index in range(1, min(total_pages, MAX_PAGES_PER_FETCH))
+            ]
+            return await asyncio.gather(*tasks)
 
-            # polite pacing
-            time.sleep(random.uniform(REQUEST_JITTER_MIN, REQUEST_JITTER_MAX))
+    # Run async fetching
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        results = loop.run_until_complete(_fetch_all_pages())
+        loop.close()
+
+        # Sort by page index and extract HTML
+        results.sort(key=lambda x: x[0])
+        pages_html.extend([html for _, html in results])
+    except Exception as e:
+        logger.error(f"Error during parallel page fetching for {sport.url}: {e}")
 
     return pages_html
 

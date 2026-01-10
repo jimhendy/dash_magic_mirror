@@ -24,11 +24,11 @@ COLORS = {
 # Centralized font scale tuned for 7" viewing distance (≈1–1.2m)
 # Naming is semantic so components don't use raw numeric values.
 FONT_SIZES: dict[str, str] = {
-    "summary_heading": "1.45rem",  # Section titles / key labels
-    "summary_primary": "1.35rem",  # Main data (times, team names, temps)
-    "summary_secondary": "1.25rem",  # Secondary labels
-    "summary_meta": "0.95rem",  # Subtext / meta info
-    "summary_small": "0.85rem",  # Rare very small annotations
+    "summary_heading": "1.7rem",  # Section titles / key labels (was 1.45rem)
+    "summary_primary": "1.6rem",  # Main data (times, team names, temps) (was 1.35rem)
+    "summary_secondary": "1.45rem",  # Secondary labels (was 1.25rem)
+    "summary_meta": "1.2rem",  # Subtext / meta info (was 0.95rem)
+    "summary_small": "1.05rem",  # Rare very small annotations (was 0.85rem)
 }
 
 LINE_HEIGHT_DEFAULT = "1.25"  # Slightly relaxed for legibility

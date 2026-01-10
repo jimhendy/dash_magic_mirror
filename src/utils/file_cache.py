@@ -1,5 +1,6 @@
 import datetime
 import json
+import time
 from collections.abc import Callable
 from functools import wraps
 from hashlib import md5
@@ -16,6 +17,55 @@ CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
 DT_FORMAT = "%Y%m%d-%H%M%S"
 _CACHED_FUNCTION_NAMES: set[str] = set()
+
+# In-memory cache index with TTL for performance
+_CACHE_INDEX: dict[str, tuple[Path, float]] = {}  # key -> (path, indexed_at_timestamp)
+_INDEX_TTL_SECONDS = 5.0  # Re-scan filesystem after 5 seconds
+
+
+def _get_cached_files_indexed(
+    cache_key: str, arg_hash: str,
+) -> dict[Path, datetime.datetime]:
+    """Get cached files using in-memory index when possible."""
+    cache_file_pattern = f"{cache_key}_{arg_hash}_*"
+    index_key = f"{cache_key}_{arg_hash}"
+    now_ts = time.time()
+
+    # Check in-memory index first
+    if index_key in _CACHE_INDEX:
+        cached_path, indexed_at = _CACHE_INDEX[index_key]
+        # If index is fresh and file still exists, use it
+        if (now_ts - indexed_at) < _INDEX_TTL_SECONDS and cached_path.exists():
+            try:
+                write_time_str = cached_path.stem.split("_")[-1]
+                write_time = datetime.datetime.strptime(
+                    write_time_str, DT_FORMAT,
+                ).replace(
+                    tzinfo=datetime.UTC,
+                )
+                return {cached_path: write_time}
+            except (ValueError, IndexError):
+                # Index corrupted, fall through to filesystem scan
+                pass
+
+    # Fall back to filesystem glob (and update index)
+    cache_files = {}
+    for f in CACHE_PATH.glob(cache_file_pattern.replace("*", "*.json")):
+        try:
+            write_time = datetime.datetime.strptime(
+                f.stem.split("_")[-1],
+                DT_FORMAT,
+            ).replace(tzinfo=datetime.UTC)
+            cache_files[f] = write_time
+        except (ValueError, IndexError):
+            continue
+
+    # Update index with latest file if found
+    if cache_files:
+        latest_file = max(cache_files, key=cache_files.get)
+        _CACHE_INDEX[index_key] = (latest_file, now_ts)
+
+    return cache_files
 
 
 def reproduce_hash(*args, **kwargs) -> str:
@@ -81,13 +131,10 @@ def cache_json(valid_lifetime: datetime.timedelta) -> Callable[[F], F]:
             arg_hash = reproduce_hash(*args, **kwargs)
             cache_file_name = f"{cache_key}_{arg_hash}_{{write_time}}.json"
             now = utc_now()
-            cache_files = {
-                f: datetime.datetime.strptime(
-                    f.stem.split("_")[-1],
-                    DT_FORMAT,
-                ).replace(tzinfo=datetime.UTC)
-                for f in CACHE_PATH.glob(cache_file_name.format(write_time="*"))
-            }
+
+            # Use optimized indexed lookup
+            cache_files = _get_cached_files_indexed(cache_key, arg_hash)
+
             valid_files = {
                 f: t for f, t in cache_files.items() if t + valid_lifetime > now
             }
@@ -123,6 +170,9 @@ def cache_json(valid_lifetime: datetime.timedelta) -> Callable[[F], F]:
             try:
                 with open(cache_file, "w") as f:
                     json.dump(result, f, indent=4)
+                # Update index with newly written file
+                index_key = f"{cache_key}_{arg_hash}"
+                _CACHE_INDEX[index_key] = (cache_file, time.time())
             except OSError as e:
                 logger.error(
                     f"Failed writing cache file {cache_file.name} for {cache_key}: {e}",

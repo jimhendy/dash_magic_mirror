@@ -8,6 +8,7 @@ from __future__ import annotations
 import subprocess
 import time
 from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from loguru import logger
@@ -61,6 +62,38 @@ def get_mac_for_ip(ip: str, timeout: int) -> str | None:
     return None
 
 
+def _check_single_person(
+    person: PersonPresence,
+    now: float,
+    grace_seconds: int,
+    arp_timeout: int,
+    ping_attempts: int,
+    ping_wait: float,
+) -> None:
+    """Check presence for a single person (designed for parallel execution)."""
+    expected_mac = person.mac
+    ip = person.ip
+    present = False
+    ping_ip(ip, attempts=ping_attempts, wait=ping_wait)
+    mac = get_mac_for_ip(ip, timeout=arp_timeout)
+    if mac:
+        if mac == expected_mac:
+            present = True
+        else:
+            logger.warning(
+                f"Presence MAC mismatch for {person.name} ip={ip}: got {mac} expected {expected_mac}",
+            )
+    if present:
+        person.is_home = True
+        person.last_seen = now  # type: ignore[attr-defined]
+    else:
+        last_seen = getattr(person, "last_seen", 0)
+        person.is_home = (now - last_seen) <= grace_seconds
+    logger.debug(
+        f"Presence update name={person.name} ip={ip} expected_mac={expected_mac} present={person.is_home}",
+    )
+
+
 def update_people_presence_by_ip(
     people: Iterable[PersonPresence],
     now: float,
@@ -69,28 +102,30 @@ def update_people_presence_by_ip(
     ping_attempts: int,
     ping_wait: float,
 ):
-    for person in people:
-        expected_mac = person.mac
-        ip = person.ip
-        present = False
-        ping_ip(ip, attempts=ping_attempts, wait=ping_wait)
-        mac = get_mac_for_ip(ip, timeout=arp_timeout)
-        if mac:
-            if mac == expected_mac:
-                present = True
-            else:
-                logger.warning(
-                    f"Presence MAC mismatch for {person.name} ip={ip}: got {mac} expected {expected_mac}",
-                )
-        if present:
-            person.is_home = True
-            person.last_seen = now  # type: ignore[attr-defined]
-        else:
-            last_seen = getattr(person, "last_seen", 0)
-            person.is_home = (now - last_seen) <= grace_seconds
-        logger.debug(
-            f"Presence update name={person.name} ip={ip} expected_mac={expected_mac} present={person.is_home}",
-        )
+    people_list = list(people)
+    if not people_list:
+        return
+
+    # Parallelize presence checks to avoid blocking
+    with ThreadPoolExecutor(max_workers=len(people_list)) as executor:
+        futures = [
+            executor.submit(
+                _check_single_person,
+                person,
+                now,
+                grace_seconds,
+                arp_timeout,
+                ping_attempts,
+                ping_wait,
+            )
+            for person in people_list
+        ]
+        # Wait for all checks to complete
+        for future in futures:
+            try:
+                future.result()
+            except Exception as e:  # noqa: BLE001
+                logger.error(f"Presence check failed: {e}")
 
 
 __all__ = [

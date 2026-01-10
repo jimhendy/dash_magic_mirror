@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import json
 import time
+from functools import lru_cache
 from typing import Any
 
 import httpx
@@ -258,19 +259,29 @@ def check_stops_at_transfer_station(
     transfer_station_arrivals: list[dict],
     transfer_station_id: str,
 ) -> bool:
+    """Check if arrival stops at transfer station (optimized with indexing)."""
     if not transfer_station_arrivals or not transfer_station_id:
         return False
     if arrival.get("naptanId") == transfer_station_id:
         return False
+
     vehicle_id = arrival.get("vehicleId") or ""
     line_id = arrival.get("lineId") or ""
     dest_id = arrival.get("destinationNaptanId") or ""
     dest_name_norm = normalize_destination_name(arrival.get("destinationName", ""))
+
     if not line_id:
         return False
+
     arrival_expected_dt = _parse_expected(arrival.get("expectedArrival"))
     if not arrival_expected_dt:
         return False
+
+    # Build index once for all arrivals (should be called from outer function)
+    # For backward compatibility, build on-demand if not using optimized path
+    # Optimized callers should use check_stops_at_transfer_station_indexed
+
+    # Fast path: Check by vehicle ID first (O(N) worst case, but filtered by line_id)
     for ts_arr in transfer_station_arrivals:
         if ts_arr.get("lineId") != line_id:
             continue
@@ -306,7 +317,58 @@ def check_stops_at_transfer_station(
     return False
 
 
+def check_stops_at_transfer_station_indexed(
+    arrival: dict,
+    transfer_index: dict,
+    transfer_station_id: str,
+) -> bool:
+    """Optimized version using pre-built index (O(1) lookups)."""
+    if not transfer_index or not transfer_station_id:
+        return False
+    if arrival.get("naptanId") == transfer_station_id:
+        return False
+
+    vehicle_id = arrival.get("vehicleId") or ""
+    line_id = arrival.get("lineId") or ""
+    dest_id = arrival.get("destinationNaptanId") or ""
+    dest_name_norm = normalize_destination_name(arrival.get("destinationName", ""))
+
+    if not line_id:
+        return False
+
+    arrival_expected_dt = _parse_expected(arrival.get("expectedArrival"))
+    if not arrival_expected_dt:
+        return False
+
+    by_vehicle = transfer_index.get("by_vehicle", {})
+    by_line_dest = transfer_index.get("by_line_dest", {})
+
+    # Try vehicle ID match first (most reliable)
+    candidates = []
+    if vehicle_id and vehicle_id in by_vehicle:
+        candidates.extend(by_vehicle[vehicle_id])
+
+    # Fall back to line + destination match
+    if not candidates:
+        dest_key = dest_id if dest_id else dest_name_norm
+        if (line_id, dest_key) in by_line_dest:
+            candidates.extend(by_line_dest[(line_id, dest_key)])
+
+    # Check timing for candidates
+    for ts_arr in candidates:
+        ts_expected_dt = _parse_expected(ts_arr.get("expectedArrival"))
+        if not ts_expected_dt:
+            continue
+        delta = (ts_expected_dt - arrival_expected_dt).total_seconds()
+        if delta > FORWARD_DELTA_SECONDS:
+            return True
+
+    return False
+
+
+@lru_cache(maxsize=256)
 def normalize_destination_name(name: str) -> str:
+    """Normalize destination name for matching (cached for performance)."""
     if not name:
         return ""
     return clean_station_name(name).strip().lower()
@@ -354,6 +416,14 @@ def process_arrivals_data(
         set(arrival.get("lineId", "") for arrival in arrivals if arrival.get("lineId")),
     )
     station_name = arrivals[0].get("stationName", "Unknown Station")
+
+    # Build transfer station index once for all arrivals (optimization)
+    transfer_index = (
+        build_transfer_station_index(transfer_station_arrivals)
+        if transfer_station_arrivals
+        else {}
+    )
+
     processed_arrivals = []
     for arrival in arrivals:
         destination = arrival.get("destinationName", "")
@@ -396,6 +466,24 @@ def process_arrivals_data(
                     else "material-symbols:train-outline"
                 )
 
+                # Use optimized indexed version
+                transfer_indicator = ""
+                if transfer_index:
+                    if check_stops_at_transfer_station_indexed(
+                        arrival,
+                        transfer_index,
+                        transfer_station_id,
+                    ):
+                        if is_summary:
+                            transfer_indicator = DashIconify(
+                                icon="mdi:alpha-b-circle-outline",
+                                color="green",
+                                width=30,
+                                height=30,
+                            )
+                        else:
+                            transfer_indicator = "✓"
+
                 processed_arrival = {
                     "id": arrival.get("id", ""),
                     "minutes": minutes,
@@ -409,12 +497,7 @@ def process_arrivals_data(
                     "direction": arrival.get("direction", ""),
                     "mode": arrival.get("modeName", ""),
                     "station_name": clean_station_name(arrival.get("stationName", "")),
-                    "transfer_station_indicator": get_transfer_station_indicator(
-                        arrival,
-                        transfer_station_arrivals,
-                        transfer_station_id,
-                        is_summary,
-                    ),
+                    "transfer_station_indicator": transfer_indicator,
                 }
                 processed_arrivals.append(processed_arrival)
             except (ValueError, TypeError) as e:
@@ -496,8 +579,9 @@ def process_stoppoint_disruptions(disruption_data: list[dict]) -> dict[str, list
 # --- Misc utilities -------------------------------------------------------------------------
 
 
+@lru_cache(maxsize=256)
 def clean_station_name(station_name: str) -> str:
-    """Clean station name by removing common suffixes."""
+    """Clean station name by removing common suffixes (cached for performance)."""
     if not station_name:
         return station_name
 

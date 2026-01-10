@@ -72,10 +72,10 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
                                 html.Img(
                                     src=crest,
                                     style={
-                                        "height": "34px",
-                                        "width": "34px",
+                                        "height": "42px",
+                                        "width": "42px",
                                         "objectFit": "contain",
-                                        "marginRight": "8px",
+                                        "marginRight": "10px",
                                         "display": "block" if crest else "none",
                                         "filter": "drop-shadow(0 0 2px rgba(0,0,0,0.6))",
                                     },
@@ -148,7 +148,7 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
                 if is_today
                 else None,  # "1px solid rgba(255,255,255,0.12)",
                 "borderRadius": "8px",
-                "padding": "0px 14px",
+                "padding": "10px 14px",
                 "marginBottom": "3px",
                 "fontSize": FONT_SIZES["summary_secondary"],
                 # inherit font
