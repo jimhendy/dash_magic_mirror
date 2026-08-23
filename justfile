@@ -10,6 +10,7 @@ run:
 # Install dependencies
 install:
     uv sync
+    uv run playwright install chromium
 
 # Run tests
 test:

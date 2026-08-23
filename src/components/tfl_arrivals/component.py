@@ -69,6 +69,7 @@ class TFLArrivals(DataDrivenComponent):
                 timeline_arrivals,
                 line_status,
                 stop_disruptions,
+                priority_line_ids=self._line_status_ids,
             )
             fullscreen_content = render_tfl_fullscreen(
                 arrivals_by_stop,

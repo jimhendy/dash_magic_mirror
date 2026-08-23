@@ -8,7 +8,7 @@ from components.header import Header
 from components.header.component import PersonPresence, _norm
 from components.markets import Markets
 from components.news import News
-from components.news.constants import DEFAULT_RSS_URL
+from components.news.constants import DEFAULT_RSS_URLS
 from components.sports import Sports
 from components.tfl_arrivals import TFLArrivals
 from components.weather import Weather
@@ -81,6 +81,8 @@ COMPONENTS = [
             for calendar_id in os.environ
             if calendar_id.startswith("GOOGLE_CALENDAR_ID_")
         ],
+        bin_collection_postcode=os.environ.get("BIN_COLLECTION_POSTCODE", ""),
+        bin_collection_address=os.environ.get("BIN_COLLECTION_ADDRESS", ""),
     ),
     TFLArrivals(
         all_stop_ids=TFL_ALL_STOP_IDS,
@@ -91,6 +93,11 @@ COMPONENTS = [
     Markets(),
     Sports(),
     News(
-        rss_url=os.environ.get("NEWS_RSS_URL", DEFAULT_RSS_URL),
+        rss_urls=[
+            url.strip()
+            for url in os.environ.get("NEWS_RSS_URLS", "").split(",")
+            if url.strip()
+        ]
+        or DEFAULT_RSS_URLS,
     ),
 ]

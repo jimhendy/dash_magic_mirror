@@ -40,9 +40,9 @@ def _next_hours(
 
 
 def render_weather_sparklines(hourly_data: list[dict[str, Any]]) -> html.Div | None:
-    """Next-48h temperature / rain-chance / cloud-cover mini trend charts -
-    fills the horizontal space between current conditions and tomorrow's
-    preview in the summary row with something more useful than empty space.
+    """Next-48h temperature / rain-chance mini trend charts - fills the
+    horizontal space between current conditions and tomorrow's preview in
+    the summary row with something more useful than empty space.
     """
     upcoming = _next_hours(hourly_data)
     if len(upcoming) < 2:
@@ -50,7 +50,6 @@ def render_weather_sparklines(hourly_data: list[dict[str, Any]]) -> html.Div | N
 
     temps = [h.get("temp_c", 0) for h in upcoming]
     rain = [h.get("rain_chance", 0) for h in upcoming]
-    cloud = [h.get("cloud", 0) for h in upcoming]
 
     return html.Div(
         [
@@ -81,17 +80,11 @@ def render_weather_sparklines(hourly_data: list[dict[str, Any]]) -> html.Div | N
                 },
             ),
             sparkline(temps, color=COLORS["gold"], height="1.9rem"),
-            # Rain chance and cloud cover are always 0-100%, scaled to that
-            # fixed range (not their own min/max) so height is a true
-            # reading of "how much", comparable across sparklines/refreshes.
+            # Rain chance is always 0-100%, scaled to that fixed range (not
+            # its own min/max) so height is a true reading of "how much",
+            # comparable across sparklines/refreshes.
             sparkline(
                 rain, color=COLORS["accent"], height="0.9rem", fixed_range=(0, 100)
-            ),
-            sparkline(
-                cloud,
-                color=COLORS["text_secondary"],
-                height="0.9rem",
-                fixed_range=(0, 100),
             ),
         ],
         style={

@@ -1,7 +1,8 @@
 """News headlines component for the Magic Mirror application.
 
-Sourced from an RSS feed (default: BBC News) - no API key required, so there
-is nothing to rate-limit beyond the usual `cache_json` fetch cadence.
+Sourced from one or more RSS feeds (default: BBC World + Guardian World) - no
+API key required, so there is nothing to rate-limit beyond the usual
+`cache_json` fetch cadence.
 """
 
 from dash import Dash, Input, Output, dcc, html
@@ -10,14 +11,14 @@ from dash.development.base_component import Component
 from components.base import DataDrivenComponent
 from utils.data_repository import ComponentPayload
 
-from .constants import DEFAULT_RSS_URL, ITEM_LIMIT, ROTATE_INTERVAL_MS
+from .constants import DEFAULT_RSS_URLS, ITEM_LIMIT, ROTATE_INTERVAL_MS
 from .data import async_fetch_news_items
 from .full_screen import render_news_fullscreen
 from .summary import render_news_summary
 
 
 class News(DataDrivenComponent):
-    """Rotating news headlines, sourced from an RSS feed."""
+    """Rotating news headlines, sourced from one or more RSS feeds."""
 
     refresh_seconds = 20 * 60
     jitter_seconds = 60
@@ -26,16 +27,16 @@ class News(DataDrivenComponent):
 
     def __init__(
         self,
-        rss_url: str = DEFAULT_RSS_URL,
+        rss_urls: list[str] = DEFAULT_RSS_URLS,
         item_limit: int = ITEM_LIMIT,
         **kwargs,
     ):
-        self.rss_url = rss_url
+        self.rss_urls = rss_urls
         self.item_limit = item_limit
         super().__init__(name="news", **kwargs)
 
     async def _build_payload(self) -> ComponentPayload | None:
-        items = await async_fetch_news_items(self.rss_url, limit=self.item_limit)
+        items = await async_fetch_news_items(self.rss_urls, limit=self.item_limit)
         summary_children = render_news_summary(items, self.component_id)
         fullscreen_result = render_news_fullscreen(items, self.component_id)
 

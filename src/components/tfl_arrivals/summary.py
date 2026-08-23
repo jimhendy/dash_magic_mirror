@@ -24,18 +24,26 @@ def render_tfl_summary(
     arrivals: list[dict],
     line_status: dict,
     stop_disruptions: dict,
+    *,
+    priority_line_ids: list[str] | None = None,
 ) -> html.Div:
     """Render TFL summary: a legend identifying each line/route by its
     actual brand color, then a single 90-minute timeline marking every
     upcoming arrival across every configured stop - each marker colored
     and lettered by destination so it's identifiable without full text.
+
+    `priority_line_ids` (the configured `TFL_LINE_STATUS` order, most
+    important first - currently just the Weaver line) never gets buried:
+    when two markers land close enough in time to visually overlap, the
+    priority one is always painted last/on top rather than whichever
+    happened to sort there by arrival time.
     """
     legend = _legend_row(arrivals, line_status, stop_disruptions)
 
     children: list[html.Div] = []
     if legend is not None:
         children.append(legend)
-    children.append(_timeline(arrivals))
+    children.append(_timeline(arrivals, priority_line_ids=priority_line_ids or []))
 
     return html.Div(
         children,
@@ -176,7 +184,10 @@ def _destination_letter(destination: str) -> str:
 
 
 def _timeline(
-    arrivals: list[dict], window_minutes: int = MAX_ARRIVAL_WINDOW_MINUTES
+    arrivals: list[dict],
+    window_minutes: int = MAX_ARRIVAL_WINDOW_MINUTES,
+    *,
+    priority_line_ids: list[str] = (),
 ) -> html.Div:
     """A single horizontal line spanning "now" to `window_minutes` from now.
     Each upcoming arrival is a small pill on the line: colored by the
@@ -186,7 +197,15 @@ def _timeline(
     countdown labeled below (imminent arrivals get a red ring instead of
     recoloring the pill, so line identity and urgency are both visible
     at once).
+
+    Markers are absolutely positioned by time, so two arrivals close
+    enough together can visually overlap; which one ends up "on top" is
+    otherwise just whichever happened to render last in DOM order. A
+    `priority_line_ids` marker is always rendered last (and so painted on
+    top) regardless of arrival time, so it never gets hidden behind a
+    lower-priority marker it happens to overlap.
     """
+    priority_ids = set(priority_line_ids)
     upcoming = sorted(
         (a for a in arrivals if 0 <= a["minutes"] <= window_minutes),
         key=lambda a: a["minutes"],
@@ -209,11 +228,13 @@ def _timeline(
     min_gap_pct = 6.0
     last_tier_1_pct: float | None = None
 
-    markers = []
+    other_markers = []
+    priority_markers = []
     for arrival in upcoming:
         pct = (arrival["minutes"] / window_minutes) * 100
         color = arrival.get("line_color") or COLORS["accent"]
         is_urgent = arrival["minutes"] < 2
+        is_priority = arrival.get("line_id") in priority_ids
         label = "Due" if arrival["minutes"] == 0 else f"{arrival['minutes']}m"
 
         if last_tier_1_pct is None or pct - last_tier_1_pct >= min_gap_pct:
@@ -222,50 +243,57 @@ def _timeline(
         else:
             label_top = _LABEL_TIER_2_TOP
 
-        markers.append(
-            html.Div(
-                [
-                    html.Div(
-                        _destination_letter(arrival.get("destination", "")),
-                        style={
-                            "position": "absolute",
-                            "left": f"{pct}%",
-                            "top": _PILL_TOP,
-                            "width": "1.1rem",
-                            "height": "1.1rem",
-                            "borderRadius": "50%",
-                            "background": color,
-                            "color": _contrast_text_color(color),
-                            "fontSize": "0.65rem",
-                            "fontWeight": WEIGHT["bold"],
-                            "display": "flex",
-                            "alignItems": "center",
-                            "justifyContent": "center",
-                            "transform": "translate(-50%, -50%)",
-                            "boxShadow": (
-                                f"0 0 0 2px {COLORS['urgent']}, 0 0 0 4px {COLORS['bg']}"
-                                if is_urgent
-                                else f"0 0 0 2px {COLORS['bg']}"
-                            ),
-                        },
-                    ),
-                    html.Div(
-                        label,
-                        style={
-                            "position": "absolute",
-                            "left": f"{pct}%",
-                            "top": label_top,
-                            "transform": "translateX(-50%)",
-                            "fontSize": FONT_SIZES["small"],
-                            "color": COLORS["urgent"]
-                            if is_urgent
-                            else COLORS["text_secondary"],
-                            "whiteSpace": "nowrap",
-                        },
-                    ),
-                ],
-            )
+        # A priority marker keeps a permanent ring (thinner/quieter than the
+        # red urgency ring) so it still reads as "the important one" even
+        # when it isn't the one on top of an overlap.
+        if is_urgent:
+            pill_ring = f"0 0 0 2px {COLORS['urgent']}, 0 0 0 4px {COLORS['bg']}"
+        elif is_priority:
+            pill_ring = f"0 0 0 2px {COLORS['bg']}, 0 0 0 3px {color}"
+        else:
+            pill_ring = f"0 0 0 2px {COLORS['bg']}"
+
+        marker = html.Div(
+            [
+                html.Div(
+                    _destination_letter(arrival.get("destination", "")),
+                    style={
+                        "position": "absolute",
+                        "left": f"{pct}%",
+                        "top": _PILL_TOP,
+                        "width": "1.1rem",
+                        "height": "1.1rem",
+                        "borderRadius": "50%",
+                        "background": color,
+                        "color": _contrast_text_color(color),
+                        "fontSize": "0.65rem",
+                        "fontWeight": WEIGHT["bold"],
+                        "display": "flex",
+                        "alignItems": "center",
+                        "justifyContent": "center",
+                        "transform": "translate(-50%, -50%)",
+                        "boxShadow": pill_ring,
+                    },
+                ),
+                html.Div(
+                    label,
+                    style={
+                        "position": "absolute",
+                        "left": f"{pct}%",
+                        "top": label_top,
+                        "transform": "translateX(-50%)",
+                        "fontSize": FONT_SIZES["small"],
+                        "color": COLORS["urgent"]
+                        if is_urgent
+                        else COLORS["text_secondary"],
+                        "whiteSpace": "nowrap",
+                    },
+                ),
+            ],
         )
+        (priority_markers if is_priority else other_markers).append(marker)
+
+    markers = other_markers + priority_markers
 
     return html.Div(
         [
