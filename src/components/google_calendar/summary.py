@@ -114,7 +114,7 @@ def _render_multi_day_event(
             "color": text_color,
             "borderRadius": "0.4rem",
             "padding": "0.35rem 0.7rem",
-            "fontSize": FONT_SIZES["meta"],
+            "fontSize": "1.32rem",  # meta (1.1rem) + 20%, calendar events read too small
             "fontWeight": WEIGHT["semibold"],
             "overflow": "hidden",
             "textOverflow": "ellipsis",
@@ -192,7 +192,7 @@ def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div
             html.Div(
                 truncate_event_title(event.title, 40),
                 style={
-                    "fontSize": FONT_SIZES["meta"],
+                    "fontSize": "1.32rem",  # meta (1.1rem) + 20%, calendar events read too small
                     "fontWeight": WEIGHT["regular"],
                     "color": COLORS["text"],
                     "overflow": "hidden",
@@ -203,7 +203,7 @@ def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div
             html.Div(
                 time_display,
                 style={
-                    "fontSize": FONT_SIZES["small"],
+                    "fontSize": "1.14rem",  # small (0.95rem) + 20%
                     "color": COLORS["text_muted"],
                     "overflow": "hidden",
                     "textOverflow": "ellipsis",

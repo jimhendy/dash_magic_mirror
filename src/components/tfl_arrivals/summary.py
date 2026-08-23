@@ -61,8 +61,8 @@ def render_tfl_summary(
 def _status_dot(color: str) -> html.Div:
     return html.Div(
         style={
-            "width": "0.45rem",
-            "height": "0.45rem",
+            "width": "0.6rem",
+            "height": "0.6rem",
             "borderRadius": "50%",
             "background": color,
             "flexShrink": 0,
@@ -96,14 +96,25 @@ def _create_status_row(
                     [
                         _status_dot(status_color),
                         html.Span(
-                            status["line_name"],
+                            f"{status['line_name']}: ",
                             style={
-                                "fontSize": FONT_SIZES["small"],
+                                "fontSize": FONT_SIZES["secondary"],
                                 "color": COLORS["text_secondary"],
                             },
                         ),
+                        # The status word itself is the important, glance-
+                        # from-across-the-room signal, so it's bold and
+                        # fully colored by severity - not just a small dot.
+                        html.Span(
+                            status["status_text"],
+                            style={
+                                "fontSize": FONT_SIZES["secondary"],
+                                "fontWeight": WEIGHT["bold"],
+                                "color": status_color,
+                            },
+                        ),
                     ],
-                    style={"display": "flex", "alignItems": "center", "gap": "0.3rem"},
+                    style={"display": "flex", "alignItems": "center", "gap": "0.4rem"},
                 ),
             )
             seen.add(line_id)
@@ -114,14 +125,22 @@ def _create_status_row(
                 [
                     _status_dot(COLORS["gold"]),
                     html.Span(
-                        f"{station_name} disruptions",
+                        f"{station_name}: ",
                         style={
-                            "fontSize": FONT_SIZES["small"],
+                            "fontSize": FONT_SIZES["secondary"],
                             "color": COLORS["text_secondary"],
                         },
                     ),
+                    html.Span(
+                        "Disruptions",
+                        style={
+                            "fontSize": FONT_SIZES["secondary"],
+                            "fontWeight": WEIGHT["bold"],
+                            "color": COLORS["gold"],
+                        },
+                    ),
                 ],
-                style={"display": "flex", "alignItems": "center", "gap": "0.3rem"},
+                style={"display": "flex", "alignItems": "center", "gap": "0.4rem"},
             ),
         )
 
@@ -130,7 +149,7 @@ def _create_status_row(
 
     return html.Div(
         indicators,
-        style={"display": "flex", "flexWrap": "wrap", "gap": "0.2rem 0.9rem"},
+        style={"display": "flex", "flexWrap": "wrap", "gap": "0.3rem 1.1rem"},
     )
 
 
