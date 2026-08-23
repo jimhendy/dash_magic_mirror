@@ -11,6 +11,7 @@ from utils.calendar import (
 )
 from utils.dates import local_today
 from utils.models import FullScreenResult
+from utils.styles import COLORS, RADIUS, kicker_style
 
 from .data import CalendarEvent
 from .utils import (
@@ -22,15 +23,11 @@ from .utils import (
 )
 
 
-def render_calendar_fullscreen(
-    events: list[CalendarEvent],
-    font_size: str = "20px",
-) -> FullScreenResult:
+def render_calendar_fullscreen(events: list[CalendarEvent]) -> FullScreenResult:
     """Render the full-screen calendar view showing 4 weeks in a grid.
 
     Args:
         events: List of processed calendar events
-        font_size: Font size for the calendar text
 
     Returns:
         FullScreenResult containing the full-screen calendar layout
@@ -52,7 +49,7 @@ def render_calendar_fullscreen(
     event_spans = create_event_spans(calendar_grid)
 
     return FullScreenResult(
-        content=_render_calendar_grid(calendar_grid, event_spans, font_size),
+        content=_render_calendar_grid(calendar_grid, event_spans),
         title=calendar_title,
     )
 
@@ -60,14 +57,12 @@ def render_calendar_fullscreen(
 def _render_calendar_grid(
     calendar_grid: list[list[dict]],
     event_spans: list[dict],
-    font_size: str,
 ) -> html.Div:
     """Render the calendar grid with weeks and days.
 
     Args:
         calendar_grid: Calendar grid from generate_calendar_grid_weeks
         event_spans: Event spans from create_event_spans
-        font_size: Font size for the calendar
 
     Returns:
         html.Div containing the calendar grid
@@ -78,15 +73,15 @@ def _render_calendar_grid(
             "flex": "1",
             "display": "flex",
             "flexDirection": "column",
-            "border": "1px solid rgba(255, 255, 255, 0.2)",
-            "borderRadius": "12px",
-            "backgroundColor": "rgba(255, 255, 255, 0.02)",
+            "border": f"1px solid {COLORS['hairline']}",
+            "borderRadius": RADIUS["md"],
+            "backgroundColor": COLORS["surface"],
             "height": "100%",
             "position": "relative",
         },
         children=[
             # Days of week header
-            _render_days_header(font_size=font_size),
+            _render_days_header(),
             # Calendar weeks
             html.Div(
                 style={
@@ -96,23 +91,20 @@ def _render_calendar_grid(
                     "position": "relative",
                 },
                 children=[
-                    _render_calendar_week(week, week_idx, font_size=font_size)
+                    _render_calendar_week(week, week_idx)
                     for week_idx, week in enumerate(calendar_grid)
                 ]
                 + [
                     # Render event spans as overlays
-                    _render_event_spans(event_spans, font_size),
+                    _render_event_spans(event_spans),
                 ],
             ),
         ],
     )
 
 
-def _render_days_header(font_size: str) -> html.Div:
+def _render_days_header() -> html.Div:
     """Render the days of week header row.
-
-    Args:
-        font_size: Font size for the header
 
     Returns:
         html.Div containing the days header
@@ -122,32 +114,25 @@ def _render_days_header(font_size: str) -> html.Div:
         style={
             "display": "grid",
             "gridTemplateColumns": "repeat(7, 1fr)",
-            "borderBottom": "1px solid rgba(255, 255, 255, 0.2)",
-            "backgroundColor": "rgba(255, 255, 255, 0.05)",
+            "borderBottom": f"1px solid {COLORS['hairline']}",
+            "backgroundColor": COLORS["surface_raised"],
         },
         children=[
             html.Div(
                 day_name[i][:3],  # Mon, Tue, Wed, etc.
-                style={
-                    "padding": "12px",
-                    "textAlign": "center",
-                    "fontWeight": "bold",
-                    "fontSize": "14px",  # Fixed size for header
-                    "color": "rgba(255, 255, 255, 0.7)",
-                },
+                style=kicker_style(padding="0.75rem", textAlign="center"),
             )
             for i in range(7)  # Monday to Sunday
         ],
     )
 
 
-def _render_calendar_week(week: list[dict], week_idx: int, font_size: str) -> html.Div:
+def _render_calendar_week(week: list[dict], week_idx: int) -> html.Div:
     """Render a single week row in the calendar.
 
     Args:
         week: Week data from calendar grid
         week_idx: Index of the week in the grid
-        font_size: Font size for the calendar
 
     Returns:
         html.Div containing the week row
@@ -157,19 +142,18 @@ def _render_calendar_week(week: list[dict], week_idx: int, font_size: str) -> ht
         style={
             "display": "grid",
             "gridTemplateColumns": "repeat(7, 1fr)",
-            "borderBottom": "1px solid rgba(255, 255, 255, 0.1)",
+            "borderBottom": f"1px solid {COLORS['hairline']}",
             "height": "24%",
         },
-        children=[_render_calendar_day(day_info, font_size) for day_info in week],
+        children=[_render_calendar_day(day_info) for day_info in week],
     )
 
 
-def _render_calendar_day(day_info: dict, font_size: str) -> html.Div:
+def _render_calendar_day(day_info: dict) -> html.Div:
     """Render a single day cell in the calendar.
 
     Args:
         day_info: Day information from calendar grid
-        font_size: Font size for the calendar
 
     Returns:
         html.Div containing the day cell
@@ -187,8 +171,8 @@ def _render_calendar_day(day_info: dict, font_size: str) -> html.Div:
 
     # Day cell background styling for weekends
     cell_style = {
-        "padding": "8px",
-        "borderRight": "1px solid rgba(255, 255, 255, 0.1)",
+        "padding": "0.5rem",
+        "borderRight": f"1px solid {COLORS['hairline']}",
         "display": "flex",
         "flexDirection": "column",
         "position": "relative",
@@ -196,27 +180,25 @@ def _render_calendar_day(day_info: dict, font_size: str) -> html.Div:
 
     # Add subtle background for weekends
     if is_weekend:
-        cell_style["backgroundColor"] = "rgba(255, 255, 255, 0.1)"
+        cell_style["backgroundColor"] = COLORS["surface_raised"]
 
     # Day number styling
     day_number_style = {
-        "fontSize": "16px",  # Fixed readable size for day numbers
-        "fontWeight": "bold"
-        if is_today
-        else ("bold" if is_first_of_month else "normal"),
-        "color": "#FFFFFF" if not is_past else "rgba(255, 255, 255, 0.4)",
-        "marginBottom": "6px",
+        "fontSize": "1rem",  # Fixed readable size for day numbers
+        "fontWeight": "600" if (is_today or is_first_of_month) else "400",
+        "color": COLORS["text"] if not is_past else COLORS["text_muted"],
+        "marginBottom": "0.375rem",
     }
 
-    # Current day styling (most prominent)
+    # Current day styling (most prominent, uses the shared "now/today" accent)
     if is_today:
         day_number_style.update(
             {
-                "backgroundColor": "#FFD700",
-                "color": "#000000",
+                "backgroundColor": COLORS["accent"],
+                "color": COLORS["bg"],
                 "borderRadius": "50%",
-                "width": "24px",
-                "height": "24px",
+                "width": "1.5rem",
+                "height": "1.5rem",
                 "display": "flex",
                 "alignItems": "center",
                 "justifyContent": "center",
@@ -226,14 +208,14 @@ def _render_calendar_day(day_info: dict, font_size: str) -> html.Div:
     elif is_first_of_month:
         day_number_style.update(
             {
-                "border": "1px solid rgba(255, 255, 255, 0.4)",
+                "border": f"1px solid {COLORS['hairline_strong']}",
                 "borderRadius": "50%",
-                "width": "22px",
-                "height": "22px",
+                "width": "1.375rem",
+                "height": "1.375rem",
                 "display": "flex",
                 "alignItems": "center",
                 "justifyContent": "center",
-                "backgroundColor": "rgba(255, 255, 255, 0.05)",
+                "backgroundColor": COLORS["surface"],
             },
         )
 
@@ -249,12 +231,11 @@ def _render_calendar_day(day_info: dict, font_size: str) -> html.Div:
     )
 
 
-def _render_event_spans(event_spans: list[dict], font_size: str) -> html.Div:
+def _render_event_spans(event_spans: list[dict]) -> html.Div:
     """Render event spans as overlays on the calendar grid.
 
     Args:
         event_spans: List of event span dictionaries
-        font_size: Font size for event text
 
     Returns:
         html.Div containing all event span overlays
@@ -269,16 +250,15 @@ def _render_event_spans(event_spans: list[dict], font_size: str) -> html.Div:
             "bottom": "0",
             "pointerEvents": "none",
         },
-        children=[_render_single_event_span(span, font_size) for span in event_spans],
+        children=[_render_single_event_span(span) for span in event_spans],
     )
 
 
-def _render_single_event_span(event_span: dict, font_size: str) -> html.Div:
+def _render_single_event_span(event_span: dict) -> html.Div:
     """Render a single event span overlay.
 
     Args:
         event_span: Event span dictionary with positioning info
-        font_size: Font size for event text
 
     Returns:
         html.Div containing the event span
@@ -292,7 +272,7 @@ def _render_single_event_span(event_span: dict, font_size: str) -> html.Div:
     track = event_span.get("track", 0)  # Vertical position within week
 
     # Calculate positioning - improved calculations
-    header_height = 60  # Account for header height
+    header_height_rem = 3.75  # Account for header height
     week_height_percent = 24  # Each week is 24% of available height
     day_width_percent = 100 / 7  # Each day is 1/7 of width
 
@@ -306,27 +286,27 @@ def _render_single_event_span(event_span: dict, font_size: str) -> html.Div:
     tooltip_text = create_event_tooltip(event)
 
     # Calculate event height and font size based on input font size
-    event_height = 22
-    event_font_size = "12px"
-    event_margin = 4  # Space between stacked events
-    base_offset = 1  # distance from top of day cell to first event
-    track_spacing = event_height + event_margin
+    event_height_rem = 1.375
+    event_font_size = "0.75rem"
+    event_margin_rem = 0.25  # Space between stacked events
+    base_offset_rem = 0.0625  # distance from top of day cell to first event
+    track_spacing_rem = event_height_rem + event_margin_rem
 
     # For multi-week events, we need to create multiple spans
     event_segments = []
 
     def _top_position(week_index: int) -> str:
-        offset_px = base_offset + (track - 1) * track_spacing
-        return f"calc({header_height}px + {week_height_percent}% * {week_index} + {offset_px}px)"
+        offset_rem = base_offset_rem + (track - 1) * track_spacing_rem
+        return f"calc({header_height_rem}rem + {week_height_percent}% * {week_index} + {offset_rem}rem)"
 
     if start_week == end_week:
         # Same week - single span
         # Add offset for curved ends
-        left_offset = 4 if start_day > 0 else 0  # Offset from left edge
-        right_offset = 4 if end_day < 6 else 0  # Offset from right edge
+        left_offset = 0.25 if start_day > 0 else 0  # Offset from left edge
+        right_offset = 0.25 if end_day < 6 else 0  # Offset from right edge
 
-        left_pos = f"calc({day_width_percent * start_day}% + {left_offset}px)"
-        width = f"calc({day_width_percent * (end_day - start_day + 1)}% - {left_offset + right_offset}px)"
+        left_pos = f"calc({day_width_percent * start_day}% + {left_offset}rem)"
+        width = f"calc({day_width_percent * (end_day - start_day + 1)}% - {left_offset + right_offset}rem)"
         top_pos = _top_position(start_week)
 
         event_segments.append(
@@ -338,13 +318,13 @@ def _render_single_event_span(event_span: dict, font_size: str) -> html.Div:
                     "left": left_pos,
                     "width": width,
                     "top": top_pos,
-                    "height": f"{event_height}px",
+                    "height": f"{event_height_rem}rem",
                     "backgroundColor": background_color,
-                    "borderRadius": "4px",
-                    "padding": "3px 8px",
+                    "borderRadius": "0.25rem",
+                    "padding": "0.2rem 0.5rem",
                     "fontSize": event_font_size,
                     "fontWeight": "600",
-                    "lineHeight": f"{event_height - 6}px",
+                    "lineHeight": f"{event_height_rem - 0.375}rem",
                     "color": text_color,
                     "overflow": "hidden",
                     "textOverflow": "ellipsis",
@@ -361,20 +341,22 @@ def _render_single_event_span(event_span: dict, font_size: str) -> html.Div:
         for week in range(start_week, end_week + 1):
             if week == start_week:
                 # First week segment - offset from left if not starting at beginning
-                left_offset = 4 if start_day > 0 else 0
-                left_pos = f"calc({day_width_percent * start_day}% + {left_offset}px)"
+                left_offset = 0.25 if start_day > 0 else 0
+                left_pos = f"calc({day_width_percent * start_day}% + {left_offset}rem)"
                 width = (
-                    f"calc({day_width_percent * (7 - start_day)}% - {left_offset}px)"
+                    f"calc({day_width_percent * (7 - start_day)}% - {left_offset}rem)"
                 )
                 show_title = True  # Always show title on first week
-                border_radius = "4px 0 0 4px"
+                border_radius = "0.25rem 0 0 0.25rem"
             elif week == end_week:
                 # Last week segment - offset from right if not ending at end
-                right_offset = 4 if end_day < 6 else 0
+                right_offset = 0.25 if end_day < 6 else 0
                 left_pos = "0%"
-                width = f"calc({day_width_percent * (end_day + 1)}% - {right_offset}px)"
+                width = (
+                    f"calc({day_width_percent * (end_day + 1)}% - {right_offset}rem)"
+                )
                 show_title = True  # Show title on new row (last week)
-                border_radius = "0 4px 4px 0"
+                border_radius = "0 0.25rem 0.25rem 0"
             else:
                 # Middle week segment
                 left_pos = "0%"
@@ -393,13 +375,13 @@ def _render_single_event_span(event_span: dict, font_size: str) -> html.Div:
                         "left": left_pos,
                         "width": width,
                         "top": top_pos,
-                        "height": f"{event_height}px",
+                        "height": f"{event_height_rem}rem",
                         "backgroundColor": background_color,
                         "borderRadius": border_radius,
-                        "padding": "3px 8px",
+                        "padding": "0.2rem 0.5rem",
                         "fontSize": event_font_size,
                         "fontWeight": "600",
-                        "lineHeight": f"{event_height - 6}px",
+                        "lineHeight": f"{event_height_rem - 0.375}rem",
                         "color": text_color,
                         "overflow": "hidden",
                         "textOverflow": "ellipsis",

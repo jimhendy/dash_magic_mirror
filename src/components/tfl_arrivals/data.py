@@ -6,12 +6,12 @@ from functools import lru_cache
 from typing import Any
 
 import httpx
-from dash.development.base_component import Component
 from dash_iconify import DashIconify
 from loguru import logger
 
 from utils.dates import utc_now
 from utils.file_cache import cache_json
+from utils.styles import COLORS
 
 from .constants import (
     ARRIVALS_API_URL,
@@ -254,69 +254,6 @@ def _parse_expected(dt_str: str | None) -> datetime.datetime | None:
         return None
 
 
-def check_stops_at_transfer_station(
-    arrival: dict,
-    transfer_station_arrivals: list[dict],
-    transfer_station_id: str,
-) -> bool:
-    """Check if arrival stops at transfer station (optimized with indexing)."""
-    if not transfer_station_arrivals or not transfer_station_id:
-        return False
-    if arrival.get("naptanId") == transfer_station_id:
-        return False
-
-    vehicle_id = arrival.get("vehicleId") or ""
-    line_id = arrival.get("lineId") or ""
-    dest_id = arrival.get("destinationNaptanId") or ""
-    dest_name_norm = normalize_destination_name(arrival.get("destinationName", ""))
-
-    if not line_id:
-        return False
-
-    arrival_expected_dt = _parse_expected(arrival.get("expectedArrival"))
-    if not arrival_expected_dt:
-        return False
-
-    # Build index once for all arrivals (should be called from outer function)
-    # For backward compatibility, build on-demand if not using optimized path
-    # Optimized callers should use check_stops_at_transfer_station_indexed
-
-    # Fast path: Check by vehicle ID first (O(N) worst case, but filtered by line_id)
-    for ts_arr in transfer_station_arrivals:
-        if ts_arr.get("lineId") != line_id:
-            continue
-        ts_vehicle_id = ts_arr.get("vehicleId") or ""
-        ts_dest_id = ts_arr.get("destinationNaptanId") or ""
-        ts_dest_name_norm = normalize_destination_name(
-            ts_arr.get("destinationName", ""),
-        )
-        matched = False
-        if vehicle_id and ts_vehicle_id and vehicle_id == ts_vehicle_id:
-            if dest_id and ts_dest_id:
-                matched = dest_id == ts_dest_id
-            elif dest_name_norm and ts_dest_name_norm:
-                matched = dest_name_norm == ts_dest_name_norm
-        elif not vehicle_id or not ts_vehicle_id:
-            if dest_id and ts_dest_id:
-                matched = dest_id == ts_dest_id
-            elif (
-                (not dest_id or not ts_dest_id)
-                and dest_name_norm
-                and ts_dest_name_norm
-                and dest_name_norm == ts_dest_name_norm
-            ):
-                matched = True
-        if not matched:
-            continue
-        ts_expected_dt = _parse_expected(ts_arr.get("expectedArrival"))
-        if not ts_expected_dt:
-            continue
-        delta = (ts_expected_dt - arrival_expected_dt).total_seconds()
-        if delta > FORWARD_DELTA_SECONDS:
-            return True
-    return False
-
-
 def check_stops_at_transfer_station_indexed(
     arrival: dict,
     transfer_index: dict,
@@ -372,28 +309,6 @@ def normalize_destination_name(name: str) -> str:
     if not name:
         return ""
     return clean_station_name(name).strip().lower()
-
-
-def get_transfer_station_indicator(
-    arrival: dict,
-    transfer_station_arrivals: list[dict],
-    transfer_station_id: str,
-    is_summary: bool = False,
-) -> str | Component:
-    if check_stops_at_transfer_station(
-        arrival,
-        transfer_station_arrivals,
-        transfer_station_id,
-    ):
-        if is_summary:
-            return DashIconify(
-                icon="mdi:alpha-b-circle-outline",
-                color="green",
-                width=30,
-                height=30,
-            )
-        return "✓"
-    return ""
 
 
 # --- Processing ------------------------------------------------------------------------------
@@ -477,9 +392,8 @@ def process_arrivals_data(
                         if is_summary:
                             transfer_indicator = DashIconify(
                                 icon="mdi:alpha-b-circle-outline",
-                                color="green",
-                                width=30,
-                                height=30,
+                                color=COLORS["accent"],
+                                style={"width": "1.2rem", "height": "1.2rem"},
                             )
                         else:
                             transfer_indicator = "✓"
@@ -595,7 +509,7 @@ def clean_station_name(station_name: str) -> str:
 def get_time_color_and_weight(minutes: int) -> tuple[str, str]:
     """Get color and font weight for time display based on urgency."""
     if minutes < 2:
-        return "#ff6b6b", "bold"  # Red for imminent
+        return COLORS["urgent"], "700"  # Imminent
     if minutes < 5:
-        return "#ffd93d", "500"  # Yellow for soon
-    return "#ffffff", "400"  # White for normal
+        return COLORS["gold"], "600"  # Soon
+    return COLORS["text"], "400"  # Normal

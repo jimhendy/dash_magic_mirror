@@ -1,6 +1,9 @@
 FROM ghcr.io/astral-sh/uv:python3.13-alpine
 
-WORKDIR /app    
+# curl is needed for docker-compose's healthcheck; not present on alpine by default.
+RUN apk add --no-cache curl
+
+WORKDIR /app
 COPY pyproject.toml uv.lock README.md /app/
 RUN uv sync
 

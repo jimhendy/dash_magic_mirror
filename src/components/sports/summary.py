@@ -5,7 +5,7 @@ from dash import html
 from dash_iconify import DashIconify
 
 from utils.dates import _opacity_from_days_away, local_today
-from utils.styles import COLORS, FONT_SIZES
+from utils.styles import COLORS, FONT_SIZES, WEIGHT, kicker_style, row_style
 
 
 def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
@@ -16,21 +16,24 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
 
     if not fixtures:
         return html.Div(
-            "No upcoming fixtures",
-            style={
-                "color": COLORS["soft_gray"],
-                "textAlign": "center",
-                "padding": "1rem",
-                "fontSize": FONT_SIZES["summary_primary"],
-                # inherit font
-            },
+            [
+                html.Div("Sports", style=kicker_style()),
+                html.Div(
+                    "No upcoming fixtures",
+                    style={
+                        "color": COLORS["text_muted"],
+                        "fontSize": FONT_SIZES["primary"],
+                        "padding": "0.4rem 0",
+                    },
+                ),
+            ],
+            style={"display": "flex", "flexDirection": "column", "gap": "0.4rem"},
         )
 
-    fixture_cards = []
     today = local_today()
+    fixture_rows = []
 
     for fx in fixtures:
-        # Format date nicely and check if it's today
         date_display = ""
         is_today = False
         date_obj = None
@@ -39,132 +42,100 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
             try:
                 date_obj = datetime.date.fromisoformat(fx["parsed_date"])
                 is_today = date_obj == today
-                if is_today:
-                    date_display = "TODAY"
-                else:
-                    date_display = date_obj.strftime("%a %d %b")
+                date_display = "TODAY" if is_today else date_obj.strftime("%a %d %b")
             except ValueError:
                 date_display = fx.get("date_time_raw", "")[:20]
 
         crest = fx.get("crest")
 
-        # Create compact fixture card
-        fixture_card = html.Div(
-            [
-                html.Div(
-                    [
-                        # Left side: sport icon and teams
-                        html.Div(
-                            [
-                                DashIconify(
-                                    icon=fx.get("sport_icon", "mdi:help-circle"),
-                                    style={
-                                        "marginRight": "8px",
-                                        "color": fx.get(
-                                            "sport_icon_color",
-                                            COLORS["blue"],
-                                        ),
-                                        "flexShrink": "0",
-                                        "fontSize": FONT_SIZES["summary_heading"],
-                                        "display": "none" if crest else "block",
-                                    },
-                                ),
-                                html.Img(
-                                    src=crest,
-                                    style={
-                                        "height": "42px",
-                                        "width": "42px",
-                                        "objectFit": "contain",
-                                        "marginRight": "10px",
-                                        "display": "block" if crest else "none",
-                                        "filter": "drop-shadow(0 0 2px rgba(0,0,0,0.6))",
-                                    },
-                                ),
-                                html.Span(
-                                    f"{fx.get('home', '?')} vs {fx.get('away', '?')}",
-                                    style={
-                                        "fontWeight": "600" if is_today else "500",
-                                        "color": COLORS["white"],
-                                        "flex": "1",
-                                        "textOverflow": "ellipsis",
-                                        "whiteSpace": "nowrap",
-                                        "fontSize": FONT_SIZES["summary_primary"],
-                                        # inherit font
-                                    },
-                                ),
-                            ],
-                            style={
-                                "display": "flex",
-                                "alignItems": "center",
-                                "flex": "1",
-                                "minWidth": "0",
-                            },
-                        ),
-                        # Right side: date and time
-                        html.Div(
-                            [
-                                html.Span(
-                                    date_display,
-                                    style={
-                                        "color": COLORS["gold"]
-                                        if is_today
-                                        else COLORS["soft_gray"],
-                                        "fontWeight": "600" if is_today else "400",
-                                        "marginRight": "6px",
-                                        "fontSize": FONT_SIZES["summary_secondary"],
-                                        # inherit font
-                                    },
-                                ),
-                                html.Span(
-                                    fx.get("time", ""),
-                                    style={
-                                        "color": COLORS["orange"],
-                                        "fontWeight": "500",
-                                        "fontSize": FONT_SIZES["summary_secondary"],
-                                        # inherit font
-                                    },
-                                ),
-                            ],
-                            style={
-                                "display": "flex",
-                                "alignItems": "center",
-                                "whiteSpace": "nowrap",
-                                "textAlign": "right",
-                            },
-                        ),
-                    ],
-                    style={
-                        "display": "flex",
-                        "alignItems": "center",
-                        "justifyContent": "space-between",
-                        "width": "100%",
-                        "gap": "8px",
-                    },
+        fixture_rows.append(
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            DashIconify(
+                                icon=fx.get("sport_icon", "mdi:help-circle"),
+                                style={
+                                    "color": fx.get(
+                                        "sport_icon_color", COLORS["text_secondary"],
+                                    ),
+                                    "flexShrink": "0",
+                                    "fontSize": FONT_SIZES["heading"],
+                                    "display": "none" if crest else "block",
+                                },
+                            ),
+                            html.Img(
+                                src=crest,
+                                style={
+                                    "height": "2.125rem",
+                                    "width": "2.125rem",
+                                    "objectFit": "contain",
+                                    "display": "block" if crest else "none",
+                                },
+                            ),
+                            html.Span(
+                                f"{fx.get('home', '?')} vs {fx.get('away', '?')}",
+                                style={
+                                    "fontWeight": WEIGHT["semibold"]
+                                    if is_today
+                                    else WEIGHT["regular"],
+                                    "color": COLORS["text"],
+                                    "fontSize": FONT_SIZES["primary"],
+                                    "overflow": "hidden",
+                                    "textOverflow": "ellipsis",
+                                    "whiteSpace": "nowrap",
+                                },
+                            ),
+                        ],
+                        style={
+                            "display": "flex",
+                            "alignItems": "center",
+                            "gap": "0.6rem",
+                            "flex": "1",
+                            "minWidth": "0",
+                        },
+                    ),
+                    html.Div(
+                        [
+                            html.Span(
+                                date_display,
+                                style={
+                                    "color": COLORS["accent"]
+                                    if is_today
+                                    else COLORS["text_secondary"],
+                                    "fontWeight": WEIGHT["semibold"]
+                                    if is_today
+                                    else WEIGHT["regular"],
+                                    "fontSize": FONT_SIZES["secondary"],
+                                },
+                            ),
+                            html.Span(
+                                fx.get("time", ""),
+                                style={
+                                    "color": COLORS["gold"],
+                                    "fontWeight": WEIGHT["semibold"],
+                                    "fontSize": FONT_SIZES["secondary"],
+                                    "marginLeft": "0.5rem",
+                                },
+                            ),
+                        ],
+                        style={"whiteSpace": "nowrap"},
+                    ),
+                ],
+                style=row_style(
+                    divider=True,
+                    display="flex",
+                    alignItems="center",
+                    justifyContent="space-between",
+                    opacity=_opacity_from_days_away(date_obj),
+                    borderLeft=f"2px solid {COLORS['accent']}"
+                    if is_today
+                    else "2px solid transparent",
                 ),
-            ],
-            className="text-s centered-content",
-            style={
-                "border": f"2px solid {COLORS['gold']}"
-                if is_today
-                else None,  # "1px solid rgba(255,255,255,0.12)",
-                "borderRadius": "8px",
-                "padding": "10px 14px",
-                "marginBottom": "3px",
-                "fontSize": FONT_SIZES["summary_secondary"],
-                # inherit font
-                "opacity": _opacity_from_days_away(date_obj),
-            },
+            ),
         )
 
-        fixture_cards.append(fixture_card)
-
     return html.Div(
-        fixture_cards,
-        style={
-            "display": "flex",
-            "flexDirection": "column",
-            "gap": "6px",
-            "width": "100%",
-            # inherit font
-        },
+        [html.Div("Sports", style=kicker_style()), *fixture_rows],
+        style={"display": "flex", "flexDirection": "column", "gap": "0.2rem"},
     )

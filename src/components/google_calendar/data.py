@@ -54,8 +54,7 @@ def _load_client_config() -> dict[str, Any]:
         except json.JSONDecodeError as exc_final:
             raise ValueError("Invalid Google Calendar credentials JSON") from exc_final
         logger.warning(
-            "Sanitized Google Calendar credentials JSON (wrapped lines detected): %s",
-            exc,
+            f"Sanitized Google Calendar credentials JSON (wrapped lines detected): {exc}",
         )
         return config
 
@@ -84,7 +83,7 @@ def fetch_calendar_events(
             try:
                 client_config = _load_client_config()
             except (FileNotFoundError, ValueError) as exc:
-                logger.error("%s", exc)
+                logger.error(str(exc))
                 return []
             flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
             creds = flow.run_local_server(port=0)

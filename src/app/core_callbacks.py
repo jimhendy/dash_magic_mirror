@@ -1,22 +1,9 @@
-from dash import Input, Output, State, get_app, html
-from dash.dependencies import Component
+from dash import Input, Output, State, get_app
 
 from app.config import COMPONENTS
 from utils.constants import MODAL_CLOSE_PREFIX, MODAL_COUNTDOWN_START
 from utils.data_repository import get_repository
 from utils.file_cache import clear_component_cache
-
-
-def _horizontal_separator() -> Component:
-    """Create a horizontal separator with optional icon and title."""
-    return html.Div(
-        "\u00a0",  # Non-breaking space to give the div content
-        style={
-            "border": "none",
-            "height": "3px",
-            "background": "linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent)",
-        },
-    )
 
 
 def add_callbacks() -> None:
@@ -172,9 +159,4 @@ def add_callbacks() -> None:
     )
     def refresh_all_components(refresh_trigger):
         """Re-render all components when global refresh is triggered."""
-        component_layouts = []
-        for i, component in enumerate(COMPONENTS):
-            if i and component.separator:
-                component_layouts.append(_horizontal_separator())
-            component_layouts.append(component.summary_layout())
-        return component_layouts
+        return [component.summary_layout() for component in COMPONENTS]

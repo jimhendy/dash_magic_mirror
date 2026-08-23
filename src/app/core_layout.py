@@ -3,7 +3,7 @@ from dash import dcc, html
 from dash.development.base_component import Component
 from dash_iconify import DashIconify
 
-from utils.styles import COLORS
+from utils.styles import COLORS, SPACE, section_gap
 
 
 def _full_screen_modal() -> Component:
@@ -29,7 +29,7 @@ def _full_screen_modal() -> Component:
             "height": "100vh",
             "margin": "0",
             "padding": "0",
-            "background": COLORS["black"],
+            "background": COLORS["bg"],
             "zIndex": 9999,
             "display": "none",
         },
@@ -47,14 +47,15 @@ def _full_screen_modal() -> Component:
                                         "Back",
                                         id="full-screen-modal-back-btn",
                                         variant="outline",
+                                        color=COLORS["accent"],
                                         n_clicks=0,
-                                        style={"marginRight": "10px"},
+                                        style={"marginRight": SPACE["sm"]},
                                     ),
                                 ],
                                 style={
                                     "display": "flex",
                                     "alignItems": "center",
-                                    "minWidth": "120px",
+                                    "minWidth": "7.5rem",
                                 },
                             ),
                             # Center title (flex grow)
@@ -66,7 +67,8 @@ def _full_screen_modal() -> Component:
                                     "alignItems": "center",
                                     "justifyContent": "center",
                                     "textAlign": "center",
-                                    "padding": "0 10px",
+                                    "padding": f"0 {SPACE['sm']}",
+                                    "color": COLORS["text"],
                                 },
                             ),
                             # Right group (timer + refresh)
@@ -76,9 +78,9 @@ def _full_screen_modal() -> Component:
                                         id="full-screen-modal-timer",
                                         size="sm",
                                         style={
-                                            "marginRight": "12px",
-                                            "color": "#AAA",
-                                            "minWidth": "70px",
+                                            "marginRight": SPACE["md"],
+                                            "color": COLORS["text_muted"],
+                                            "minWidth": "4.4rem",
                                             "textAlign": "right",
                                         },
                                     ),
@@ -90,7 +92,7 @@ def _full_screen_modal() -> Component:
                                         size="sm",
                                         n_clicks=0,
                                         style={
-                                            "borderColor": "#666",
+                                            "borderColor": COLORS["hairline_strong"],
                                         },
                                     ),
                                 ],
@@ -98,8 +100,8 @@ def _full_screen_modal() -> Component:
                                     "display": "flex",
                                     "alignItems": "center",
                                     "justifyContent": "flex-end",
-                                    "gap": "4px",
-                                    "minWidth": "160px",
+                                    "gap": SPACE["xs"],
+                                    "minWidth": "10rem",
                                 },
                             ),
                         ],
@@ -107,15 +109,16 @@ def _full_screen_modal() -> Component:
                             "display": "flex",
                             "justifyContent": "space-between",
                             "alignItems": "center",
-                            "height": "50px",
-                            "padding": "0 8px",
-                            "borderBottom": "1px solid #222",
+                            "height": "3.5rem",
+                            "padding": f"0 {SPACE['lg']}",
+                            "borderBottom": f"1px solid {COLORS['hairline_strong']}",
+                            "background": "transparent",
                         },
                     ),
                     html.Div(
                         id="full-screen-modal-content",
                         children=[],
-                        style={"height": "calc(100vh - 50px)", "overflow": "auto"},
+                        style={"height": "calc(100vh - 3.5rem)", "overflow": "auto"},
                     ),
                 ],
             ),
@@ -209,11 +212,28 @@ def core_layout() -> Component:
                     children=None,
                     style={
                         "width": "100vw",
-                        "height": "100vh",
+                        # Height is set in main.css (#app-div), not here -
+                        # it needs a vh->dvh CSS fallback for older
+                        # browsers, and an inline style would always beat
+                        # that fallback and break it.
                         "background": COLORS["black"],
                         "display": "flex",
                         "flexDirection": "column",
-                        "justifyContent": "space-between",
+                        # Auto-distribute any leftover vertical space as
+                        # extra breathing room *between* sections, instead
+                        # of leaving it stranded below the last one. `gap`
+                        # is still a floor under that (never less than
+                        # `section_gap()`, even if content nearly fills the
+                        # screen). `overflow: hidden` + each component's
+                        # own `minHeight: 0` (see components/base.py) is
+                        # what guarantees this never scrolls even if
+                        # content ever exceeds the viewport: components
+                        # shrink to fit instead.
+                        "justifyContent": "space-evenly",
+                        "gap": section_gap(),
+                        "padding": f"{SPACE['lg']} {SPACE['xl']}",
+                        "overflow": "hidden",
+                        "boxSizing": "border-box",
                     },
                 ),
             ],

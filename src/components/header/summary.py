@@ -19,39 +19,27 @@ def render_presence_badges(people: list[PersonPresence]):
 
 def _person_badge(person: PersonPresence):
     is_home = getattr(person, "is_home", False)
-    color_home = COLORS.get("green", "#32CD32")
-    color_away = COLORS.get("red", "#ff4d4d")
-    color = color_home if is_home else color_away
-    fill = color if is_home else "transparent"
-    circle_style = {
-        "width": "18px",
-        "height": "18px",
+    dot_style = {
+        "width": "0.5rem",
+        "height": "0.5rem",
         "borderRadius": "50%",
-        "border": f"2px solid {color}",
-        "background": fill,
-        "boxShadow": "0 0 6px rgba(0,255,0,0.6)" if is_home else "none",
+        "background": COLORS["accent"] if is_home else "transparent",
+        "border": f"1.5px solid {COLORS['accent'] if is_home else COLORS['text_muted']}",
         "flexShrink": 0,
     }
     return html.Div(
         [
-            html.Div(style=circle_style),
+            html.Div(style=dot_style),
             html.Div(
                 person.name,
                 style={
-                    "fontSize": FONT_SIZES["summary_secondary"],
-                    "fontWeight": 500,
-                    "opacity": 1.0 if is_home else 0.55,
+                    "fontSize": FONT_SIZES["secondary"],
+                    "fontWeight": "500",
+                    "color": COLORS["text"] if is_home else COLORS["text_muted"],
                 },
             ),
         ],
-        style={
-            "display": "flex",
-            "alignItems": "center",
-            "gap": "6px",
-            "padding": "2px 6px",
-            "borderRadius": "4px",
-            "background": "rgba(255,255,255,0.04)" if is_home else "transparent",
-        },
+        style={"display": "flex", "alignItems": "center", "gap": "0.4rem"},
     )
 
 

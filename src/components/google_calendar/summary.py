@@ -4,18 +4,16 @@ import datetime
 
 from dash import html
 
-from utils.calendar import get_event_color_by_event, truncate_event_title
+from utils.calendar import (
+    get_contrasting_text_color,
+    get_event_color_by_event,
+    truncate_event_title,
+)
 from utils.dates import local_today
-from utils.styles import FONT_SIZES
+from utils.styles import COLORS, FONT_SIZES, WEIGHT, kicker_style
 
 from .data import CalendarEvent, get_events_for_date
-from .utils import (
-    calculate_event_border_radius,
-    calculate_event_margins,
-    generate_event_time_display,
-    get_common_event_styles,
-    prepare_events_for_rendering,
-)
+from .utils import generate_event_time_display, prepare_events_for_rendering
 
 
 def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
@@ -28,7 +26,6 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
         html.Div containing the calendar summary layout
 
     """
-    # Prepare events with consistent color assignment and sorting
     sorted_events = prepare_events_for_rendering(events)
 
     today = local_today()
@@ -43,6 +40,7 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
         if event.id not in seen_ids:
             seen_ids.add(event.id)
             all_events.append(event)
+
     multi_day_events = []
     single_today_events = []
     single_tomorrow_events = []
@@ -60,199 +58,132 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
             ):
                 single_tomorrow_events.append(event)
 
-    def _render_multi_day_event(event):
-        event_starts_here = event.start_datetime.date() == today
-        event_ends_here = event.end_datetime.date() == tomorrow
-        border_radius = calculate_event_border_radius(
-            event_starts_here,
-            event_ends_here,
-        )
-        margin_left, margin_right = calculate_event_margins(
-            event_starts_here,
-            event_ends_here,
-        )
-        event_styles = get_common_event_styles()
-        accent_color = get_event_color_by_event(event.id)
-        event_styles.update(
-            {
-                # Neutral background; color only on border
-                "background": "rgba(255,255,255,0.04)",
-                "border": f"3px solid {accent_color}",
-                "borderRadius": border_radius,
-                "marginLeft": "auto",
-                "marginRight": "auto",
-                "position": "relative",
-                "width": "97%",
-            },
-        )
-        time_display = generate_event_time_display(
-            event,
-            event_starts_here,
-            event_ends_here,
-        )
-        return html.Div(
-            style=event_styles,
-            children=[
-                html.Div(
-                    truncate_event_title(event.title, 40),
-                    style={
-                        "fontWeight": "350",
-                        "marginBottom": "2px" if time_display else "0px",
-                        "overflow": "hidden",
-                        "textOverflow": "ellipsis",
-                        "whiteSpace": "nowrap",
-                        "fontSize": "1.3rem",
-                    },
-                ),
-                html.Div(
-                    time_display,
-                    style={
-                        "opacity": "0.9",
-                        "overflow": "hidden",
-                        "textOverflow": "ellipsis",
-                        "whiteSpace": "nowrap",
-                        "fontSize": FONT_SIZES["summary_meta"],
-                    },
-                )
-                if time_display
-                else None,
-            ],
-        )
-
     return html.Div(
-        style={
-            "display": "flex",
-            "flexDirection": "column",
-            "width": "100%",
-            "gap": "8px",
-            "cursor": "pointer",
-            "alignItems": "stretch",
-            # inherit font
-            "fontSize": FONT_SIZES["summary_secondary"],
-        },
-        children=[
-            *[_render_multi_day_event(event) for event in multi_day_events],
+        [
+            html.Span("Calendar", style=kicker_style()),
             html.Div(
-                style={
-                    "display": "flex",
-                    "gap": "8px",
-                    "justifyContent": "space-around",
-                },
+                style={"display": "flex", "flexDirection": "column", "gap": "0.4rem"},
                 children=[
-                    _render_day_column(today, single_today_events, "Today"),
-                    _render_day_column(tomorrow, single_tomorrow_events, "Tomorrow"),
+                    _render_multi_day_event(event, today, tomorrow)
+                    for event in multi_day_events
+                ],
+            )
+            if multi_day_events
+            else None,
+            html.Div(
+                style={"display": "flex", "gap": "1.5rem"},
+                children=[
+                    _render_day_column(today, single_today_events),
+                    _render_day_column(tomorrow, single_tomorrow_events),
                 ],
             ),
         ],
+        style={
+            "display": "flex",
+            "flexDirection": "column",
+            "gap": "0.6rem",
+            "width": "100%",
+        },
     )
+
+
+def _render_multi_day_event(
+    event: CalendarEvent,
+    today: datetime.date,
+    tomorrow: datetime.date,
+) -> html.Div:
+    """A continuous colored bar for an event spanning today and tomorrow -
+    the one place a filled block is the *right* call (it reads as a single
+    connected span, the way Google/Outlook calendars render multi-day
+    events), not a decorative box around static text.
+    """
+    background = get_event_color_by_event(event.id)
+    text_color = get_contrasting_text_color(background)
+    return html.Div(
+        truncate_event_title(event.title, 60),
+        style={
+            "background": background,
+            "color": text_color,
+            "borderRadius": "0.4rem",
+            "padding": "0.35rem 0.7rem",
+            "fontSize": FONT_SIZES["meta"],
+            "fontWeight": WEIGHT["semibold"],
+            "overflow": "hidden",
+            "textOverflow": "ellipsis",
+            "whiteSpace": "nowrap",
+        },
+    )
+
+
+_MAX_EVENTS_PER_DAY = 4
 
 
 def _render_day_column(
     date: datetime.date,
     events: list[CalendarEvent],
-    label: str,
 ) -> html.Div:
-    """Render a single day column with calendar appearance.
-
-    Args:
-        date: Date for this column
-        events: Events occurring on this date
-        label: Display label for the day
-
-    Returns:
-        html.Div containing the day column
-
+    """Render a single day column: plain event rows, colored only by a thin
+    left accent bar per event. Which column is "today" vs "tomorrow" is
+    obvious from position alone, so no label is rendered.
     """
+    visible = events[:_MAX_EVENTS_PER_DAY]
+    overflow_count = len(events) - len(visible)
+
+    rows = [_render_event(event, date) for event in visible] or [
+        html.Div(
+            "Nothing scheduled",
+            style={"fontSize": FONT_SIZES["meta"], "color": COLORS["text_muted"]},
+        ),
+    ]
+    if overflow_count > 0:
+        rows.append(
+            html.Div(
+                f"+{overflow_count} more",
+                style={"fontSize": FONT_SIZES["small"], "color": COLORS["text_muted"]},
+            ),
+        )
+
     return html.Div(
         style={
             "flex": "1",
             "display": "flex",
             "flexDirection": "column",
-            "maxWidth": "48.5%",
+            "minWidth": "0",
+            "overflow": "hidden",
         },
-        children=[
-            # Events container
-            html.Div(
-                style={
-                    "flex": "1",
-                    "padding": "4px 6px 8px 6px",
-                    "display": "flex",
-                    "flexDirection": "column",
-                    "gap": "4px",
-                },
-                children=[_render_event(event, date) for event in events],
-            ),
-        ],
+        children=rows,
     )
 
 
 def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div:
-    """Render a single event with appropriate styling.
-
-    Args:
-        event: Calendar event to render
-        display_date: Date being displayed (for edge styling)
-
-    Returns:
-        html.Div containing the event
-
+    """A single event: a thin left accent bar for color-coding, plain text
+    otherwise - no background box, no full border.
     """
-    # Determine event position and styling
     event_starts_here = event.start_datetime.date() == display_date
     event_ends_here = event.end_datetime.date() == display_date
-
-    border_radius = calculate_event_border_radius(
-        event_starts_here,
-        event_ends_here,
-    )
-    margin_left, margin_right = calculate_event_margins(
-        event_starts_here,
-        event_ends_here,
-    )
-
     accent_color = get_event_color_by_event(event.id)
-
     time_display = generate_event_time_display(
-        event,
-        event_starts_here,
-        event_ends_here,
+        event, event_starts_here, event_ends_here,
     )
 
     return html.Div(
-        style={
-            "padding": "6px 8px 6px 10px",
-            "fontSize": FONT_SIZES["summary_meta"],
-            "lineHeight": "1.15",
-            "fontWeight": "350",
-            "overflow": "hidden",
-            "textOverflow": "ellipsis",
-            "whiteSpace": "nowrap",
-            "borderRadius": border_radius,
-            "marginLeft": margin_left,
-            "marginRight": margin_right,
-            "position": "relative",
-            "background": "rgba(255,255,255,0.04)",
-            "border": f"3px solid {accent_color}",
-            "display": "flex",
-            "flexDirection": "column",
-        },
-        children=[
+        [
             html.Div(
                 truncate_event_title(event.title, 40),
                 style={
-                    "fontWeight": "350",
-                    "marginBottom": "1px" if time_display else "0px",
+                    "fontSize": FONT_SIZES["meta"],
+                    "fontWeight": WEIGHT["regular"],
+                    "color": COLORS["text"],
                     "overflow": "hidden",
                     "textOverflow": "ellipsis",
                     "whiteSpace": "nowrap",
-                    "fontSize": "1.3rem",
                 },
             ),
             html.Div(
                 time_display,
                 style={
-                    "fontSize": FONT_SIZES["summary_small"],
-                    "opacity": 0.85,
+                    "fontSize": FONT_SIZES["small"],
+                    "color": COLORS["text_muted"],
                     "overflow": "hidden",
                     "textOverflow": "ellipsis",
                     "whiteSpace": "nowrap",
@@ -261,4 +192,8 @@ def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div
             if time_display
             else None,
         ],
+        style={
+            "borderLeft": f"3px solid {accent_color}",
+            "padding": "0.4rem 0 0.4rem 0.6rem",
+        },
     )

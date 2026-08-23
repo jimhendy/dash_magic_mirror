@@ -1,15 +1,71 @@
+/* Design tokens mirroring src/utils/styles.py - keep the two in sync. */
+:root {
+    --bg: #05070a;
+    --surface: rgba(255, 255, 255, 0.045);
+    --surface-raised: rgba(255, 255, 255, 0.075);
+    --border: rgba(255, 255, 255, 0.09);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --text: #f3f6f9;
+    --text-secondary: #a6b0bd;
+    --text-muted: #5e6773;
+    --accent: #5eead4;
+    --accent-soft: rgba(94, 234, 212, 0.16);
+    --urgent: #ff6b6b;
+    --font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+html {
+    background: var(--bg);
+    /* Every size in this app is in rem, deliberately, so a single root
+       font-size scales the whole UI - this is what actually makes "rem
+       instead of px" pay off across different screens/resolutions rather
+       than just being a unit swap. `vmin` (the smaller of viewport width
+       and height) scales sensibly regardless of portrait/landscape
+       orientation, clamped to a sane readable range. */
+    font-size: clamp(15px, 1.35vmin, 19px);
+    /* `vh` first as a fallback: on a browser too old to understand `dvh`
+       (a real risk on an older Android tablet's WebView), the `dvh` line
+       is simply ignored as an invalid value and the `vh` one stands - the
+       container still fills the screen. Declaring `dvh` alone would leave
+       height unset entirely on such a browser (shrink-to-content instead
+       of filling the viewport), which is what caused space-evenly to have
+       nothing to distribute into. */
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+}
+
 body {
     height: 100vh;
+    height: 100dvh;
     width: 100vw;
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+    overflow: hidden;
     line-height: 1;
-    color: #ffffff;
-    font-family: 'Roboto', sans-serif; /* Added per request */
-    /* Prevent text selection and cursor */
+    color: var(--text);
+    font-family: var(--font-family);
+    /* Fixed-width digits everywhere - any number that updates in place
+       (the clock, a countdown, an arrival time) shouldn't visibly shift
+       as its digits change. */
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(165deg, #060809 0%, #0b0f14 55%, #05070a 100%);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Kiosk display: no text selection / cursor / long-press affordances */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    cursor: default;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -17,22 +73,13 @@ body {
     cursor: default;
 }
 
-/* Apply no-select globally to all elements */
-* {
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    cursor: default;
-}
-
-/* Prevent text cursor from appearing */
 *:focus {
     outline: none;
 }
 
-/* Prevent any text input behaviors */
-input, textarea, [contenteditable] {
+input,
+textarea,
+[contenteditable] {
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -41,13 +88,28 @@ input, textarea, [contenteditable] {
     pointer-events: none;
 }
 
+img {
+    max-width: 100%;
+}
+
+/* The main summary strip - height set here (not as an inline style) so the
+   vh->dvh fallback above actually applies; an inline `style` attribute
+   would always win over this regardless, defeating the fallback. */
+#app-div {
+    height: 100vh;
+    height: 100dvh;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Typography utility classes                                             */
+/* ---------------------------------------------------------------------- */
 .text-vs { font-size: 1.0rem; }
 .text-s { font-size: 1.2rem; }
 .text-ms { font-size: 1.6rem; }
 .text-m { font-size: 2.4rem; }
 .text-ml { font-size: 3.0rem; }
 .text-l { font-size: 3.6rem; }
-.text-dimmed { opacity: 0.7; }
+.text-dimmed { color: var(--text-secondary); }
 
 .text-sm { font-size: 1.1rem; }
 .text-md { font-size: 1.3rem; }
@@ -65,7 +127,7 @@ input, textarea, [contenteditable] {
 
 .degrees {
     margin-bottom: auto;
-    opacity: 0.6;
+    color: var(--text-secondary);
 }
 
 .top-aligned-text {
@@ -73,28 +135,39 @@ input, textarea, [contenteditable] {
     align-items: flex-start;
 }
 
-/* Weather full-screen styles */
+/* ---------------------------------------------------------------------- */
+/* Fade-in for freshly hydrated content, cheap opacity/translate only     */
+/* ---------------------------------------------------------------------- */
+@keyframes mm-fade-in {
+    from { opacity: 0; transform: translateY(2px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.mm-fade-in {
+    animation: mm-fade-in 0.25s ease-out;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Scroll containers (full-screen views) - hide scrollbar, keep scroll    */
+/* ---------------------------------------------------------------------- */
+.hidden-scrollbar,
 .hourly-scroll {
-    scrollbar-width: none; /* Firefox */
-    /* -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none;
 }
 
+.hidden-scrollbar::-webkit-scrollbar,
 .hourly-scroll::-webkit-scrollbar {
-    display: none; /* Chrome, Safari and Opera */
+    display: none;
 }
 
-.hourly-item {
-    transition: background-color 0.2s ease;
+.hourly-item,
+.daily-item,
+.mm-list-item {
+    transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.hourly-item:hover {
-    background-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-.daily-item {
-    transition: background-color 0.2s ease;
-}
-
-.daily-item:hover {
-    background-color: rgba(255, 255, 255, 0.1) !important;
+.hourly-item:hover,
+.daily-item:hover,
+.mm-list-item:hover {
+    background-color: var(--surface-raised) !important;
 }

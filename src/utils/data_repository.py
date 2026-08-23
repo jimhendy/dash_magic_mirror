@@ -175,10 +175,10 @@ class DataRepository:
         try:
             payload = await refresher.factory()
         except Exception:  # noqa: BLE001 - log & retain previous payload
-            logger.exception("Refresher '%s' failed", refresher.key)
+            logger.exception(f"Refresher '{refresher.key}' failed")
             return None
         if payload is None:
-            logger.warning("Refresher '%s' returned no payload", refresher.key)
+            logger.warning(f"Refresher '{refresher.key}' returned no payload")
             return None
         if payload.updated_at is None:
             payload.updated_at = datetime.now(UTC)

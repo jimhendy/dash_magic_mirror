@@ -2,13 +2,12 @@ import datetime
 from dataclasses import dataclass
 from typing import Any
 
-import dash_mantine_components as dmc
 import plotly.graph_objects as go
 from dash import dcc, html
 from dash_iconify import DashIconify
 
 from utils.dates import get_app_timezone, local_now
-from utils.styles import COLORS
+from utils.styles import COLORS, FONT_FAMILY, SPACE, row_style
 
 
 def _format_day_name(date: str | datetime.date | datetime.datetime) -> str:
@@ -82,17 +81,20 @@ def _create_hourly_timeseries(
     if not hour_data:
         return go.Figure()
 
+    temp_color = COLORS["gold"]
+    rain_color = COLORS["accent"]
+
     # Create single plot (no subplots)
     fig = go.Figure()
 
-    # Rain chance area (right axis, blue)
+    # Rain chance area (right axis)
     fig.add_trace(
         go.Scatter(
             x=[hd.time for hd in hour_data],
             y=[hd.rain_chance for hd in hour_data],
             mode="lines",
             name="Rain Chance",
-            line=dict(color=COLORS["blue"], width=2),
+            line=dict(color=rain_color, width=2),
             yaxis="y2",
             line_shape=line_shape,
         ),
@@ -105,8 +107,7 @@ def _create_hourly_timeseries(
             y=[hd.temp_c for hd in hour_data],
             mode="lines",
             name="Temperature",
-            line=dict(color=COLORS["red"], width=4),
-            # line_shape=line_shape,
+            line=dict(color=temp_color, width=4),
         ),
     )
 
@@ -115,7 +116,7 @@ def _create_hourly_timeseries(
         height=None,  # Let the container control height
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="white", size=font_size, family="Inter"),
+        font=dict(color=COLORS["text"], size=font_size, family=FONT_FAMILY),
         showlegend=False,  # Show legend
         margin=dict(l=40, r=40, t=20, b=40),  # Tight margins for maximum space
         hovermode=None,
@@ -134,8 +135,8 @@ def _create_hourly_timeseries(
         showgrid=False,
         tickformat="%-I %p",
         tickangle=0,
-        color="white",
-        linecolor="rgba(255,255,255,0.3)",
+        color=COLORS["text_secondary"],
+        linecolor=COLORS["hairline_strong"],
         dtick=4 * 3600000,  # Every 4 hours
         tickfont=dict(size=font_size),
         title=None,
@@ -145,10 +146,10 @@ def _create_hourly_timeseries(
     fig.update_yaxes(
         title=None,
         ticksuffix="°C",
-        color=COLORS["red"],
-        linecolor=COLORS["red"],
-        tickcolor=COLORS["red"],
-        tickfont=dict(size=font_size, color=COLORS["red"]),
+        color=temp_color,
+        linecolor=temp_color,
+        tickcolor=temp_color,
+        tickfont=dict(size=font_size, color=temp_color),
         side="left",
         showgrid=False,
     )
@@ -160,21 +161,21 @@ def _create_hourly_timeseries(
             ticksuffix="%",
             overlaying="y",
             side="right",
-            color=COLORS["blue"],
-            linecolor=COLORS["blue"],
-            tickcolor=COLORS["blue"],
+            color=rain_color,
+            linecolor=rain_color,
+            tickcolor=rain_color,
             range=[0, 100],
-            tickfont=dict(size=font_size, color=COLORS["blue"]),
+            tickfont=dict(size=font_size, color=rain_color),
             showgrid=False,
         ),
     )
 
-    # Add a vertical dim gray line if the x-axis crosses a day boundry
+    # Add a dim divider line if the x-axis crosses a day boundary
     for i in range(1, len(hour_data)):
         if hour_data[i].time.date() != hour_data[i - 1].time.date():
             fig.add_vline(
                 x=hour_data[i].time,
-                line=dict(color=COLORS["gray"], width=2, dash="dash"),
+                line=dict(color=COLORS["text_muted"], width=2, dash="dash"),
             )
 
     # Add a sunrise and sunset symbols at the top of the plot (assuming it will not be peak temp)
@@ -221,29 +222,33 @@ def _render_daily_item(day_data: dict[str, Any]) -> html.Div:
             # Day name
             html.Div(
                 _format_day_name(day_data.get("date", "")),
-                style={"fontWeight": "500"},
+                style={"fontWeight": "600", "color": COLORS["text"]},
                 className="text-ms",
             ),
             # Weather icon and condition
             html.Div(
                 [
-                    dmc.Image(
-                        src=day_data.get("icon", ""),
-                        w="2.5rem",
-                        h="2.5rem",
-                        style={"marginRight": "0.75rem"},
+                    DashIconify(
+                        icon=day_data.get("icon", "mdi:weather-partly-cloudy"),
+                        color=day_data.get("icon_color", COLORS["text_secondary"]),
+                        style={
+                            "width": "2.5rem",
+                            "height": "2.5rem",
+                            "marginRight": "0.75rem",
+                        },
                     ),
                     html.Div(
                         [
                             html.Div(
                                 day_data.get("condition", ""),
                                 className="text-ms",
+                                style={"color": COLORS["text"]},
                             ),
                             html.Div(
                                 f"UV: {day_data.get('uv_index', 0)}",
                                 className="text-s",
                                 style={
-                                    "color": "#aaa",
+                                    "color": COLORS["text_muted"],
                                     "fontSize": "0.75rem",
                                     "marginTop": "0.25rem",
                                 },
@@ -259,11 +264,18 @@ def _render_daily_item(day_data: dict[str, Any]) -> html.Div:
                 [
                     html.Span(
                         f"{day_data.get('high', 0)}°",
-                        style={"fontWeight": "bold", "marginRight": "0.5rem"},
+                        style={
+                            "fontWeight": "700",
+                            "marginRight": "0.5rem",
+                            "color": COLORS["gold"],
+                        },
                     ),
                     html.Span(
                         f"{day_data.get('low', 0)}°",
-                        style={"color": "#888", "marginRight": "1rem"},
+                        style={
+                            "color": COLORS["text_secondary"],
+                            "marginRight": "1rem",
+                        },
                     ),
                 ],
                 style={"width": "4rem", "textAlign": "right"},
@@ -276,10 +288,13 @@ def _render_daily_item(day_data: dict[str, Any]) -> html.Div:
                         [
                             DashIconify(
                                 icon="mdi:water-percent",
-                                color="#5f9fff",
+                                color=COLORS["accent"],
                                 style={"marginRight": "0.25rem"},
                             ),
-                            html.Span(f"{day_data.get('rain_chance', 0)}%"),
+                            html.Span(
+                                f"{day_data.get('rain_chance', 0)}%",
+                                style={"color": COLORS["text"]},
+                            ),
                         ],
                         style={
                             "display": "flex",
@@ -290,7 +305,7 @@ def _render_daily_item(day_data: dict[str, Any]) -> html.Div:
                     ),
                     html.Div(
                         f"{day_data.get('total_precip', 0):.1f}mm",
-                        style={"color": "#aaa", "fontSize": "0.75rem"},
+                        style={"color": COLORS["text_muted"], "fontSize": "0.75rem"},
                     )
                     if day_data.get("total_precip", 0) > 0
                     else None,
@@ -302,10 +317,13 @@ def _render_daily_item(day_data: dict[str, Any]) -> html.Div:
                 [
                     DashIconify(
                         icon="mdi:weather-windy",
-                        color="#aaa",
+                        color=COLORS["text_secondary"],
                         style={"marginRight": "0.25rem"},
                     ),
-                    html.Span(f"{day_data.get('max_wind', 0)} mph"),
+                    html.Span(
+                        f"{day_data.get('max_wind', 0)} mph",
+                        style={"color": COLORS["text"]},
+                    ),
                 ],
                 style={
                     "display": "flex",
@@ -316,18 +334,14 @@ def _render_daily_item(day_data: dict[str, Any]) -> html.Div:
                 className="text-ms",
             ),
         ],
-        style={
-            "display": "flex",
-            "alignItems": "center",
-            "justifyContent": "space-between",
-            "padding": "0.5rem 1rem",  # Reduced padding
-            "backgroundColor": "rgba(255, 255, 255, 0.05)",
-            "borderRadius": "0.25rem",  # Smaller radius
-            "margin": "0.125rem 0",  # Smaller margin
-            "width": "100%",
-            "border": "1px solid rgba(255, 255, 255, 0.1)",
-            "height": "30%",
-        },
+        style=row_style(
+            divider=True,
+            display="flex",
+            alignItems="center",
+            justifyContent="space-between",
+            width="100%",
+            height="30%",
+        ),
         className="daily-item",
     )
 
@@ -336,7 +350,6 @@ def render_weather_fullscreen(
     weather_data: dict[str, Any],
     component_id: str,
 ) -> html.Div:
-    """SIMPLE weather fullscreen - NO COMPLICATIONS."""
     hourly_data = weather_data.get("hourly", [])
     daily_data = weather_data.get("daily", [])
 
@@ -354,21 +367,18 @@ def render_weather_fullscreen(
                         style={"height": "100%", "width": "100%"},
                     ),
                 ],
-                style={
-                    "height": "66%",
-                },
+                style={"height": "66%"},
             ),
             # Daily Forecast
             html.Div(
                 [_render_daily_item(day) for day in daily_data],
-                style={"height": "30%"},
+                style={"height": "30%", "padding": f"0 {SPACE['lg']}"},
             ),
         ],
         style={
             "height": "100%",
-            "color": "white",
-            "backgroundColor": "black",
-            # inherit font
+            "color": COLORS["text"],
+            "background": COLORS["bg"],
             "display": "flex",
             "flexDirection": "column",
         },

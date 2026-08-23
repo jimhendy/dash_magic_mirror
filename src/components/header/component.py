@@ -1,18 +1,21 @@
 from __future__ import annotations
 
+import asyncio
 import time
 
 from dash import Input, Output, dcc, html
 from loguru import logger
 
 from components.base import BaseComponent
-from utils.styles import COLORS
+from utils.data_repository import ComponentPayload, get_repository
+from utils.styles import COLORS, hero_style, kicker_style
 
 from .constants import (
     DEFAULT_ARP_TIMEOUT,
     DEFAULT_GRACE_SECONDS,
     DEFAULT_PING_ATTEMPTS,
     DEFAULT_PING_WAIT,
+    DEFAULT_PRESENCE_SCAN_INTERVAL_SECONDS,
     PRESENCE_POLL_INTERVAL_MS,
 )
 from .data import (
@@ -20,7 +23,6 @@ from .data import (
     _norm,
     update_people_presence_by_ip,
 )
-from .full_screen import render_header_fullscreen
 from .summary import render_presence_badges
 
 
@@ -35,6 +37,7 @@ class Header(BaseComponent):
         arp_timeout: int = DEFAULT_ARP_TIMEOUT,
         ping_attempts: int = DEFAULT_PING_ATTEMPTS,
         ping_wait: float = DEFAULT_PING_WAIT,
+        scan_interval_seconds: float = DEFAULT_PRESENCE_SCAN_INTERVAL_SECONDS,
         **kwargs,
     ):
         super().__init__(name="header", full_screen=False, **kwargs)
@@ -46,8 +49,46 @@ class Header(BaseComponent):
         for p in self.people:
             p.last_seen = 0  # type: ignore[attr-defined]
 
-    def _summary_layout(self):  # type: ignore[override]
-        # Container is relative; presence column absolute top-left; hour:minute absolute centered; seconds offset to right.
+        # Presence scanning (ping + ARP) runs once in the shared background
+        # repository loop, not per connected browser tab. Every client's
+        # own poll interval below just re-renders the latest in-memory
+        # state - it never triggers network I/O itself.
+        self._repository = get_repository()
+        self._presence_data_key = f"{self.name}-presence"
+        try:
+            self._repository.register_component(
+                self._presence_data_key,
+                refresh_coro=self._scan_presence,
+                interval_seconds=scan_interval_seconds,
+            )
+            self._repository.refresh_now_sync(self._presence_data_key)
+        except ValueError:
+            # Already registered (e.g. hot reload) - background loop already running.
+            pass
+
+    async def _scan_presence(self) -> ComponentPayload:
+        """Background refresher: scan presence for every configured person once."""
+        start = time.time()
+        await asyncio.to_thread(
+            update_people_presence_by_ip,
+            self.people,
+            now=start,
+            grace_seconds=self.grace_seconds,
+            arp_timeout=self.arp_timeout,
+            ping_attempts=self.ping_attempts,
+            ping_wait=self.ping_wait,
+        )
+        duration = time.time() - start
+        logger.debug(f"Header presence scan {duration:.2f}s people={len(self.people)}")
+        for person in self.people:
+            logger.debug(
+                f"Presence {person.name} mac={_norm(person.mac)} ip={person.ip} home={person.is_home}",
+            )
+        # Only the side effect on `self.people` matters; the payload itself
+        # is just a marker so the repository has something to store.
+        return ComponentPayload(summary=None)
+
+    def _summary_layout(self):
         return html.Div(
             [
                 dcc.Interval(
@@ -55,84 +96,69 @@ class Header(BaseComponent):
                     interval=self.PRESENCE_POLL_INTERVAL_MS,
                     n_intervals=0,
                 ),
-                # Presence badges vertical stack (absolute positioned top-left)
-                html.Div(
-                    render_presence_badges(self.people),
-                    id=f"{self.component_id}-people",
-                    style={
-                        "position": "absolute",
-                        "top": "4px",
-                        "left": "4px",
-                        "display": "flex",
-                        "flexDirection": "column",
-                        "gap": "6px",
-                        "alignItems": "flex-start",
-                        "justifyContent": "flex-start",
-                        "minWidth": "120px",
-                        "zIndex": 2,
-                    },
-                ),
-                # Clock/date layer
+                # Top row: presence on the left, date on the right - plain
+                # flow, no absolute positioning or magic offsets.
                 html.Div(
                     [
-                        # Date (standard centered block)
+                        html.Div(
+                            render_presence_badges(self.people),
+                            id=f"{self.component_id}-people",
+                            style={
+                                "display": "flex",
+                                "alignItems": "center",
+                                "gap": "1.1rem",
+                            },
+                        ),
                         html.Div(
                             id=f"{self.component_id}-date",
-                            style={
-                                "fontSize": "1.2rem",
-                                "color": COLORS["soft_gray"],
-                                "marginBottom": "0.25rem",
-                                "textAlign": "center",
-                                "width": "100%",
-                            },
+                            style=kicker_style(),
                         ),
-                        # Hour:Minute absolutely centered horizontally
-                        html.Div(
-                            id=f"{self.component_id}-hour-minute",
-                            style={
-                                "position": "absolute",
-                                "left": "50%",
-                                "transform": "translateX(-50%)",
-                                "top": "1.8rem",  # below date
-                                "fontSize": "6rem",
-                                "fontWeight": "350",
-                                "color": COLORS["white"],
-                                "lineHeight": "1",
-                                "whiteSpace": "nowrap",
-                                "zIndex": 9050,  # above global-idle-dimmer (9000), below modal (9999)
-                            },
+                    ],
+                    style={
+                        "display": "flex",
+                        "alignItems": "center",
+                        "justifyContent": "space-between",
+                        "width": "100%",
+                    },
+                ),
+                # Clock: a symmetric 3-column grid (spacer / hour:minute /
+                # seconds+spacer) keeps hour:minute genuinely pinned to
+                # center regardless of how wide the seconds text renders -
+                # centering hour:minute and seconds together as one flex
+                # group (the previous approach) shifts the whole group,
+                # and with it the hour:minute digits, every time the
+                # seconds' rendered width changes.
+                html.Div(
+                    [
+                        html.Div(),  # left spacer, mirrors the right column
+                        html.Span(
+                            id=f"{self.component_id}-hour-minute", style=hero_style(),
                         ),
-                        # Seconds positioned to the right of the centered hour:minute without shifting it
-                        html.Div(
+                        html.Span(
                             id=f"{self.component_id}-seconds",
                             style={
-                                "position": "absolute",
-                                # Offset: move to center then shift right by fixed px (tweakable)
-                                "left": "calc(50% + 120px)",  # adjust if font/spacing changes
-                                "top": "2.1rem",  # align near top of hour digits
-                                "fontSize": "1.1rem",
-                                "color": COLORS["gray"],
-                                "zIndex": 1,
+                                "fontSize": "1.6rem",
+                                "fontWeight": "400",
+                                "color": COLORS["text_muted"],
+                                "marginLeft": "0.6rem",
+                                "fontVariantNumeric": "tabular-nums",
+                                "justifySelf": "start",
+                                "alignSelf": "baseline",
                             },
                         ),
                     ],
                     style={
-                        "position": "relative",
+                        "display": "grid",
+                        "gridTemplateColumns": "1fr auto 1fr",
+                        "alignItems": "baseline",
                         "width": "100%",
-                        "height": "7.5rem",  # enough to contain large digits
-                        "display": "block",
-                        "margin": "0 auto",
-                        # removed zIndex to avoid creating a stacking context
                     },
                 ),
             ],
             style={
-                "position": "relative",
                 "display": "flex",
-                "flexDirection": "row",
-                "alignItems": "flex-start",
-                "justifyContent": "center",
-                "padding": "4px 4px 8px 4px",
+                "flexDirection": "column",
+                "gap": "0.4rem",
                 "width": "100%",
             },
         )
@@ -144,9 +170,8 @@ class Header(BaseComponent):
                 const now = new Date();
                 const date = now.toLocaleDateString('en-UK', {
                     weekday: 'long',
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric'
+                    day: 'numeric',
+                    month: 'long'
                 });
                 const hours = now.getHours().toString();
                 const minutes = now.getMinutes().toString().padStart(2, '0');
@@ -165,27 +190,7 @@ class Header(BaseComponent):
             Output(f"{self.component_id}-people", "children"),
             Input(f"{self.component_id}-presence-poll", "n_intervals"),
         )
-        def _update_presence(_n):
-            start = time.time()
-            now = time.time()
-            update_people_presence_by_ip(
-                self.people,
-                now=now,
-                grace_seconds=self.grace_seconds,
-                arp_timeout=self.arp_timeout,
-                ping_attempts=self.ping_attempts,
-                ping_wait=self.ping_wait,
-            )
-            duration = time.time() - start
-            logger.debug(
-                f"Header presence scan {duration:.2f}s people={len(self.people)}",
-            )
-            for person in self.people:
-                logger.debug(
-                    f"Presence {person.name} mac={_norm(person.mac)} ip={person.ip} home={person.is_home}",
-                )
+        def _render_presence(_n):
+            # Purely a re-render of the latest background-scanned state;
+            # does not itself trigger any ping/ARP network activity.
             return render_presence_badges(self.people)
-
-    # Optional future full screen hook
-    def full_screen_content(self):  # type: ignore[override]
-        return render_header_fullscreen(self.people)

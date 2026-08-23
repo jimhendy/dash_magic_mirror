@@ -5,7 +5,7 @@ from dash import dcc, html
 from dash_iconify import DashIconify
 
 from utils.dates import local_today
-from utils.styles import COLORS
+from utils.styles import COLORS, WEIGHT, row_style
 
 from .data import SPORTS, get_full_screen_fixtures
 
@@ -20,7 +20,7 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
                 html.Div(
                     "No upcoming fixtures found",
                     style={
-                        "color": COLORS["soft_gray"],
+                        "color": COLORS["text_secondary"],
                         "textAlign": "center",
                         "padding": "2rem",
                         "fontSize": "1.2rem",
@@ -70,167 +70,121 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
             "Away": fx.get("away", ""),
             "Competition": fx.get("competition", ""),
             "Channel": fx.get("channel", ""),
-            "Crest": fx.get("crest"),  # new
+            "Crest": fx.get("crest"),
             "_is_today": is_today,
             "_sport_icon": fx.get("sport_icon", "mdi:help-circle"),
-            "_sport_color": fx.get("sport_icon_color", COLORS["blue"]),
+            "_sport_color": fx.get("sport_icon_color", COLORS["text_secondary"]),
         }
         table_data.append(row)
 
-    fixture_cards = []
+    fixture_rows = []
     for idx, row in enumerate(table_data):
         is_today = row["_is_today"]
         sport_value = row["Sport"].lower()
 
-        card = html.Div(
-            [
-                # Header row with sport, date, time
-                html.Div(
-                    [
-                        html.Div(
-                            [
-                                DashIconify(
-                                    icon=row["_sport_icon"],
-                                    style={
-                                        "marginRight": "10px",
-                                        "color": row["_sport_color"],
-                                        "fontSize": "1.5rem",
-                                        "display": "none"
-                                        if row.get("Crest")
-                                        else "block",
-                                    },
-                                ),
-                                html.Img(
-                                    src=row.get("Crest"),
-                                    style={
-                                        "height": "34px",
-                                        "width": "34px",
-                                        "objectFit": "contain",
-                                        "marginRight": "10px",
-                                        "display": "block"
-                                        if row.get("Crest")
-                                        else "none",
-                                        "filter": "drop-shadow(0 0 2px rgba(0,0,0,0.6))",
-                                    },
-                                ),
-                                html.Span(
-                                    row["Sport"],
-                                    style={
-                                        "fontWeight": "bold",
-                                        "color": COLORS["white"],
-                                        "fontSize": "1.1rem",
-                                    },
-                                ),
-                            ],
-                            style={
-                                "display": "flex",
-                                "alignItems": "center",
-                                "flex": "1",
-                            },
-                        ),
-                        html.Div(
-                            [
-                                html.Span(
-                                    row["Date"],
-                                    style={
-                                        "color": COLORS["gold"]
-                                        if is_today
-                                        else COLORS["soft_gray"],
-                                        "fontWeight": "bold" if is_today else "500",
-                                        "marginRight": "15px",
-                                        "fontSize": "1rem",
-                                    },
-                                ),
-                                html.Span(
-                                    row["Time"],
-                                    style={
-                                        "color": COLORS["orange"],
-                                        "fontWeight": "bold",
-                                        "fontSize": "1.1rem",
-                                    },
-                                ),
-                            ],
-                            style={
-                                "display": "flex",
-                                "alignItems": "center",
-                            },
-                        ),
-                    ],
-                    style={
-                        "display": "flex",
-                        "justifyContent": "space-between",
-                        "alignItems": "center",
-                        "marginBottom": "8px",
-                    },
+        fixture_rows.append(
+            html.Div(
+                [
+                    # Left: sport icon/crest + teams
+                    html.Div(
+                        [
+                            DashIconify(
+                                icon=row["_sport_icon"],
+                                style={
+                                    "color": row["_sport_color"],
+                                    "fontSize": "1.4rem",
+                                    "display": "none" if row.get("Crest") else "block",
+                                },
+                            ),
+                            html.Img(
+                                src=row.get("Crest"),
+                                style={
+                                    "height": "1.875rem",
+                                    "width": "1.875rem",
+                                    "objectFit": "contain",
+                                    "display": "block" if row.get("Crest") else "none",
+                                },
+                            ),
+                            html.Div(
+                                [
+                                    html.Span(
+                                        f"{row['Home']} vs {row['Away']}",
+                                        style={
+                                            "fontSize": "1.25rem",
+                                            "fontWeight": WEIGHT["semibold"],
+                                            "color": COLORS["text"],
+                                        },
+                                    ),
+                                    html.Div(
+                                        f"{row['Sport']} · {row['Competition']}",
+                                        style={
+                                            "fontSize": "0.9rem",
+                                            "color": COLORS["text_muted"],
+                                            "marginTop": "0.15rem",
+                                        },
+                                    ),
+                                ],
+                            ),
+                        ],
+                        style={
+                            "display": "flex",
+                            "alignItems": "center",
+                            "gap": "0.7rem",
+                            "flex": "1",
+                        },
+                    ),
+                    # Right: date/time/channel
+                    html.Div(
+                        [
+                            html.Span(
+                                row["Date"],
+                                style={
+                                    "color": COLORS["accent"]
+                                    if is_today
+                                    else COLORS["text"],
+                                    "fontWeight": WEIGHT["semibold"],
+                                    "fontSize": "1.1rem",
+                                    "marginRight": "0.9rem",
+                                },
+                            ),
+                            html.Span(
+                                row["Time"],
+                                style={
+                                    "color": COLORS["gold"],
+                                    "fontWeight": WEIGHT["semibold"],
+                                    "fontSize": "1.05rem",
+                                    "marginRight": "0.9rem",
+                                },
+                            ),
+                            html.Span(
+                                row["Channel"],
+                                style={
+                                    "color": COLORS["text_muted"],
+                                    "fontSize": "0.9rem",
+                                },
+                            ),
+                        ],
+                        style={
+                            "display": "flex",
+                            "alignItems": "center",
+                            "whiteSpace": "nowrap",
+                        },
+                    ),
+                ],
+                id=f"{component_id}-fixture-card-{idx}",
+                **{"data-sport": sport_value},
+                style=row_style(
+                    divider=True,
+                    display="flex",
+                    alignItems="center",
+                    justifyContent="space-between",
+                    padding="0.8rem 0",
+                    borderLeft=f"2px solid {COLORS['accent']}"
+                    if is_today
+                    else "2px solid transparent",
                 ),
-                # Teams row
-                html.Div(
-                    [
-                        html.Span(
-                            f"{row['Home']} vs {row['Away']}",
-                            style={
-                                "fontSize": "1.3rem",
-                                "fontWeight": "bold",
-                                "color": COLORS["white"],
-                            },
-                        ),
-                    ],
-                    style={
-                        "marginBottom": "8px",
-                        "textAlign": "center",
-                    },
-                ),
-                # Competition and channel row
-                html.Div(
-                    [
-                        html.Div(
-                            [
-                                html.Span(
-                                    row["Competition"],
-                                    style={
-                                        "color": COLORS["blue"],
-                                        "fontWeight": "500",
-                                    },
-                                ),
-                            ],
-                            style={"flex": "1"},
-                        ),
-                        html.Div(
-                            [
-                                html.Span(
-                                    row["Channel"],
-                                    style={
-                                        "color": COLORS["green"],
-                                        "fontWeight": "bold",
-                                    },
-                                ),
-                            ],
-                            style={"flex": "1", "textAlign": "right"},
-                        ),
-                    ],
-                    style={
-                        "display": "flex",
-                        "justifyContent": "space-between",
-                        "fontSize": "0.9rem",
-                    },
-                ),
-            ],
-            id=f"{component_id}-fixture-card-{idx}",
-            **{"data-sport": sport_value},
-            style={
-                "border": f"2px solid {COLORS['gold']}"
-                if is_today
-                else f"1px solid {COLORS['soft_gray']}",
-                "borderRadius": "10px",
-                "padding": "15px",
-                "marginBottom": "15px",
-                "backgroundColor": "rgba(255, 255, 255, 0.05)"
-                if is_today
-                else "rgba(255, 255, 255, 0.02)",
-                "backdropFilter": "blur(10px)",
-            },
+            ),
         )
-        fixture_cards.append(card)
 
     return html.Div(
         [
@@ -243,21 +197,19 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
                         value="all",
                         inline=True,
                         labelStyle={
-                            "marginRight": "12px",
+                            "marginRight": "0.75rem",
                             "cursor": "pointer",
                             "display": "flex",
                             "alignItems": "center",
-                            "gap": "4px",
+                            "gap": "0.25rem",
                         },
                         style={
-                            # inherit font
                             "fontSize": "0.9rem",
                             "display": "flex",
                             "flexWrap": "wrap",
-                            "gap": "16px",
-                            "color": COLORS["white"],
-                            "marginBottom": "6px",
-                            "justifyContent": "center",  # centered buttons
+                            "gap": "1rem",
+                            "color": COLORS["text"],
+                            "justifyContent": "center",
                             "width": "100%",
                         },
                     ),
@@ -266,22 +218,20 @@ def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Di
                     "position": "sticky",
                     "top": "0",
                     "zIndex": 1,
-                    "background": COLORS["black"],
-                    "padding": "8px 10px 4px 10px",
-                    "borderBottom": f"1px solid {COLORS['soft_gray']}",
-                    "marginBottom": "10px",
+                    "background": COLORS["bg"],
+                    "padding": "0.6rem 0.6rem 0.3rem 0.6rem",
+                    "borderBottom": f"1px solid {COLORS['hairline_strong']}",
+                    "marginBottom": "0.6rem",
                     "display": "flex",
                     "justifyContent": "center",
                 },
             ),
             # Fixtures wrapper
             html.Div(
-                fixture_cards,
+                fixture_rows,
                 id=f"{component_id}-fixtures-wrapper",
+                style={"padding": "0 1rem"},
             ),
         ],
-        style={
-            "color": COLORS["white"],
-            # inherit font
-        },
+        style={"color": COLORS["text"]},
     )

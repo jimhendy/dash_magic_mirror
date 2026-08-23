@@ -8,6 +8,7 @@ from loguru import logger
 from utils.file_cache import cache_json
 
 from .constants import BASE_URL, FORECAST_DAYS, HOURLY_WINDOW_DAYS, HTTP_TIMEOUT
+from .icons import get_weather_icon
 
 
 @cache_json(valid_lifetime=datetime.timedelta(minutes=15))
@@ -39,33 +40,31 @@ async def async_fetch_weather_data(api_key: str, postcode: str) -> dict[str, Any
     return await asyncio.to_thread(fetch_weather_data, api_key, postcode)
 
 
-def _icon_url(icon: str) -> str:
-    """Construct the full URL for the weather icon."""
-    if icon.startswith("//"):
-        icon = "https:" + icon
-    return icon
-
-
 def _extract_day_details(day_dict: dict[str, Any]) -> dict[str, Any]:
     """Extract API details from the day's forecast."""
+    condition = day_dict.get("condition", {}).get("text", "Unknown")
+    icon, icon_color = get_weather_icon(condition)
     details = {
         "high": round(day_dict.get("maxtemp_c", 0)),
         "low": round(day_dict.get("mintemp_c", 0)),
-        "description": day_dict.get("condition", {}).get("text", "Unknown"),
+        "description": condition,
         "rain_chance": day_dict.get("daily_chance_of_rain", 0),
-        "icon": _icon_url(day_dict.get("condition", {}).get("icon", "")),
+        "icon": icon,
+        "icon_color": icon_color,
     }
     return details
 
 
 def _extract_current_details(current_dict: dict[str, Any]) -> dict[str, Any]:
     """Extract API details from the current weather."""
+    condition = current_dict.get("condition", {}).get("text", "Unknown")
+    is_day = bool(current_dict.get("is_day", 1))
+    icon, icon_color = get_weather_icon(condition, is_day=is_day)
     details = {
         "temperature": round(current_dict.get("temp_c", 0)),
-        "condition": current_dict.get("condition", {}).get("text", "Unknown"),
-        "icon": _icon_url(
-            current_dict.get("condition", {}).get("icon", ""),
-        ),
+        "condition": condition,
+        "icon": icon,
+        "icon_color": icon_color,
     }
     return details
 
@@ -83,11 +82,15 @@ def process_weather_data(raw_data: dict[str, Any], postcode: str) -> dict[str, A
 
 def _extract_hourly_details(hour_dict: dict[str, Any]) -> dict[str, Any]:
     """Extract details for a single hour from the forecast."""
+    condition = hour_dict.get("condition", {}).get("text", "Unknown")
+    is_day = bool(hour_dict.get("is_day", 0))
+    icon, icon_color = get_weather_icon(condition, is_day=is_day)
     return {
         "time": hour_dict.get("time", ""),
         "temp_c": round(hour_dict.get("temp_c", 0)),
-        "condition": hour_dict.get("condition", {}).get("text", "Unknown"),
-        "icon": _icon_url(hour_dict.get("condition", {}).get("icon", "")),
+        "condition": condition,
+        "icon": icon,
+        "icon_color": icon_color,
         "rain_chance": hour_dict.get("chance_of_rain", 0),
         "wind_mph": round(hour_dict.get("wind_mph", 0)),
         "wind_dir": hour_dict.get("wind_dir", ""),
@@ -125,13 +128,16 @@ def _extract_daily_details(day_data: dict[str, Any]) -> dict[str, Any]:
     astro = day_data.get("astro", {})
 
     date = datetime.datetime.fromisoformat(day_data.get("date", "")).date()
+    condition = day.get("condition", {}).get("text", "Unknown")
+    icon, icon_color = get_weather_icon(condition)
 
     return {
         "date": date,
         "high": round(day.get("maxtemp_c", 0)),
         "low": round(day.get("mintemp_c", 0)),
-        "condition": day.get("condition", {}).get("text", "Unknown"),
-        "icon": _icon_url(day.get("condition", {}).get("icon", "")),
+        "condition": condition,
+        "icon": icon,
+        "icon_color": icon_color,
         "rain_chance": day.get("daily_chance_of_rain", 0),
         "total_precip": day.get("totalprecip_mm", 0),
         "max_wind": round(day.get("maxwind_mph", 0)),

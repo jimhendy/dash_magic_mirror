@@ -1,198 +1,175 @@
 import datetime
 from typing import Any
 
-import dash_mantine_components as dmc
 from dash import html
 from dash_iconify import DashIconify
 
 from utils.dates import local_today
-from utils.styles import FONT_SIZES
-
-_HRL_MARGIN = "5px"
+from utils.styles import COLORS, FONT_SIZES, WEIGHT, hero_style, kicker_style
 
 
-def _high_low_rain_compact(day_data: dict[str, Any]) -> html.Div:
-    """Create compact vertical stack of high/low/rain numbers only (no icons)."""
+def _stat_column(day_data: dict[str, Any]) -> html.Div:
+    """High / rain% / low, stacked - plain text, no boxes or divider lines."""
     high = day_data.get("high", "?")
     low = day_data.get("low", "?")
     rain = day_data.get("rain_chance", "?")
 
-    return html.Div(
-        style={
-            "display": "flex",
-            "flexDirection": "column",
-            "gap": "0.3rem",
-            "justifyContent": "center",
-            "alignItems": "center",
-            "minWidth": "3.5rem",
-        },
-        children=[
-            # High
-            html.Span(
-                str(high) + "°",
-                style={
-                    "fontSize": "1.6rem",
-                    "fontWeight": "600",
-                    "lineHeight": "1",
-                    "color": "#ff6b6b",
-                    "margin": _HRL_MARGIN,
-                },
-            ),
-            # Rain
-            html.Span(
-                str(rain) + "%",
-                style={
-                    "fontSize": "1.6rem",
-                    "fontWeight": "600",
-                    "lineHeight": "1",
-                    "color": "#6ec6ff",
-                    "margin": _HRL_MARGIN,
-                },
-            ),
-            # Low
-            html.Span(
-                str(low) + "°",
-                style={
-                    "fontSize": "1.6rem",
-                    "fontWeight": "600",
-                    "lineHeight": "1",
-                    "color": "#5f9fff",
-                    "margin": _HRL_MARGIN,
-                },
-            ),
-        ],
-    )
+    def _line(value: str, icon: str, color: str) -> html.Div:
+        return html.Div(
+            [
+                DashIconify(
+                    icon=icon,
+                    color=color,
+                    style={"width": "1.1rem", "height": "1.1rem"},
+                ),
+                html.Span(
+                    value,
+                    style={
+                        "fontSize": FONT_SIZES["secondary"],
+                        "fontWeight": WEIGHT["semibold"],
+                        "color": COLORS["text"],
+                    },
+                ),
+            ],
+            style={"display": "flex", "alignItems": "center", "gap": "0.3rem"},
+        )
 
-
-def _central_divider_with_icons() -> html.Div:
-    """Create central divider with high/rain/low icons as separators."""
     return html.Div(
-        style={
-            "display": "flex",
-            "flexDirection": "column",
-            "gap": "0.3rem",
-            "justifyContent": "center",
-            "alignItems": "center",
-            "padding": "0 0.3rem",
-        },
-        children=[
-            # High icon
-            DashIconify(
-                icon="mdi:arrow-up",
-                color="#ff6b6b",
-                width=24,
-                height=24,
-                style={"margin": _HRL_MARGIN},
-            ),
-            # Rain icon
-            DashIconify(
-                icon="mdi:weather-rainy",
-                color="#6ec6ff",
-                width=24,
-                height=24,
-                style={"margin": _HRL_MARGIN},
-            ),
-            # Low icon
-            DashIconify(
-                icon="mdi:arrow-down",
-                color="#5f9fff",
-                width=24,
-                height=24,
-                style={"margin": _HRL_MARGIN},
-            ),
+        [
+            _line(f"{high}°", "mdi:arrow-up", COLORS["gold"]),
+            _line(f"{rain}%", "mdi:water-outline", COLORS["accent"]),
+            _line(f"{low}°", "mdi:arrow-down", COLORS["text_secondary"]),
         ],
+        style={"display": "flex", "flexDirection": "column", "gap": "0.35rem"},
     )
 
 
 def _tomorrow_day() -> str:
-    """Get tomorrow's day name."""
     today = local_today()
     tomorrow = today + datetime.timedelta(days=1)
-    return tomorrow.strftime("%a")
+    return tomorrow.strftime("%A")
 
 
 def render_weather_summary(
     weather_data: dict[str, Any],
     component_id: str,
-    icon_size: str = "7rem",
+    icon_size: str = "5.5rem",
 ) -> html.Div:
-    """Render the weather component with central icon divider and flanking stats."""
+    """Kicker label, hero current temperature on the left, today/tomorrow
+    stats on the right - no boxes, no divider lines.
+    """
     current = weather_data.get("current", {})
     today = weather_data.get("today", {})
     tomorrow = weather_data.get("tomorrow", {})
+    location = weather_data.get("location", "")
 
     return html.Div(
         [
-            # Left half: Today's current temp and weather icon (centered)
             html.Div(
                 [
-                    html.Div(
-                        id=f"{component_id}-current-temperature",
-                        children=[
-                            html.Div(
-                                current.get("temperature", "?"),
-                                style={
-                                    "fontSize": "4rem",
-                                    "fontWeight": "350",
-                                },
-                            ),
-                            html.Div(
-                                "°C",
-                                style={
-                                    "fontSize": FONT_SIZES["summary_secondary"],
-                                    "marginLeft": "4px",
-                                },
-                                className="degrees",
-                            ),
-                        ],
-                        style={"display": "flex", "alignItems": "baseline"},
-                    ),
-                    dmc.Image(
-                        src=current.get("icon", ""),
-                        w=icon_size,
-                        h=icon_size,
-                    ),
+                    html.Span("Weather", style=kicker_style()),
+                    html.Span(location, style=kicker_style(color=COLORS["text_muted"]))
+                    if location
+                    else None,
                 ],
-                className="centered-content gap-m",
-                style={"flex": "1"},
+                style={"display": "flex", "gap": "0.8rem", "alignItems": "baseline"},
             ),
-            # Today's stats (right side of left half, close to divider)
-            _high_low_rain_compact(today),
-            # Central divider with icons (high, rain, low)
-            _central_divider_with_icons(),
-            # Tomorrow's stats (left side of right half, close to divider)
-            _high_low_rain_compact(tomorrow),
-            # Right half: Tomorrow's day name and weather icon (centered)
             html.Div(
                 [
+                    # Current conditions: hero temp + icon
                     html.Div(
-                        id=f"{component_id}-tomorrow-temperature",
-                        children=[
-                            html.Div(
-                                _tomorrow_day(),
+                        [
+                            DashIconify(
+                                icon=current.get("icon", "mdi:weather-partly-cloudy"),
+                                color=current.get(
+                                    "icon_color", COLORS["text_secondary"],
+                                ),
                                 style={
-                                    "fontSize": FONT_SIZES["summary_primary"],
-                                    "fontWeight": "350",
+                                    "width": icon_size,
+                                    "height": icon_size,
+                                    "flexShrink": 0,
+                                },
+                            ),
+                            html.Div(
+                                [
+                                    html.Span(
+                                        f"{current.get('temperature', '?')}°",
+                                        style=hero_style("4.25rem"),
+                                    ),
+                                    html.Div(
+                                        current.get("condition", ""),
+                                        style={
+                                            "fontSize": FONT_SIZES["secondary"],
+                                            "color": COLORS["text_secondary"],
+                                            "marginTop": "0.2rem",
+                                        },
+                                    ),
+                                ],
+                            ),
+                        ],
+                        style={
+                            "display": "flex",
+                            "alignItems": "center",
+                            "gap": "1rem",
+                        },
+                    ),
+                    # Today / tomorrow stats
+                    html.Div(
+                        [
+                            _stat_column(today),
+                            html.Div(
+                                [
+                                    DashIconify(
+                                        icon=tomorrow.get(
+                                            "icon", "mdi:weather-partly-cloudy",
+                                        ),
+                                        color=tomorrow.get(
+                                            "icon_color", COLORS["text_secondary"],
+                                        ),
+                                        style={
+                                            "width": "2.75rem",
+                                            "height": "2.75rem",
+                                            "opacity": 0.8,
+                                        },
+                                    ),
+                                    html.Span(
+                                        _tomorrow_day()[:3],
+                                        style={
+                                            "fontSize": FONT_SIZES["small"],
+                                            "color": COLORS["text_muted"],
+                                            "fontWeight": WEIGHT["semibold"],
+                                            "textTransform": "uppercase",
+                                        },
+                                    ),
+                                ],
+                                style={
+                                    "display": "flex",
+                                    "flexDirection": "column",
+                                    "alignItems": "center",
+                                    "gap": "0.2rem",
                                 },
                             ),
                         ],
-                        style={"display": "flex", "alignItems": "baseline"},
-                    ),
-                    dmc.Image(
-                        src=tomorrow.get("icon", ""),
-                        w=icon_size,
-                        h=icon_size,
+                        style={
+                            "display": "flex",
+                            "alignItems": "center",
+                            "gap": "1.5rem",
+                        },
                     ),
                 ],
-                className="centered-content",
-                style={"flex": "1"},
+                id=f"{component_id}-render-container-div",
+                style={
+                    "display": "flex",
+                    "alignItems": "center",
+                    "justifyContent": "space-between",
+                    "width": "100%",
+                },
             ),
         ],
-        id=f"{component_id}-render-container-div",
-        className="centered-content",
         style={
+            "display": "flex",
+            "flexDirection": "column",
+            "gap": "0.6rem",
             "width": "100%",
-            "justifyContent": "space-between",
-            "alignItems": "center",
         },
     )

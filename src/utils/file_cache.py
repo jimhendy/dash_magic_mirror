@@ -24,7 +24,8 @@ _INDEX_TTL_SECONDS = 5.0  # Re-scan filesystem after 5 seconds
 
 
 def _get_cached_files_indexed(
-    cache_key: str, arg_hash: str,
+    cache_key: str,
+    arg_hash: str,
 ) -> dict[Path, datetime.datetime]:
     """Get cached files using in-memory index when possible."""
     cache_file_pattern = f"{cache_key}_{arg_hash}_*"
@@ -39,7 +40,8 @@ def _get_cached_files_indexed(
             try:
                 write_time_str = cached_path.stem.split("_")[-1]
                 write_time = datetime.datetime.strptime(
-                    write_time_str, DT_FORMAT,
+                    write_time_str,
+                    DT_FORMAT,
                 ).replace(
                     tzinfo=datetime.UTC,
                 )

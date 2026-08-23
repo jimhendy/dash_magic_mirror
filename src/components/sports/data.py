@@ -327,11 +327,19 @@ def extract_fixtures_from_html(html: str, sport: Sport) -> list[dict[str, Any]]:
             elif img_tag and img_tag.get("alt"):
                 channel_info = img_tag.get("alt").replace(" logo", "")
 
-        # Extract the date/time
+        # Extract the date/time. The site currently puts the ISO datetime on
+        # a nested <time datetime="..."> element; older markup put it in a
+        # `content` attribute directly on the cell, so fall back to that too.
         date_time_cell = row.find("td", class_="start-details")
         date_time_raw = ""
-        if date_time_cell and date_time_cell.get("content"):
-            date_time_raw = date_time_cell.get("content").strip()
+        if date_time_cell:
+            time_tag = date_time_cell.find("time")
+            if time_tag and time_tag.get("datetime"):
+                date_time_raw = time_tag.get("datetime").strip()
+            elif date_time_cell.get("content"):
+                date_time_raw = date_time_cell.get("content").strip()
+
+        if date_time_raw:
             parsed_date, time_str = _date_time_from_iso(date_time_raw)
         else:
             parsed_date, time_str = None, ""
@@ -546,7 +554,14 @@ def get_summary_fixtures(
     limit: int = 3,
     days_ahead: int = 7,
 ) -> list[dict[str, Any]]:
-    """Get fixtures for summary view - limited to next 7 days and max 3 items."""
+    """Get fixtures for the summary view - limited to the next 7 days and
+    `limit` items. A sport with frequent fixtures in that window (e.g. a
+    cricket Test match, playing daily) could otherwise fill every slot and
+    crowd out sports that only have one upcoming fixture - so this
+    guarantees each sport with at least one fixture in the window gets a
+    slot (its soonest fixture) before the remaining slots go to whatever's
+    soonest overall.
+    """
     if not data or "sports" not in data:
         return []
 
@@ -555,7 +570,6 @@ def get_summary_fixtures(
         if isinstance(items, list):
             all_fixtures.extend(items)
 
-    # Filter to next 7 days only
     today = local_today()
     cutoff_date = today + datetime.timedelta(days=days_ahead)
 
@@ -569,9 +583,27 @@ def get_summary_fixtures(
             except ValueError:
                 continue
 
-    # Sort by date and limit
     filtered_fixtures.sort(key=lambda x: x.get("sort_date", datetime.date.max))
-    return filtered_fixtures[:limit]
+
+    selected: list[dict[str, Any]] = []
+    selected_ids = set()
+    for fx in filtered_fixtures:
+        if len(selected) >= limit:
+            break
+        sport_name = fx.get("sport_name")
+        if sport_name not in {s.get("sport_name") for s in selected}:
+            selected.append(fx)
+            selected_ids.add(id(fx))
+
+    for fx in filtered_fixtures:
+        if len(selected) >= limit:
+            break
+        if id(fx) not in selected_ids:
+            selected.append(fx)
+            selected_ids.add(id(fx))
+
+    selected.sort(key=lambda x: x.get("sort_date", datetime.date.max))
+    return selected
 
 
 def get_full_screen_fixtures(data: dict[str, Any]) -> list[dict[str, Any]]:

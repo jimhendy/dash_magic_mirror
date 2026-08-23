@@ -4,7 +4,7 @@ from datetime import UTC
 from dash import dcc, html
 from dash_iconify import DashIconify
 
-from utils.styles import COLORS
+from utils.styles import COLORS, kicker_style, panel_style, row_style
 
 from .data import get_time_color_and_weight
 
@@ -68,19 +68,19 @@ def render_tfl_fullscreen(
                         value="all",
                         inline=True,
                         labelStyle={
-                            "marginRight": "12px",
+                            "marginRight": "0.75rem",
                             "cursor": "pointer",
                             "display": "flex",
                             "alignItems": "center",
-                            "gap": "4px",
+                            "gap": "0.25rem",
                         },
                         style={
                             "fontSize": "0.9rem",
                             "display": "flex",
                             "flexWrap": "wrap",
-                            "gap": "16px",
-                            "color": COLORS["white"],
-                            "marginBottom": "6px",
+                            "gap": "1rem",
+                            "color": COLORS["text"],
+                            "marginBottom": "0.4rem",
                             "justifyContent": "center",
                             "width": "100%",
                         },
@@ -90,10 +90,10 @@ def render_tfl_fullscreen(
                     "position": "sticky",
                     "top": "0",
                     "zIndex": 1,
-                    "background": COLORS["black"],
-                    "padding": "8px 10px 4px 10px",
-                    "borderBottom": f"1px solid {COLORS['soft_gray']}",
-                    "marginBottom": "10px",
+                    "background": COLORS["bg"],
+                    "padding": "0.5rem 0.6rem 0.25rem 0.6rem",
+                    "borderBottom": f"1px solid {COLORS['hairline_strong']}",
+                    "marginBottom": "0.6rem",
                     "display": "flex",
                     "justifyContent": "center",
                 },
@@ -104,34 +104,23 @@ def render_tfl_fullscreen(
                     # Line status table
                     html.Div(
                         [
-                            html.H3(
+                            html.Div(
                                 "Line Status",
-                                style={
-                                    "fontSize": "1.5rem",
-                                    "color": COLORS["blue"],
-                                    "marginBottom": "15px",
-                                    "textAlign": "center",
-                                },
+                                style=kicker_style(marginBottom="0.75rem"),
                             ),
                             _create_line_status_table(all_line_ids, line_status),
                         ],
                         style={
                             "flex": "1",
-                            "marginRight": "20px",
+                            "marginRight": "1.25rem",
                         },
                     ),
                     # Station disruptions table
                     html.Div(
                         [
-                            html.H3(
+                            html.Div(
                                 "Station Status",
-                                style={
-                                    "fontSize": "1.5rem",
-                                    "fontWeight": "500",
-                                    "color": COLORS["blue"],
-                                    "marginBottom": "15px",
-                                    "textAlign": "center",
-                                },
+                                style=kicker_style(marginBottom="0.75rem"),
                             ),
                             _create_station_status_table(
                                 all_stop_ids,
@@ -147,7 +136,7 @@ def render_tfl_fullscreen(
                 style={
                     "display": "flex",
                     "justifyContent": "space-between",
-                    "marginBottom": "40px",
+                    "marginBottom": "2rem",
                 },
             ),
             # Arrivals table section (full width below status tables)
@@ -161,7 +150,7 @@ def render_tfl_fullscreen(
             ),
         ],
         style={
-            "color": COLORS["white"],
+            "color": COLORS["text"],
             # inherit font
         },
     )
@@ -174,9 +163,9 @@ def _create_arrivals_table(arrivals: list, component_id: str) -> html.Div:
             "No arrivals available",
             style={
                 "textAlign": "center",
-                "color": COLORS["soft_gray"],
+                "color": COLORS["text_secondary"],
                 "fontSize": "1.2rem",
-                "padding": "40px",
+                "padding": "2.5rem",
             },
         )
 
@@ -195,13 +184,12 @@ def _create_arrivals_table(arrivals: list, component_id: str) -> html.Div:
             ),
         ],
         style={
+            **kicker_style(),
             "display": "flex",
             "alignItems": "center",
-            "padding": "15px 20px",
-            "borderBottom": f"2px solid {COLORS['blue']}",
-            "fontSize": "1.1rem",
-            "color": COLORS["blue"],
-            "marginBottom": "10px",
+            "padding": "0.5rem 1.25rem",
+            "borderBottom": f"1px solid {COLORS['hairline_strong']}",
+            "marginBottom": "0.4rem",
         },
     )
 
@@ -211,7 +199,7 @@ def _create_arrivals_table(arrivals: list, component_id: str) -> html.Div:
         time_color, time_weight = get_time_color_and_weight(arrival["minutes"])
 
         # Alternate row colors
-        bg_color = "rgba(255,255,255,0.03)" if i % 2 == 0 else "rgba(255,255,255,0.08)"
+        bg_color = COLORS["surface"] if i % 2 == 0 else COLORS["surface_raised"]
 
         # Clean station name - remove "London " prefix
         station_name = arrival["station_name"]
@@ -220,9 +208,9 @@ def _create_arrivals_table(arrivals: list, component_id: str) -> html.Div:
 
         # Use pre-shaped line color and mode icon
         line_color = arrival.get("line_color") or (
-            COLORS["red"]
+            COLORS["urgent"]
             if (arrival.get("mode") or "").lower() == "bus"
-            else COLORS["blue"]
+            else COLORS["accent"]
         )
         icon_name = arrival.get("icon_name") or (
             "tabler:bus"
@@ -261,7 +249,7 @@ def _create_arrivals_table(arrivals: list, component_id: str) -> html.Div:
                         html.Div(
                             station_name,
                             style={
-                                "color": COLORS["white"],
+                                "color": COLORS["text"],
                                 "fontSize": "1rem",
                                 "fontWeight": "500",
                                 "lineHeight": "1.2",
@@ -272,8 +260,7 @@ def _create_arrivals_table(arrivals: list, component_id: str) -> html.Div:
                                 DashIconify(
                                     icon=icon_name,
                                     color=line_color,
-                                    width=18,
-                                    height=18,
+                                    style={"width": "1.125rem", "height": "1.125rem"},
                                 ),
                                 html.Span(
                                     arrival["line_name"],
@@ -288,8 +275,8 @@ def _create_arrivals_table(arrivals: list, component_id: str) -> html.Div:
                             style={
                                 "display": "flex",
                                 "alignItems": "center",
-                                "gap": "6px",
-                                "marginTop": "2px",
+                                "gap": "0.375rem",
+                                "marginTop": "0.125rem",
                             },
                         ),
                     ],
@@ -300,7 +287,7 @@ def _create_arrivals_table(arrivals: list, component_id: str) -> html.Div:
                     style={
                         "flex": "3",
                         "alignSelf": "center",
-                        "color": COLORS["white"],
+                        "color": COLORS["text"],
                         "fontSize": "1rem",
                     },
                 ),
@@ -308,7 +295,7 @@ def _create_arrivals_table(arrivals: list, component_id: str) -> html.Div:
                     arrival.get("transfer_station_indicator", ""),
                     style={
                         "flex": "1",
-                        "color": COLORS["green"]
+                        "color": COLORS["accent"]
                         if arrival.get("transfer_station_indicator")
                         else "transparent",
                         "fontSize": "1.2rem",
@@ -334,16 +321,14 @@ def _create_arrivals_table(arrivals: list, component_id: str) -> html.Div:
             ],
             id=f"{component_id}-arrival-row-{i}",
             **{"data-line": (arrival.get("line_name") or "").lower()},
-            style={
-                "display": "flex",
-                "alignItems": "stretch",  # Changed to stretch for multi-line content
-                "padding": "12px 20px",
-                "background": bg_color,
-                "borderRadius": "6px",
-                "marginBottom": "2px",
-                "border": "1px solid rgba(255,255,255,0.05)",
-                "minHeight": "60px",  # Ensure consistent height for two-line content
-            },
+            style=row_style(
+                divider=True,
+                background=bg_color,
+                display="flex",
+                alignItems="center",
+                padding="0.7rem 1.25rem",
+                minHeight="3.75rem",
+            ),
         )
         rows.append(row)
 
@@ -357,7 +342,7 @@ def _create_line_status_table(line_ids: set, line_status: dict) -> html.Div:
             "No line status available",
             style={
                 "textAlign": "center",
-                "color": COLORS["soft_gray"],
+                "color": COLORS["text_secondary"],
                 "fontSize": "1rem",
             },
         )
@@ -367,28 +352,30 @@ def _create_line_status_table(line_ids: set, line_status: dict) -> html.Div:
         if line_id in line_status:
             status = line_status[line_id]
             status_color = {
-                "green": COLORS["green"],
+                "green": COLORS["accent"],
                 "yellow": COLORS["gold"],
-                "red": COLORS["red"],
-            }.get(status["status_color"], COLORS["soft_gray"])
+                "red": COLORS["urgent"],
+            }.get(status["status_color"], COLORS["text_secondary"])
 
             row = html.Div(
                 [
                     html.Div(
                         [
-                            html.Span(
-                                "●",
+                            html.Div(
                                 style={
-                                    "color": status_color,
-                                    "marginRight": "10px",
-                                    "fontSize": "1.2rem",
+                                    "width": "0.5rem",
+                                    "height": "0.5rem",
+                                    "borderRadius": "50%",
+                                    "background": status_color,
+                                    "marginRight": "0.6rem",
+                                    "flexShrink": 0,
                                 },
                             ),
                             html.Span(
                                 status["line_name"],
                                 style={
                                     "fontWeight": "500",
-                                    "color": COLORS["white"],
+                                    "color": COLORS["text"],
                                 },
                             ),
                         ],
@@ -404,16 +391,13 @@ def _create_line_status_table(line_ids: set, line_status: dict) -> html.Div:
                         },
                     ),
                 ],
-                style={
-                    "display": "flex",
-                    "alignItems": "center",
-                    "justifyContent": "space-between",
-                    "padding": "10px 15px",
-                    "background": "rgba(255,255,255,0.05)",
-                    "borderRadius": "6px",
-                    "marginBottom": "5px",
-                    "border": f"1px solid {status_color}33",
-                },
+                style=row_style(
+                    divider=True,
+                    display="flex",
+                    alignItems="center",
+                    justifyContent="space-between",
+                    borderLeft=f"2px solid {status_color}",
+                ),
             )
             rows.append(row)
 
@@ -431,7 +415,7 @@ def _create_station_status_table(
             "No stations configured",
             style={
                 "textAlign": "center",
-                "color": COLORS["soft_gray"],
+                "color": COLORS["text_secondary"],
                 "fontSize": "1rem",
             },
         )
@@ -454,19 +438,21 @@ def _create_station_status_table(
                     [
                         html.Div(
                             [
-                                html.Span(
-                                    "⚠",
+                                DashIconify(
+                                    icon="mdi:alert-circle-outline",
+                                    color=COLORS["gold"],
                                     style={
-                                        "color": COLORS["gold"],
-                                        "marginRight": "10px",
-                                        "fontSize": "1.2rem",
+                                        "width": "1.125rem",
+                                        "height": "1.125rem",
+                                        "marginRight": "0.6rem",
+                                        "flexShrink": 0,
                                     },
                                 ),
                                 html.Span(
                                     station_name,
                                     style={
                                         "fontWeight": "500",
-                                        "color": COLORS["white"],
+                                        "color": COLORS["text"],
                                         "fontSize": "0.9rem",
                                     },
                                 ),
@@ -478,19 +464,15 @@ def _create_station_status_table(
                             if len(disruption["description"]) > 50
                             else disruption["description"],
                             style={
-                                "color": COLORS["soft_gray"],
+                                "color": COLORS["text_secondary"],
                                 "fontSize": "0.8rem",
-                                "marginTop": "5px",
+                                "marginTop": "0.3rem",
                             },
                         ),
                     ],
-                    style={
-                        "padding": "10px 15px",
-                        "background": "rgba(255,193,61,0.1)",
-                        "borderRadius": "6px",
-                        "marginBottom": "5px",
-                        "border": f"1px solid {COLORS['gold']}33",
-                    },
+                    style=row_style(
+                        divider=True, borderLeft=f"2px solid {COLORS['gold']}",
+                    ),
                 )
                 rows.append(row)
 
@@ -499,19 +481,21 @@ def _create_station_status_table(
             [
                 html.Div(
                     [
-                        html.Span(
-                            "✓",
+                        DashIconify(
+                            icon="mdi:check-circle-outline",
+                            color=COLORS["accent"],
                             style={
-                                "color": COLORS["green"],
-                                "marginRight": "10px",
-                                "fontSize": "1.2rem",
+                                "width": "1.125rem",
+                                "height": "1.125rem",
+                                "marginRight": "0.6rem",
+                                "flexShrink": 0,
                             },
                         ),
                         html.Span(
                             "All stations operating normally",
                             style={
                                 "fontWeight": "500",
-                                "color": COLORS["green"],
+                                "color": COLORS["accent"],
                                 "fontSize": "0.9rem",
                             },
                         ),
@@ -519,13 +503,12 @@ def _create_station_status_table(
                     style={"display": "flex", "alignItems": "center"},
                 ),
             ],
-            style={
-                "padding": "15px",
-                "background": "rgba(46,204,113,0.1)",
-                "borderRadius": "6px",
-                "border": f"1px solid {COLORS['green']}33",
-                "textAlign": "center",
-            },
+            style=panel_style(
+                padding="0.85rem",
+                textAlign="center",
+                background="rgba(94, 234, 212, 0.06)",
+                border=f"1px solid {COLORS['accent']}",
+            ),
         )
 
     return html.Div(rows)

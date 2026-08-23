@@ -1,28 +1,43 @@
 # Magic Mirror Dashboard
 
-A modern, customizable magic mirror dashboard built with Dash and Python. Features a clean single-line layout with real-time data from multiple sources including London Transport arrivals, weather, calendar events, sports fixtures, and news feeds.
+A dark-glass magic mirror dashboard built with Dash and Python, running on a Raspberry Pi 4 and viewed on an old Android tablet mounted by the front door. Real-time London transport arrivals, weather, calendar events, sports fixtures, and news headlines, all in one always-on display.
 
-## Recent Refactor Highlights
+## Architecture
 
-The legacy separate Clock and Presence components have been merged into a unified `Header` component (`components.header.Header`). Presence detection logic now lives in a structured submodule:
+Every component follows the same shape:
 
 ```
-components/header/
-  __init__.py          # exports Header, PersonPresence
-  component.py         # layout + callbacks
-  constants.py         # timing defaults
-  data.py              # presence dataclass + network helpers
-  summary.py           # badge rendering helpers
-  full_screen.py       # placeholder full-screen renderer
+components/<name>/
+  __init__.py      # exports the component class
+  component.py     # Dash wiring: registers with the DataRepository, hydrate callback
+  constants.py      # cache lifetimes, timeouts, etc.
+  data.py           # fetch + parse external data (the only place that talks to a network/API)
+  summary.py        # the compact single-line card shown in the always-on strip
+  full_screen.py    # the detailed view shown when a card is tapped
 ```
 
-The deprecated `components/presence` package has been removed (left as empty stubs temporarily). Import `PersonPresence` and helpers from `components.header` instead.
+Two shared pieces do most of the heavy lifting:
 
-Presence detection now uses a deterministic, per‑device targeted flow:
+- **`utils.data_repository.DataRepository`** (`src/utils/data_repository.py`) - a single background asyncio loop that polls each component's `data.py` on its own cadence (with jitter, so components don't all hit the network at once) and caches the rendered result in memory. Every browser tab reads from this shared cache instead of triggering its own fetch, so opening the dashboard on a second device never doubles API traffic.
+- **`components.base.DataDrivenComponent`** (`src/components/base.py`) - the base class every fetch-driven component subclasses. It owns registering with the `DataRepository`, the loading/error placeholder, and the hydrate callback that pushes the latest cached payload into the page. A concrete component only implements `_build_payload()` (fetch data, render it) - everything else (the interval, the full-screen preload stores, the callback wiring) is inherited.
+
+This split is deliberate: `data.py` never touches the Dash layer, and `component.py`/`summary.py`/`full_screen.py` never talk to the network directly - they only ever read from the repository. If this ever moves to a Home Assistant setup where fetching/caching lives in a standalone service, only `DataRepository`'s internals need to change (in-process background loop -> HTTP client against that service); no component code would need to move.
+
+On top of `DataRepository`, the file-based `@cache_json` decorator (`src/utils/file_cache.py`) is still what actually rate-limits each external API call - see [Component Development & Rate Limiting](#component-development--rate-limiting) below.
+
+### Presence detection
+
+Presence (`components/header`) is a bit different: it scans the LAN (ping + targeted ARP) rather than calling an external API, but it follows the same "one shared background scan, not one per browser tab" principle via `DataRepository` - the scan runs on its own interval in the background, and each connected client's clock/presence poll just re-renders the latest already-scanned state instead of triggering new network I/O.
+
+Detection flow, per configured person:
 1. (Optional wake) ICMP ping attempts per configured IP
 2. Targeted ARP request for that IP
-3. MAC match validation (with warning on mismatch)
-4. Grace window debouncing (device considered home until grace expires after last positive sighting)
+3. MAC match validation (with a warning on mismatch)
+4. Grace-window debouncing (a device is considered "home" until the grace period expires after its last positive sighting)
+
+### Design system
+
+The whole UI is built from one token module, `src/utils/styles.py`, in an editorial "quiet luxury" style rather than a boxed dashboard-template look: individual rows (a calendar event, a bus arrival, a fixture) are plain text on the near-black background, not wrapped in bordered/shadowed cards - the one thing that most reads as "generated from a UI kit". Each section instead opens with a small muted uppercase "kicker" label (`kicker_style()`), color-codes at most with a thin left accent bar (`row_style(accent=...)`), and hero numerals (the clock, the current temperature) use a very light font weight (`hero_style()`) contrasted against small bold labels to carry the hierarchy instead of boxes. One accent color is used consistently for "now / today / live" states; red is reserved only for genuinely time-critical states (an arrival under 2 minutes, a service disruption). No `backdrop-filter` blur and minimal shadow anywhere, so it stays cheap to render on the Pi 4/tablet GPU. The Inter typeface is loaded via Google Fonts in `app/main.py`'s `index_string`. Top-level page rhythm comes from a single `gap` on the outer flex container (`app/core_layout.py`), not per-component separator elements, so spacing stays consistent regardless of how much each component renders.
 
 ## Setup
 
@@ -47,7 +62,7 @@ Presence detection now uses a deterministic, per‑device targeted flow:
    
    Or directly with:
    ```bash
-   uv run src/app/main.py
+   cd src && uv run python -m app.main
    ```
 
 ### Docker Deployment
@@ -79,16 +94,16 @@ Presence detection now uses a deterministic, per‑device targeted flow:
 **Note:** The Docker setup includes:
 - Automatic restart on failure
 - Persistent cache storage
-- Health checks
+- Health checks (curl is installed in the image specifically for this)
 - Read-only mounting of configuration files
 
 ## Configuration
 
-The application uses environment variables and `src/app/config.py` for configuration. 
+The application uses environment variables and `src/app/config.py` for configuration.
 
 ### Presence Configuration (Header Component)
 
-Presence devices now require paired IP + MAC environment variables. For a person named `Alice`:
+Presence devices require paired IP + MAC environment variables. For a person named `Alice`:
 ```
 MAGIC_MIRROR_PRESENCE_IP_ALICE=192.168.1.42
 MAGIC_MIRROR_PRESENCE_MAC_ALICE=AA:BB:CC:DD:EE:FF
@@ -108,9 +123,6 @@ Grant raw socket capability (needed for ARP) to your Python binary if running ou
 sudo setcap cap_net_raw,cap_net_admin=eip "$(readlink -f "$(uv run which python)")"
 ```
 
-### Weather, Calendar, Transport, Sports
-(unchanged – see earlier sections for detailed setup)
-
 ### Environment Variables
 
 Copy `.env.example` to `.env` and customize:
@@ -118,146 +130,26 @@ Copy `.env.example` to `.env` and customize:
 - **Presence**: Paired IP/MAC variables as described above
 - **TFL Stops**: Configure transport stop IDs and display names
 - **TFL Line Status**: Optional comma-separated list (e.g. `metropolitan,circle`) to force status indicators when arrivals are missing
-- **Weather**: Set your postcode and WeatherAPI key  
-- **Google Calendar**: Configure calendar integration (optional)
-- **Layout**: Adjust component positioning and sizing
+- **Weather**: Set your postcode and WeatherAPI key
+- **Google Calendar**: Configure calendar IDs
+- **News**: Optional `NEWS_RSS_URL` - defaults to the BBC News RSS feed, no key required
 
 ## Features
 
-### Core Components
+- **Header (Clock + Presence)** - Unified time + household presence badges
+- **Weather** - Current conditions and multi-day forecast (WeatherAPI.com), plus an hourly temperature/rain-chance chart in the full-screen view
+- **Google Calendar** - Upcoming events across multiple calendars, with smart date formatting and birthday detection
+- **TFL Transport** - Real-time London public transport arrivals, line status, and disruptions
+- **Sports Fixtures** - Upcoming matches across configured teams/sports, scraped from Where's The Match
+- **News** - Rotating headlines from an RSS feed (default BBC News), full list in the full-screen view
 
-- **🕐 Header (Clock + Presence)** - Unified time + household presence badges
-- **🌤️ Weather Forecast** - Current conditions and 3-day outlook with WeatherAPI integration
-- **📅 Google Calendar** - Upcoming events with smart date formatting and birthday icons
-- **🚇 TFL Transport** - Real-time London public transport arrivals with color-coded timing
-- **⚽ Sports Fixtures** - Upcoming matches across multiple sports with team information
-- **📰 News Feed** - Rotating headlines from RSS sources with 8-second intervals
-- **💭 Compliments & Jokes** - Rotating positive messages and humor (1000+ items)
-
-### Design Features
-
-- **Unified Visual Language** - Consistent single-line card layouts across all components
-- **Modern Glass Effect** - Gradient backgrounds with backdrop filters for elegant depth
-- **Responsive Typography** - Inter/Roboto font stacks with consistent sizing hierarchy
-- **Color-Coded Information** - Red for urgent items, golden accents for active events
-- **Visual Separators** - Icon-based dividers between component sections
-- **Flexible Positioning** - Fractional coordinate system for precise layout control
-
-### Technical Features
-
-- **Smart Caching System** - File-based API rate limiting with configurable lifetimes
-- **Component Architecture** - Modular design with BaseComponent inheritance
-- **Auto-Refresh** - Real-time updates without manual intervention
-- **Health Monitoring** - Built-in health checks for Docker deployment
-- **Error Resilience** - Graceful handling of API failures and network issues
-
-## Architecture & Design
-
-### Component System
-
-The Magic Mirror uses a modular component architecture with consistent design patterns:
-
-#### BaseComponent Abstract Class
-
-All components inherit from `BaseComponent` in `src/components/base.py`:
-
-```python
-class BaseComponent(ABC):
-    def __init__(self, header_icon: str = None, header_title: str = None):
-        self.header_icon = header_icon
-        self.header_title = header_title
-    
-    @abstractmethod
-    def layout(self) -> html.Div:
-        """Return the component's layout."""
-        pass
-    
-    @abstractmethod  
-    def register_callbacks(self, app):
-        """Register component-specific callbacks."""
-        pass
-```
-
-#### Consistent Design Language
-
-All components follow the same visual patterns:
-
-- **Single-line layouts** - Information organized horizontally for clean presentation
-- **Card-based design** - Each item in a consistent card with 8px border radius
-- **Consistent spacing** - 8px gaps between items, 12px 14px padding within cards
-- **Unified typography** - 1.2rem headers, 1.1rem main content, 0.9rem secondary info
-- **Color consistency** - COLORS palette from `utils.styles` used throughout
-- **Glass effect** - Gradient backgrounds with subtle transparency
-
-#### Visual Separators
-
-Components are visually separated using icon-based dividers:
-
-```python
-def create_separator(icon: str, title: str) -> html.Div:
-    return html.Div([
-        DashIconify(icon=icon, width=20, color=COLORS['text']),
-        html.Span(title, style={"marginLeft": "8px", "fontSize": "1rem"})
-    ], style={
-        "display": "flex", "alignItems": "center",
-        "marginBottom": "12px", "color": COLORS['text']
-    })
-```
-
-### Layout System
-
-- **Percentage-based heights** - Each component gets allocated screen real estate
-- **Flexbox containers** - Responsive layouts that adapt to content
-- **Single-column flow** - Components stacked vertically with separators
-- **Gradient backgrounds** - Modern glass effect throughout the interface
-
-### Component Capabilities
-
-#### Clock Component (`clock.py`)
-- Real-time display with automatic updates
-- Formatted date and time with weekday
-- Compact single-line presentation
-
-#### Weather Component (`weather.py`)
-- Current conditions with temperature and "feels like"
-- 3-day forecast with weather icons
-- WeatherAPI.com integration with error handling
-
-#### Google Calendar Component (`google_calendar.py`)
-- Upcoming events with smart date formatting
-- Birthday detection with cake icons
-- Single-line layout with event title left, date/time right
-- Golden accents for today's events
-
-#### TFL Arrivals Component (`tfl_arrivals.py`)
-- Real-time London transport arrivals
-- Multiple station support with unified display
-- Color-coded timing (red for <2min, normal for longer)
-- Station name + line displayed with arrival times
-
-#### Sports Component (`sports.py`)
-- Multi-sport fixture support (Football, Rugby, Cricket, Tennis, F1)
-- Today's matches highlighted with enhanced styling
-- Team information with competition context
-- BBC Sport integration for reliable data
-
-#### News Component (`news.py`)
-- Rotating headlines with 8-second intervals
-- RSS feed integration (BBC News by default)
-- Source attribution for each headline
-- Smooth transitions between stories
-
-#### Compliments & Jokes Component (`compliments_jokes.py`)
-- 1000+ positive messages and jokes
-- Time-based rotation for fresh content
-- Mood-lifting content to start the day
-- Local content (no API dependencies)
+Tap any card to open its full-screen view; it auto-closes after a countdown (reset by touch/mouse activity), or use the Back button. The trash-can icon in the full-screen nav bar force-clears that component's cache and refetches immediately.
 
 ## Component Development & Rate Limiting
 
 ### Cache JSON Decorator
 
-The `@cache_json` decorator in `src/utils/file_cache.py` provides file-based caching for component data fetching functions. This decorator is **essential** for implementing rate limiting and preventing excessive API calls.
+The `@cache_json` decorator in `src/utils/file_cache.py` provides file-based caching for component data-fetching functions. This decorator is **essential** for implementing rate limiting and preventing excessive API calls - it's the actual thing standing between this app and an API ban, independent of the in-memory `DataRepository` caching layer described above.
 
 #### Usage
 
@@ -285,66 +177,27 @@ def fetch(self) -> dict:
 Different components use appropriate cache lifetimes based on data update frequency:
 
 - **TFL Arrivals**: `30 seconds` - Real-time transport data changes frequently
-- **Weather**: `30 minutes` - Weather conditions update periodically
-- **Google Calendar**: `1 hour` - Calendar events don't change often during the day
-- **Sports**: `6 hours` - Match schedules are relatively static
-- **News**: `15 minutes` - News headlines update regularly
-- **Compliments/Jokes**: No caching - Static local content
+- **Weather**: `15 minutes` - Weather conditions update periodically
+- **Google Calendar**: `5 minutes` refresh cadence in `DataRepository` (the calendar API call itself isn't separately `@cache_json`-wrapped)
+- **Sports**: `36 hours` for the underlying HTML fetch - match schedules are relatively static
+- **News**: `20 minutes` - RSS headlines update periodically, no API key/quota to worry about
 
 ### **CRITICAL: Component Rate Limiting Requirements**
 
 ⚠️ **Component developers MUST implement proper rate limiting** ⚠️
 
-When multiple clients (browser instances, development servers, etc.) access your Magic Mirror application simultaneously, each client will trigger its own data fetching cycle. Without proper rate limiting, this can lead to:
+Without it, every browser tab or dev restart could trigger its own fetch cycle against an external API, risking quota exhaustion or a temporary ban. Two layers protect against this here:
 
-1. **API quota exhaustion** - Hitting rate limits on external APIs
-2. **Increased latency** - Too many concurrent requests slowing down responses  
-3. **Potential service blocking** - APIs may temporarily ban your IP address
-4. **Resource waste** - Unnecessary network and computational overhead
+1. `DataRepository` ensures only one background loop per component fetches data, no matter how many browser tabs are open.
+2. `@cache_json` on the actual network-calling function in `data.py` ensures that even a fresh fetch cycle (e.g. app restart) reuses a still-valid cached response instead of hitting the API again.
 
-**The `@cache_json` decorator makes rate limiting trivial to implement.** Simply:
-
-1. Decorate your `fetch()` method with `@cache_json(valid_lifetime=...)`
-2. Choose an appropriate cache lifetime for your data source
-3. The decorator handles all caching logic automatically
+New components should register with `DataRepository` (by subclassing `DataDrivenComponent`) **and** wrap their actual HTTP-calling function with `@cache_json(valid_lifetime=...)`, choosing a lifetime appropriate to how often the underlying data actually changes.
 
 ### Design Flaws & Considerations
 
-While the `cache_json` decorator provides effective rate limiting, there are some design limitations to be aware of:
+The `cache_json` decorator provides effective rate limiting, but it's a simple file-based cache, not a production caching system:
 
-#### 1. **File System Race Conditions**
-- **Issue**: Multiple processes writing cache files simultaneously could cause corruption
-- **Impact**: Rare, but could result in cache misses or invalid JSON
-- **Mitigation**: Consider file locking for high-concurrency scenarios
-
-#### 2. **Cache Invalidation Complexity**
-- **Issue**: No mechanism to invalidate cache based on external events
-- **Impact**: Stale data may persist until cache expires naturally
-- **Mitigation**: Use shorter cache lifetimes for critical data or implement manual cache clearing
-
-#### 3. **Memory vs Disk Trade-off**
-- **Issue**: File I/O overhead for each cache access
-- **Impact**: Slightly slower than in-memory caching
-- **Benefit**: Persistent across application restarts and shared between processes
-
-#### 4. **Cache Size Growth**
-- **Issue**: No automatic cleanup of old cache directories
-- **Impact**: Disk usage can grow over time
-- **Mitigation**: Consider implementing periodic cleanup of the cache directory
-
-#### 5. **Argument Serialization Limitations**
-- **Issue**: MD5 hash is based on string representation of arguments
-- **Impact**: Complex objects might not hash consistently
-- **Mitigation**: Use simple, hashable arguments or implement custom serialization
-
-#### 6. **No Cache Warming**
-- **Issue**: First request after cache expiration will be slow
-- **Impact**: Users may experience delays during cache refresh
-- **Mitigation**: Consider background cache refresh for critical components
-
-Despite these limitations, the `cache_json` decorator provides a robust, simple solution for most Magic Mirror component caching needs.
-
-# Allow `just run` to test sockets
-```sh
-sudo setcap cap_net_raw,cap_net_admin=eip "$(readlink -f "$(uv run which python)")"
-```
+1. **File system race conditions** - concurrent writes from multiple processes could rarely corrupt a cache file (mitigated: corrupt files are detected and refetched).
+2. **No external invalidation** - stale data persists until the cache naturally expires; use the full-screen modal's cache-clear button, or a shorter lifetime, if that matters for a given component.
+3. **No automatic cleanup** of old cache files - `magic-mirror-cache/`/`~/.cache/magic_mirror/` will grow slowly over time.
+4. **Argument hashing** is based on the string representation of arguments (MD5) - fine for simple hashable arguments, not guaranteed stable for complex objects.
