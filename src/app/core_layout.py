@@ -26,7 +26,7 @@ def _full_screen_modal() -> Component:
             "top": "0",
             "left": "0",
             "width": "100vw",
-            "height": "100vh",
+            "height": "var(--vh, 100vh)",
             "margin": "0",
             "padding": "0",
             "background": COLORS["bg"],
@@ -118,7 +118,10 @@ def _full_screen_modal() -> Component:
                     html.Div(
                         id="full-screen-modal-content",
                         children=[],
-                        style={"height": "calc(100vh - 3.5rem)", "overflow": "auto"},
+                        style={
+                            "height": "calc(var(--vh, 100vh) - 3.5rem)",
+                            "overflow": "auto",
+                        },
                     ),
                 ],
             ),
@@ -155,7 +158,7 @@ def _mouse_movement_tracker() -> Component:
             "top": "0",
             "left": "0",
             "width": "100vw",
-            "height": "100vh",
+            "height": "var(--vh, 100vh)",
             "pointerEvents": "none",  # Don't interfere with other interactions
             "zIndex": -1,  # Behind everything else
         },

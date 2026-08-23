@@ -57,7 +57,8 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
                                 icon=fx.get("sport_icon", "mdi:help-circle"),
                                 style={
                                     "color": fx.get(
-                                        "sport_icon_color", COLORS["text_secondary"],
+                                        "sport_icon_color",
+                                        COLORS["text_secondary"],
                                     ),
                                     "flexShrink": "0",
                                     "fontSize": FONT_SIZES["heading"],

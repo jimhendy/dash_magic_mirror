@@ -23,21 +23,22 @@ html {
        and height) scales sensibly regardless of portrait/landscape
        orientation, clamped to a sane readable range. */
     font-size: clamp(15px, 1.35vmin, 19px);
-    /* `vh` first as a fallback: on a browser too old to understand `dvh`
-       (a real risk on an older Android tablet's WebView), the `dvh` line
-       is simply ignored as an invalid value and the `vh` one stands - the
-       container still fills the screen. Declaring `dvh` alone would leave
-       height unset entirely on such a browser (shrink-to-content instead
-       of filling the viewport), which is what caused space-evenly to have
-       nothing to distribute into. */
+    /* `vh`/`dvh` are handled inconsistently across mobile WebViews (seen:
+       fine in desktop Chrome, wrong in Fully Kiosk Browser on Android) -
+       `viewport-height.js` measures the real height in JS and pins it as
+       `--vh`, which wins once it runs. The `vh`/`dvh` chain below is only
+       the fallback for the brief instant before that script executes, and
+       for the rare browser where JS is somehow unavailable. */
     height: 100vh;
     height: 100dvh;
+    height: var(--vh, 100dvh);
     overflow: hidden;
 }
 
 body {
     height: 100vh;
     height: 100dvh;
+    height: var(--vh, 100dvh);
     width: 100vw;
     margin: 0;
     padding: 0;
@@ -98,6 +99,7 @@ img {
 #app-div {
     height: 100vh;
     height: 100dvh;
+    height: var(--vh, 100dvh);
 }
 
 /* ---------------------------------------------------------------------- */

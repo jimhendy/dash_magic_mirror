@@ -48,7 +48,8 @@ def _news_item(item: dict[str, Any]) -> html.Div:
 
 
 def render_news_fullscreen(
-    items: list[dict[str, Any]], component_id: str,
+    items: list[dict[str, Any]],
+    component_id: str,
 ) -> FullScreenResult:
     if not items:
         content = html.Div(

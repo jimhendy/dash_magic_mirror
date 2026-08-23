@@ -81,7 +81,8 @@ class BaseComponent(ABC):
             id=self.component_id,
             children=self._summary_layout(),
             style=merge_styles(
-                {"minHeight": 0, "overflow": "hidden"}, self.css_position,
+                {"minHeight": 0, "overflow": "hidden"},
+                self.css_position,
             ),
             n_clicks=0,
         )

@@ -73,8 +73,16 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
             html.Div(
                 style={"display": "flex", "gap": "1.5rem"},
                 children=[
-                    _render_day_column(today, single_today_events),
-                    _render_day_column(tomorrow, single_tomorrow_events),
+                    _render_day_column(
+                        today,
+                        single_today_events,
+                        covered_by_multi_day=bool(multi_day_events),
+                    ),
+                    _render_day_column(
+                        tomorrow,
+                        single_tomorrow_events,
+                        covered_by_multi_day=bool(multi_day_events),
+                    ),
                 ],
             ),
         ],
@@ -121,20 +129,31 @@ _MAX_EVENTS_PER_DAY = 4
 def _render_day_column(
     date: datetime.date,
     events: list[CalendarEvent],
+    *,
+    covered_by_multi_day: bool = False,
 ) -> html.Div:
     """Render a single day column: plain event rows, colored only by a thin
     left accent bar per event. Which column is "today" vs "tomorrow" is
     obvious from position alone, so no label is rendered.
+
+    `covered_by_multi_day` means a multi-day event bar (rendered above both
+    columns) already spans this day - so an empty `events` list here isn't
+    actually an empty day, and "Nothing scheduled" would be wrong.
     """
     visible = events[:_MAX_EVENTS_PER_DAY]
     overflow_count = len(events) - len(visible)
 
-    rows = [_render_event(event, date) for event in visible] or [
-        html.Div(
-            "Nothing scheduled",
-            style={"fontSize": FONT_SIZES["meta"], "color": COLORS["text_muted"]},
-        ),
-    ]
+    if visible:
+        rows = [_render_event(event, date) for event in visible]
+    elif covered_by_multi_day:
+        rows = []
+    else:
+        rows = [
+            html.Div(
+                "Nothing scheduled",
+                style={"fontSize": FONT_SIZES["meta"], "color": COLORS["text_muted"]},
+            ),
+        ]
     if overflow_count > 0:
         rows.append(
             html.Div(
@@ -163,7 +182,9 @@ def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div
     event_ends_here = event.end_datetime.date() == display_date
     accent_color = get_event_color_by_event(event.id)
     time_display = generate_event_time_display(
-        event, event_starts_here, event_ends_here,
+        event,
+        event_starts_here,
+        event_ends_here,
     )
 
     return html.Div(

@@ -132,7 +132,8 @@ class Header(BaseComponent):
                     [
                         html.Div(),  # left spacer, mirrors the right column
                         html.Span(
-                            id=f"{self.component_id}-hour-minute", style=hero_style(),
+                            id=f"{self.component_id}-hour-minute",
+                            style=hero_style(),
                         ),
                         html.Span(
                             id=f"{self.component_id}-seconds",

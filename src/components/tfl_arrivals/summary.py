@@ -18,7 +18,10 @@ def render_tfl_summary(
     next_arrivals = arrivals[:2]
 
     status_row = _create_status_row(
-        line_ids, line_status, stop_disruptions, station_name,
+        line_ids,
+        line_status,
+        stop_disruptions,
+        station_name,
     )
 
     children: list[html.Div] = [html.Div("Transport", style=kicker_style())]

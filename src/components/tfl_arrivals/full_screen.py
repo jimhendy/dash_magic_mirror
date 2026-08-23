@@ -471,7 +471,8 @@ def _create_station_status_table(
                         ),
                     ],
                     style=row_style(
-                        divider=True, borderLeft=f"2px solid {COLORS['gold']}",
+                        divider=True,
+                        borderLeft=f"2px solid {COLORS['gold']}",
                     ),
                 )
                 rows.append(row)

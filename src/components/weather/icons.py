@@ -37,7 +37,9 @@ _ICON_RULES: list[tuple[tuple[str, ...], str, str]] = [
 
 
 def get_weather_icon(
-    condition_text: str | None, *, is_day: bool = True,
+    condition_text: str | None,
+    *,
+    is_day: bool = True,
 ) -> tuple[str, str]:
     """Resolve a WeatherAPI condition string to an (icon_name, color) pair."""
     text = (condition_text or "").lower()

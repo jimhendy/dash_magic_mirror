@@ -175,7 +175,10 @@ def hero_style(size: str = FONT_SIZES["display"], **overrides: Any) -> dict[str,
 
 
 def row_style(
-    *, divider: bool = False, accent: bool = False, **overrides: Any,
+    *,
+    divider: bool = False,
+    accent: bool = False,
+    **overrides: Any,
 ) -> dict[str, Any]:
     """The default treatment for a repeated list item (a calendar event, an
     arrival, a fixture, a headline): no border, no background box, no
