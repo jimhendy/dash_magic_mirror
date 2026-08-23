@@ -223,18 +223,20 @@ def core_layout() -> Component:
                         "display": "flex",
                         "flexDirection": "column",
                         # Auto-distribute any leftover vertical space as
-                        # extra breathing room *between* sections, instead
-                        # of leaving it stranded below the last one. `gap`
-                        # is still a floor under that (never less than
-                        # `section_gap()`, even if content nearly fills the
-                        # screen). `overflow: hidden` + each component's
-                        # own `minHeight: 0` (see components/base.py) is
-                        # what guarantees this never scrolls even if
-                        # content ever exceeds the viewport: components
-                        # shrink to fit instead.
-                        "justifyContent": "space-evenly",
+                        # extra breathing room *between* sections only - the
+                        # first section sits flush against the top and the
+                        # last flush against the bottom (`space-between`,
+                        # not `space-evenly`, and no top/bottom padding).
+                        # `gap` is still a floor under that (never less
+                        # than `section_gap()`, even if content nearly
+                        # fills the screen). `overflow: hidden` + each
+                        # component's own `minHeight: 0` (see
+                        # components/base.py) is what guarantees this
+                        # never scrolls even if content ever exceeds the
+                        # viewport: components shrink to fit instead.
+                        "justifyContent": "space-between",
                         "gap": section_gap(),
-                        "padding": f"{SPACE['lg']} {SPACE['xl']}",
+                        "padding": f"0 {SPACE['xl']}",
                         "overflow": "hidden",
                         "boxSizing": "border-box",
                     },
