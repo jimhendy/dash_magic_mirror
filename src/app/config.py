@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from components.google_calendar import GoogleCalendar
 from components.header import Header
 from components.header.component import PersonPresence, _norm
+from components.markets import Markets
 from components.news import News
 from components.news.constants import DEFAULT_RSS_URL
 from components.sports import Sports
@@ -89,6 +90,7 @@ COMPONENTS = [
         summary_ignore_destination=TFL_SUMMARY_IGNORE_DESTINATION,
         line_status_ids=TFL_LINE_STATUS_IDS,
     ),
+    Markets(),
     Sports(),
     News(
         rss_url=os.environ.get("NEWS_RSS_URL", DEFAULT_RSS_URL),

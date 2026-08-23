@@ -1,11 +1,6 @@
-"""Pure-CSS sparklines for the weather summary.
-
-Built from a single `clip-path: polygon(...)` div rather than SVG or a
-charting library - Dash's `html` module has no SVG primitives, and pulling
-in a new dependency (or a full Plotly figure) for a small decorative trend
-indicator would be overkill next to a technique CSS already supports
-natively. Percentages in `clip-path` are relative to the element's own box,
-so this stays fully responsive to whatever width/height it's given.
+"""Weather-specific sparkline assembly - the actual sparkline mechanics
+(clip-path polygons) live in `utils.sparkline`, shared with the markets
+component.
 """
 
 from __future__ import annotations
@@ -16,13 +11,19 @@ from typing import Any
 from dash import html
 
 from utils.dates import local_now
+from utils.sparkline import sparkline
 from utils.styles import COLORS, FONT_SIZES
 
+SPARKLINE_HOURS = 48
 
-def _next_24h(hourly_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Filter the (today+tomorrow) hourly forecast down to the next 24h from now."""
+
+def _next_hours(
+    hourly_data: list[dict[str, Any]],
+    hours: int = SPARKLINE_HOURS,
+) -> list[dict[str, Any]]:
+    """Filter the hourly forecast down to the next `hours` from now."""
     now = local_now()
-    window_end = now + datetime.timedelta(hours=24)
+    window_end = now + datetime.timedelta(hours=hours)
     tz = now.tzinfo
 
     upcoming = []
@@ -38,52 +39,25 @@ def _next_24h(hourly_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return upcoming
 
 
-def _area_polygon(values: list[float], *, pad: float = 0.15) -> str:
-    """A `clip-path: polygon(...)` string tracing a filled area under `values`."""
-    lo, hi = min(values), max(values)
-    span = (hi - lo) or 1.0
-    # Pad the range so the trend doesn't touch the very top/bottom edge.
-    lo -= span * pad
-    hi += span * pad
-    span = hi - lo
-
-    n = len(values)
-    points = [
-        f"{(i / (n - 1)) * 100:.2f}% {100 - ((v - lo) / span) * 100:.2f}%"
-        for i, v in enumerate(values)
-    ]
-    return "polygon(0% 100%, " + ", ".join(points) + ", 100% 100%)"
-
-
-def _sparkline(values: list[float], *, color: str, height: str) -> html.Div:
-    return html.Div(
-        style={
-            "height": height,
-            "width": "100%",
-            "background": f"linear-gradient(180deg, {color}66 0%, {color}0d 100%)",
-            "clipPath": _area_polygon(values),
-        },
-    )
-
-
 def render_weather_sparklines(hourly_data: list[dict[str, Any]]) -> html.Div | None:
-    """Next-24h temperature + rain-chance mini trend charts - fills the
-    horizontal space between current conditions and the today/tomorrow
-    stats in the summary row with something more useful than empty space.
+    """Next-48h temperature / rain-chance / cloud-cover mini trend charts -
+    fills the horizontal space between current conditions and tomorrow's
+    preview in the summary row with something more useful than empty space.
     """
-    upcoming = _next_24h(hourly_data)
+    upcoming = _next_hours(hourly_data)
     if len(upcoming) < 2:
         return None
 
     temps = [h.get("temp_c", 0) for h in upcoming]
     rain = [h.get("rain_chance", 0) for h in upcoming]
+    cloud = [h.get("cloud", 0) for h in upcoming]
 
     return html.Div(
         [
             html.Div(
                 [
                     html.Span(
-                        "Next 24h",
+                        "Next 48h",
                         style={
                             "fontSize": FONT_SIZES["small"],
                             "color": COLORS["text_muted"],
@@ -103,11 +77,22 @@ def render_weather_sparklines(hourly_data: list[dict[str, Any]]) -> html.Div | N
                 style={
                     "display": "flex",
                     "justifyContent": "space-between",
-                    "marginBottom": "0.3rem",
+                    "marginBottom": "0.25rem",
                 },
             ),
-            _sparkline(temps, color=COLORS["gold"], height="2.1rem"),
-            _sparkline(rain, color=COLORS["accent"], height="1.1rem"),
+            sparkline(temps, color=COLORS["gold"], height="1.9rem"),
+            # Rain chance and cloud cover are always 0-100%, scaled to that
+            # fixed range (not their own min/max) so height is a true
+            # reading of "how much", comparable across sparklines/refreshes.
+            sparkline(
+                rain, color=COLORS["accent"], height="0.9rem", fixed_range=(0, 100)
+            ),
+            sparkline(
+                cloud,
+                color=COLORS["text_secondary"],
+                height="0.9rem",
+                fixed_range=(0, 100),
+            ),
         ],
         style={
             "display": "flex",

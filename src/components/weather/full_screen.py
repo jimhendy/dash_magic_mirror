@@ -10,6 +10,16 @@ from utils.dates import get_app_timezone, local_now
 from utils.styles import COLORS, FONT_FAMILY, SPACE, row_style
 
 
+def _with_alpha(hex_color: str, alpha: float) -> str:
+    """`#RRGGBB` -> `rgba(r, g, b, alpha)` - Plotly fill colors need an
+    explicit rgba string, unlike the CSS hex-alpha-suffix trick used
+    elsewhere in this app.
+    """
+    hex_color = hex_color.lstrip("#")
+    r, g, b = (int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+    return f"rgba({r}, {g}, {b}, {alpha})"
+
+
 def _format_day_name(date: str | datetime.date | datetime.datetime) -> str:
     """Format date to day name (e.g., '2025-08-25' -> '25th')."""
     if isinstance(date, datetime.date):
@@ -83,11 +93,29 @@ def _create_hourly_timeseries(
 
     temp_color = COLORS["gold"]
     rain_color = COLORS["accent"]
+    cloud_color = COLORS["text_secondary"]
 
     # Create single plot (no subplots)
     fig = go.Figure()
 
-    # Rain chance area (right axis)
+    # Cloud cover: a soft ambient backdrop (area only, no visible line),
+    # added first so it renders behind the rain/temperature traces.
+    fig.add_trace(
+        go.Scatter(
+            x=[hd.time for hd in hour_data],
+            y=[hd.cloud_cover for hd in hour_data],
+            mode="lines",
+            name="Cloud Cover",
+            line=dict(color=cloud_color, width=0),
+            fill="tozeroy",
+            fillcolor=_with_alpha(cloud_color, 0.14),
+            yaxis="y2",
+            line_shape=line_shape,
+            hoverinfo="skip",
+        ),
+    )
+
+    # Rain chance: area + line, matching the summary sparkline's styling.
     fig.add_trace(
         go.Scatter(
             x=[hd.time for hd in hour_data],
@@ -95,12 +123,15 @@ def _create_hourly_timeseries(
             mode="lines",
             name="Rain Chance",
             line=dict(color=rain_color, width=2),
+            fill="tozeroy",
+            fillcolor=_with_alpha(rain_color, 0.22),
             yaxis="y2",
             line_shape=line_shape,
         ),
     )
 
-    # Temperature line
+    # Temperature: the dominant signal - a clean bold line reads clearly on
+    # its own, so it's left unfilled rather than tinting the whole chart.
     fig.add_trace(
         go.Scatter(
             x=[hd.time for hd in hour_data],
