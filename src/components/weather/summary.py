@@ -7,6 +7,8 @@ from dash_iconify import DashIconify
 from utils.dates import local_today
 from utils.styles import COLORS, FONT_SIZES, WEIGHT, hero_style, kicker_style
 
+from .sparkline import render_weather_sparklines
+
 
 def _stat_column(day_data: dict[str, Any]) -> html.Div:
     """High / rain% / low, stacked - plain text, no boxes or divider lines."""
@@ -54,14 +56,17 @@ def render_weather_summary(
     weather_data: dict[str, Any],
     component_id: str,
     icon_size: str = "5.5rem",
+    hourly_data: list[dict[str, Any]] | None = None,
 ) -> html.Div:
     """Kicker label, hero current temperature on the left, today/tomorrow
-    stats on the right - no boxes, no divider lines.
+    stats on the right, a next-24h sparkline filling the middle - no boxes,
+    no divider lines.
     """
     current = weather_data.get("current", {})
     today = weather_data.get("today", {})
     tomorrow = weather_data.get("tomorrow", {})
     location = weather_data.get("location", "")
+    sparklines = render_weather_sparklines(hourly_data or [])
 
     return html.Div(
         [
@@ -114,6 +119,10 @@ def render_weather_summary(
                             "gap": "1rem",
                         },
                     ),
+                    # Next-24h sparklines fill the space this row otherwise
+                    # leaves empty between current conditions and the
+                    # today/tomorrow stats.
+                    sparklines,
                     # Today / tomorrow stats
                     html.Div(
                         [

@@ -53,6 +53,7 @@ class Weather(DataDrivenComponent):
                 summary_data,
                 self.component_id,
                 self.icon_size,
+                hourly_data=detailed_data.get("hourly", []),
             )
             content = render_weather_fullscreen(detailed_data, self.component_id)
         except Exception:  # noqa: BLE001
