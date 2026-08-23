@@ -19,6 +19,7 @@ from .constants import (
     FORWARD_DELTA_SECONDS,
     LINE_COLORS,
     LINE_STATUS_API_URL,
+    MAX_ARRIVAL_WINDOW_MINUTES,
     RAIL_FALLBACK_COLOR,
     STOPPOINT_DISRUPTION_API_URL,
     TIMETABLE_API_URL,
@@ -357,7 +358,7 @@ def process_arrivals_data(
                 now = utc_now()
                 time_diff = (arrival_time - now).total_seconds()
                 minutes = max(0, int(time_diff // 60))
-                if minutes < 0 or minutes > 60:
+                if minutes < 0 or minutes > MAX_ARRIVAL_WINDOW_MINUTES:
                     continue
 
                 # Determine mode, icon, and line colour

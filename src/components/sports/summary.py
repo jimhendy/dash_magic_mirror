@@ -5,7 +5,7 @@ from dash import html
 from dash_iconify import DashIconify
 
 from utils.dates import _opacity_from_days_away, local_today
-from utils.styles import COLORS, FONT_SIZES, WEIGHT, kicker_style, row_style
+from utils.styles import COLORS, FONT_SIZES, WEIGHT, row_style
 
 
 def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
@@ -16,18 +16,12 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
 
     if not fixtures:
         return html.Div(
-            [
-                html.Div("Sports", style=kicker_style()),
-                html.Div(
-                    "No upcoming fixtures",
-                    style={
-                        "color": COLORS["text_muted"],
-                        "fontSize": FONT_SIZES["primary"],
-                        "padding": "0.4rem 0",
-                    },
-                ),
-            ],
-            style={"display": "flex", "flexDirection": "column", "gap": "0.4rem"},
+            "No upcoming fixtures",
+            style={
+                "color": COLORS["text_muted"],
+                "fontSize": FONT_SIZES["primary"],
+                "padding": "0.4rem 0",
+            },
         )
 
     today = local_today()
@@ -137,6 +131,6 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
         )
 
     return html.Div(
-        [html.Div("Sports", style=kicker_style()), *fixture_rows],
+        fixture_rows,
         style={"display": "flex", "flexDirection": "column", "gap": "0.2rem"},
     )

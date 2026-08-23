@@ -10,7 +10,7 @@ from utils.calendar import (
     truncate_event_title,
 )
 from utils.dates import local_today
-from utils.styles import COLORS, FONT_SIZES, WEIGHT, kicker_style
+from utils.styles import COLORS, FONT_SIZES, WEIGHT
 
 from .data import CalendarEvent, get_events_for_date
 from .utils import generate_event_time_display, prepare_events_for_rendering
@@ -60,7 +60,6 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
 
     return html.Div(
         [
-            html.Span("Calendar", style=kicker_style()),
             html.Div(
                 style={"display": "flex", "flexDirection": "column", "gap": "0.4rem"},
                 children=[

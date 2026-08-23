@@ -33,15 +33,7 @@ def render_weather_summary(
 
     return html.Div(
         [
-            html.Div(
-                [
-                    html.Span("Weather", style=kicker_style()),
-                    html.Span(location, style=kicker_style(color=COLORS["text_muted"]))
-                    if location
-                    else None,
-                ],
-                style={"display": "flex", "gap": "0.8rem", "alignItems": "baseline"},
-            ),
+            html.Div(location, style=kicker_style()) if location else None,
             html.Div(
                 [
                     # Current conditions: hero temp + icon

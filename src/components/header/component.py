@@ -8,7 +8,7 @@ from loguru import logger
 
 from components.base import BaseComponent
 from utils.data_repository import ComponentPayload, get_repository
-from utils.styles import COLORS, hero_style, kicker_style
+from utils.styles import COLORS, WEIGHT, hero_style, kicker_style
 
 from .constants import (
     DEFAULT_ARP_TIMEOUT,
@@ -110,8 +110,35 @@ class Header(BaseComponent):
                             },
                         ),
                         html.Div(
-                            id=f"{self.component_id}-date",
-                            style=kicker_style(),
+                            [
+                                html.Span(
+                                    id=f"{self.component_id}-date-weekday",
+                                    style=kicker_style(),
+                                ),
+                                # The day-of-month is the one number in the
+                                # date someone actually needs at a glance
+                                # (which day is it) - bigger and bright
+                                # rather than lost at the same weight as
+                                # the weekday/month text either side of it.
+                                html.Span(
+                                    id=f"{self.component_id}-date-day",
+                                    style={
+                                        "fontSize": "1.5rem",
+                                        "fontWeight": WEIGHT["bold"],
+                                        "color": COLORS["text"],
+                                        "fontVariantNumeric": "tabular-nums",
+                                    },
+                                ),
+                                html.Span(
+                                    id=f"{self.component_id}-date-month",
+                                    style=kicker_style(),
+                                ),
+                            ],
+                            style={
+                                "display": "flex",
+                                "alignItems": "baseline",
+                                "gap": "0.4rem",
+                            },
                         ),
                     ],
                     style={
@@ -169,19 +196,19 @@ class Header(BaseComponent):
             """
             function(n_intervals) {
                 const now = new Date();
-                const date = now.toLocaleDateString('en-UK', {
-                    weekday: 'long',
-                    day: 'numeric',
-                    month: 'long'
-                });
+                const weekday = now.toLocaleDateString('en-UK', { weekday: 'long' });
+                const day = now.getDate().toString();
+                const month = now.toLocaleDateString('en-UK', { month: 'long' });
                 const hours = now.getHours().toString();
                 const minutes = now.getMinutes().toString().padStart(2, '0');
                 const hourMinute = `${hours}:${minutes}`;
                 const seconds = now.getSeconds().toString().padStart(2, '0');
-                return [date, hourMinute, seconds];
+                return [weekday, day, month, hourMinute, seconds];
             }
             """,
-            Output(f"{self.component_id}-date", "children"),
+            Output(f"{self.component_id}-date-weekday", "children"),
+            Output(f"{self.component_id}-date-day", "children"),
+            Output(f"{self.component_id}-date-month", "children"),
             Output(f"{self.component_id}-hour-minute", "children"),
             Output(f"{self.component_id}-seconds", "children"),
             Input("one-second-timer", "n_intervals"),

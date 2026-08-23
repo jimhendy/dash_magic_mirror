@@ -22,7 +22,13 @@ from .summary import render_tfl_summary
 class TFLArrivals(DataDrivenComponent):
     """TFL Arrivals component for the Magic Mirror application.
 
-    Now fully parameterised; no direct environment reads in data layer.
+    Every configured stop is fetched once per refresh and processed two
+    ways from that single fetch: a direction-filtered, merged-across-stops
+    view for the summary timeline, and a per-stop unfiltered view for the
+    full-screen list (which has its own line filter for exploring
+    everything). Previously these were two separate fetch paths and the
+    "primary" stop was actually fetched twice per cycle - fetching once
+    and reusing it for both views is both simpler and less wasteful.
     """
 
     refresh_seconds = 30
@@ -32,44 +38,42 @@ class TFLArrivals(DataDrivenComponent):
 
     def __init__(
         self,
-        primary_stop_id: str,
         all_stop_ids: list[str],
         transfer_station_id: str = "",
         summary_ignore_destination: str = "",
         line_status_ids: list[str] | None = None,
         **kwargs,
     ):
-        self.primary_stop_id = primary_stop_id
         self.all_stop_ids = all_stop_ids
         self.transfer_station_id = transfer_station_id
         self.summary_ignore_destination = summary_ignore_destination
         self._line_status_ids = list(line_status_ids or [])
-        if not self.primary_stop_id:
-            logger.warning("Primary stop id not provided for TFLArrivals")
+        if not self.all_stop_ids:
+            logger.warning("No TFL stop ids configured for TFLArrivals")
         super().__init__(name="tfl_arrivals", **kwargs)
 
     async def _build_payload(self) -> ComponentPayload | None:
         return await asyncio.to_thread(self._compute_payload_sync)
 
     def _compute_payload_sync(self) -> ComponentPayload:
-        if not self.primary_stop_id:
+        if not self.all_stop_ids:
             return ComponentPayload(
-                summary=self._build_placeholder("Transport stop not configured"),
+                summary=self._build_placeholder("Transport stops not configured"),
             )
 
         try:
-            summary_arrivals, line_status, stop_disruptions = self._get_summary_data()
+            timeline_arrivals, arrivals_by_stop, line_status, stop_disruptions = (
+                self._get_arrivals_data()
+            )
             summary_children = render_tfl_summary(
-                summary_arrivals,
+                timeline_arrivals,
                 line_status,
                 stop_disruptions,
             )
-
-            all_arrivals, fs_line_status, fs_disruptions = self._get_fullscreen_data()
             fullscreen_content = render_tfl_fullscreen(
-                all_arrivals,
-                fs_line_status,
-                fs_disruptions,
+                arrivals_by_stop,
+                line_status,
+                stop_disruptions,
                 self.component_id,
             )
 
@@ -90,62 +94,58 @@ class TFLArrivals(DataDrivenComponent):
             fullscreen_title=title,
             fullscreen_content=fullscreen_content,
             raw={
-                "summary": summary_arrivals,
-                "summary_status": line_status,
-                "summary_disruptions": stop_disruptions,
-                "full": all_arrivals,
-                "full_status": fs_line_status,
-                "full_disruptions": fs_disruptions,
+                "timeline": timeline_arrivals,
+                "full": arrivals_by_stop,
+                "status": line_status,
+                "disruptions": stop_disruptions,
             },
         )
 
-    def _get_summary_data(self):
-        if not self.primary_stop_id:
-            return {}, {}, {}
-        arrivals = fetch_arrivals_for_stop(self.primary_stop_id)
-        arrivals_data = process_arrivals_data(
-            arrivals,
-            fetch_transfer_station_arrivals(self.transfer_station_id),
-            self.transfer_station_id,
-            self.summary_ignore_destination,
-            is_summary=True,
-        )
-        line_ids = list(self._line_status_ids) or arrivals_data.get("line_ids", [])
-
-        arrivals_data["line_ids"] = line_ids
-        line_status_raw = fetch_line_status(line_ids) if line_ids else []
-        line_status = process_line_status_data(line_status_raw)
-        stop_disruptions_raw = fetch_stoppoint_disruptions([self.primary_stop_id])
-        stop_disruptions = process_stoppoint_disruptions(stop_disruptions_raw)
-        return arrivals_data, line_status, stop_disruptions
-
-    def _get_fullscreen_data(self):
-        if not self.all_stop_ids:
-            return {}, {}, {}
-        all_arrivals_data = {}
-        all_line_ids = set(self._line_status_ids or [])
+    def _get_arrivals_data(self):
         transfer_station_arrivals = fetch_transfer_station_arrivals(
             self.transfer_station_id,
         )
-        for stop_id in self.all_stop_ids:
-            arrivals = fetch_arrivals_for_stop(stop_id)
-            arrivals_data = process_arrivals_data(
-                arrivals,
+        raw_by_stop = {
+            stop_id: fetch_arrivals_for_stop(stop_id) for stop_id in self.all_stop_ids
+        }
+
+        # Summary timeline: direction-filtered (via summary_ignore_destination)
+        # and merged across every configured stop, sorted by arrival time.
+        timeline_arrivals: list[dict] = []
+        all_line_ids = set(self._line_status_ids)
+        for raw in raw_by_stop.values():
+            processed = process_arrivals_data(
+                raw,
+                transfer_station_arrivals,
+                self.transfer_station_id,
+                self.summary_ignore_destination,
+                is_summary=True,
+            )
+            timeline_arrivals.extend(processed["arrivals"])
+            if not self._line_status_ids:
+                all_line_ids.update(processed["line_ids"])
+        timeline_arrivals.sort(key=lambda a: a["minutes"])
+
+        # Full-screen: unfiltered (every direction), kept per-stop.
+        arrivals_by_stop: dict[str, dict] = {}
+        for stop_id, raw in raw_by_stop.items():
+            processed = process_arrivals_data(
+                raw,
                 transfer_station_arrivals,
                 self.transfer_station_id,
                 self.summary_ignore_destination,
                 is_summary=False,
             )
-            line_ids = list(self._line_status_ids) or arrivals_data.get("line_ids", [])
-            arrivals_data["line_ids"] = line_ids
-
-            all_arrivals_data[stop_id] = arrivals_data
+            line_ids = list(self._line_status_ids) or processed["line_ids"]
+            processed["line_ids"] = line_ids
+            arrivals_by_stop[stop_id] = processed
             all_line_ids.update(line_ids)
+
         line_status_raw = fetch_line_status(list(all_line_ids)) if all_line_ids else []
         line_status = process_line_status_data(line_status_raw)
         stop_disruptions_raw = fetch_stoppoint_disruptions(self.all_stop_ids)
         stop_disruptions = process_stoppoint_disruptions(stop_disruptions_raw)
-        return all_arrivals_data, line_status, stop_disruptions
+        return timeline_arrivals, arrivals_by_stop, line_status, stop_disruptions
 
     def _add_callbacks(self, app: Dash) -> None:
         super()._add_callbacks(app)

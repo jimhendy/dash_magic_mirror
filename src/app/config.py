@@ -49,7 +49,6 @@ for key in sorted(all_keys):
     people.append(PersonPresence(name=raw_name, mac=macs[key], ip=ips[key]))
 
 # TFL configuration
-TFL_PRIMARY_STOP_ID = os.environ.get("TFL_STOP_ID_1", "")
 TFL_ALL_STOP_IDS = [
     os.environ[stop_id]
     for stop_id in os.environ
@@ -84,7 +83,6 @@ COMPONENTS = [
         ],
     ),
     TFLArrivals(
-        primary_stop_id=TFL_PRIMARY_STOP_ID,
         all_stop_ids=TFL_ALL_STOP_IDS,
         transfer_station_id=TFL_TRANSFER_STATION_ID,
         summary_ignore_destination=TFL_SUMMARY_IGNORE_DESTINATION,

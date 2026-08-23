@@ -2,7 +2,7 @@ from typing import Any
 
 from dash import html
 
-from utils.styles import COLORS, FONT_SIZES, kicker_style
+from utils.styles import COLORS, FONT_SIZES
 
 
 def render_news_summary(items: list[dict[str, Any]], component_id: str) -> html.Div:
@@ -13,17 +13,8 @@ def render_news_summary(items: list[dict[str, Any]], component_id: str) -> html.
     """
     if not items:
         return html.Div(
-            [
-                html.Div("News", style=kicker_style()),
-                html.Div(
-                    "No headlines available",
-                    style={
-                        "color": COLORS["text_muted"],
-                        "fontSize": FONT_SIZES["secondary"],
-                    },
-                ),
-            ],
-            style={"display": "flex", "flexDirection": "column", "gap": "0.4rem"},
+            "No headlines available",
+            style={"color": COLORS["text_muted"], "fontSize": FONT_SIZES["secondary"]},
         )
 
     headline_rows = [
@@ -62,18 +53,7 @@ def render_news_summary(items: list[dict[str, Any]], component_id: str) -> html.
     ]
 
     return html.Div(
-        [
-            html.Div("News", style=kicker_style()),
-            html.Div(
-                headline_rows,
-                id=f"{component_id}-headlines-wrapper",
-                style={"width": "100%", "overflow": "hidden"},
-            ),
-        ],
-        style={
-            "display": "flex",
-            "flexDirection": "column",
-            "gap": "0.35rem",
-            "width": "100%",
-        },
+        headline_rows,
+        id=f"{component_id}-headlines-wrapper",
+        style={"width": "100%", "overflow": "hidden"},
     )

@@ -14,6 +14,9 @@ TIMETABLE_API_URL: str = (
 FORWARD_DELTA_SECONDS: int = (
     15  # Minimum forward delta to regard transfer station as ahead
 )
+# How far ahead arrivals are considered at all - drives both the raw
+# filtering in `process_arrivals_data` and the summary timeline's span.
+MAX_ARRIVAL_WINDOW_MINUTES: int = 90
 
 # Canonical TFL line colours (by line id)
 # Source: Transport for London brand guidelines (approximate hex values)
@@ -48,5 +51,5 @@ LINE_COLORS: dict[str, str] = {
 # Fallback colours
 # TfL bus red; used for bus routes not in LINE_COLORS
 BUS_FALLBACK_COLOR: str = "#EE3124"
-# Generic non-bus (rail/tube) fallback; aligned with app's blue accent
-RAIL_FALLBACK_COLOR: str = "#4A90E2"
+# Generic non-bus (rail/tube) fallback; aligned with app's accent color
+RAIL_FALLBACK_COLOR: str = "#5EEAD4"
