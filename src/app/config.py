@@ -81,8 +81,6 @@ COMPONENTS = [
             for calendar_id in os.environ
             if calendar_id.startswith("GOOGLE_CALENDAR_ID_")
         ],
-        bin_collection_postcode=os.environ.get("BIN_COLLECTION_POSTCODE", ""),
-        bin_collection_address=os.environ.get("BIN_COLLECTION_ADDRESS", ""),
     ),
     TFLArrivals(
         all_stop_ids=TFL_ALL_STOP_IDS,

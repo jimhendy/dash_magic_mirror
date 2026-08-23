@@ -97,8 +97,6 @@ The whole UI is built from one token module, `src/utils/styles.py`, in an editor
 - Health checks (curl is installed in the image specifically for this)
 - Read-only mounting of configuration files
 
-The image is Debian-based (not Alpine) and bundles a headless Chromium via Playwright for the bin-collection scrape (see [Features](#features)), so it's noticeably larger than a typical Python service image - a one-time build cost, since that scrape only runs once every few days.
-
 ## Configuration
 
 The application uses environment variables and `src/app/config.py` for configuration.
@@ -135,13 +133,12 @@ Copy `.env.example` to `.env` and customize:
 - **Weather**: Set your postcode and WeatherAPI key
 - **Google Calendar**: Configure calendar IDs
 - **News**: Optional `NEWS_RSS_URLS` (comma-separated) - defaults to BBC World + Guardian World, no key required
-- **Bin Collection**: Optional `BIN_COLLECTION_POSTCODE` / `BIN_COLLECTION_ADDRESS` (Waltham Forest Council only) - overlays bin-collection dates onto the calendar; leave both unset to skip
 
 ## Features
 
 - **Header (Clock + Presence)** - Unified time + household presence badges
 - **Weather** - Current conditions and multi-day forecast (WeatherAPI.com), plus an hourly temperature/rain-chance chart in the full-screen view
-- **Google Calendar** - Upcoming events across multiple calendars, with smart date formatting and birthday detection; optionally overlays Waltham Forest Council bin-collection dates (presentation only - nothing is written to the underlying calendar)
+- **Google Calendar** - Upcoming events across multiple calendars, with smart date formatting and birthday detection
 - **TFL Transport** - Real-time London public transport arrivals, line status, and disruptions
 - **Sports Fixtures** - Upcoming matches across configured teams/sports, scraped from Where's The Match
 - **News** - Rotating headlines from an RSS feed (default BBC News), full list in the full-screen view
@@ -184,7 +181,6 @@ Different components use appropriate cache lifetimes based on data update freque
 - **Google Calendar**: `5 minutes` refresh cadence in `DataRepository` (the calendar API call itself isn't separately `@cache_json`-wrapped)
 - **Sports**: `36 hours` for the underlying HTML fetch - match schedules are relatively static
 - **News**: `20 minutes` - RSS headlines update periodically, no API key/quota to worry about
-- **Bin Collection**: `3 days` - a headless-browser scrape (Playwright/Chromium; the council's lookup has no API), and the site only ever exposes the *next* collection date per waste stream anyway
 
 ### **CRITICAL: Component Rate Limiting Requirements**
 

@@ -1,19 +1,11 @@
-# Playwright's headless Chromium (used for the bin-collection scrape) only
-# ships binaries for glibc distros, not musl/Alpine, so this is Debian-based
-# rather than the alpine image used previously.
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.13-alpine
 
-# curl is needed for docker-compose's healthcheck; not present by default.
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
+# curl is needed for docker-compose's healthcheck; not present on alpine by default.
+RUN apk add --no-cache curl
 
 WORKDIR /app
 COPY pyproject.toml uv.lock README.md /app/
 RUN uv sync
-
-# Chromium itself plus the OS libraries it needs - installed via Playwright's
-# own CLI rather than hand-tracking its many transitive apt packages.
-RUN uv run playwright install --with-deps chromium
 
 COPY . /app
 WORKDIR /app/src

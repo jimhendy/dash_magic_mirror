@@ -16,7 +16,6 @@ dependencies = [
     "beautifulsoup4>=4.12.3",
     "dash-iconify>=0.1.2",
     "scapy>=2.5.0", # optional: active ARP scanning for Presence
-    "playwright>=1.47.0", # headless browser for the bin-collection scrape
 ]
 
 [dependency-groups]
