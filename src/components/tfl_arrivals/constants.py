@@ -16,7 +16,7 @@ FORWARD_DELTA_SECONDS: int = (
 )
 # How far ahead arrivals are considered at all - drives both the raw
 # filtering in `process_arrivals_data` and the summary timeline's span.
-MAX_ARRIVAL_WINDOW_MINUTES: int = 90
+MAX_ARRIVAL_WINDOW_MINUTES: int = 30
 
 # Canonical TFL line colours (by line id)
 # Source: Transport for London brand guidelines (approximate hex values)
