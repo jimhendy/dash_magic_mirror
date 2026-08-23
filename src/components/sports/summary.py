@@ -4,15 +4,33 @@ from typing import Any
 from dash import html
 from dash_iconify import DashIconify
 
-from utils.dates import _opacity_from_days_away, local_today
-from utils.styles import COLORS, FONT_SIZES, WEIGHT, row_style
+from utils.dates import local_today
+from utils.styles import COLORS, FONT_SIZES, WEIGHT
+
+# Same "everything positioned inside an explicitly-sized box" geometry
+# approach as the TFL arrivals timeline (src/components/tfl_arrivals/summary.py) -
+# a badge tier, a line, and two label tiers (to dodge same-day collisions).
+_BADGE_SIZE = "1.9rem"
+_BADGE_TOP = "0"
+_LINE_TOP = "2.2rem"
+_LABEL_TIER_1_TOP = "2.5rem"
+_LABEL_TIER_2_TOP = "3.7rem"
+_TIMELINE_HEIGHT = "4.9rem"
+
+WINDOW_DAYS = 7
 
 
 def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
-    """Render the sports summary view with next 3 fixtures in 7 days."""
+    """Render the sports summary as a single 7-day timeline, mirroring the
+    TFL arrivals timeline, instead of one full-width row per fixture - a
+    crest/icon badge per fixture is a far more compact way to show "who's
+    playing and when" than a text row; tapping the card still opens the
+    full-screen view for the rest of the details (competition, channel,
+    per-sport filtering).
+    """
     from .data import get_summary_fixtures
 
-    fixtures = get_summary_fixtures(data)
+    fixtures = get_summary_fixtures(data, limit=8, days_ahead=WINDOW_DAYS)
 
     if not fixtures:
         return html.Div(
@@ -24,113 +42,164 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
             },
         )
 
+    return _timeline(fixtures, days_ahead=WINDOW_DAYS)
+
+
+def _fixture_label(fx: dict[str, Any], date_obj: datetime.date, is_today: bool) -> str:
+    day_part = "TODAY" if is_today else date_obj.strftime("%a")
+    time_part = fx.get("time", "")
+    return f"{day_part} {time_part}".strip()
+
+
+def _badge_style(fx: dict[str, Any], pct: float, ring: str) -> dict:
+    has_crest = bool(fx.get("crest"))
+    return {
+        "position": "absolute",
+        "left": f"{pct}%",
+        "top": _BADGE_TOP,
+        "transform": "translate(-50%, 0)",
+        "width": _BADGE_SIZE,
+        "height": _BADGE_SIZE,
+        "borderRadius": "50%",
+        "background": "#ffffff"
+        if has_crest
+        else fx.get("sport_icon_color", COLORS["text_secondary"]),
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "boxSizing": "border-box",
+        "padding": "0.2rem",
+        "boxShadow": ring,
+        "flexShrink": 0,
+    }
+
+
+def _timeline(fixtures: list[dict[str, Any]], days_ahead: int) -> html.Div:
+    """A single horizontal line spanning "today" to `days_ahead` from now.
+    Each fixture is a badge on the line - the followed team's crest where
+    known, otherwise a colored sport icon - positioned by date (and, where
+    a kickoff time is known, time of day) with a day/time label below.
+
+    As with the TFL timeline, labels alternate between two vertical tiers
+    so two fixtures landing close together don't overlap illegibly.
+    """
     today = local_today()
-    fixture_rows = []
+    min_gap_pct = 8.0
+    last_tier_1_pct: float | None = None
 
+    markers: list[html.Div] = []
     for fx in fixtures:
-        date_display = ""
-        is_today = False
-        date_obj = None
+        if not fx.get("parsed_date"):
+            continue
+        try:
+            date_obj = datetime.date.fromisoformat(fx["parsed_date"])
+        except ValueError:
+            continue
 
-        if fx.get("parsed_date"):
-            try:
-                date_obj = datetime.date.fromisoformat(fx["parsed_date"])
-                is_today = date_obj == today
-                date_display = "TODAY" if is_today else date_obj.strftime("%a %d %b")
-            except ValueError:
-                date_display = fx.get("date_time_raw", "")[:20]
+        days_away = (date_obj - today).days
+        time_str = fx.get("time", "")
+        try:
+            hour_str, minute_str = time_str.split(":", 1)
+            time_frac = (int(hour_str) + int(minute_str) / 60) / 24
+        except (ValueError, AttributeError):
+            time_frac = 0.5  # unknown kickoff time - place mid-day
 
-        crest = fx.get("crest")
+        pct = max(0.0, min(100.0, ((days_away + time_frac) / days_ahead) * 100))
+        is_today = days_away == 0
+        has_crest = bool(fx.get("crest"))
 
-        fixture_rows.append(
+        if last_tier_1_pct is None or pct - last_tier_1_pct >= min_gap_pct:
+            label_top = _LABEL_TIER_1_TOP
+            last_tier_1_pct = pct
+        else:
+            label_top = _LABEL_TIER_2_TOP
+
+        ring = (
+            f"0 0 0 2px {COLORS['bg']}, 0 0 0 4px {COLORS['accent']}"
+            if is_today
+            else f"0 0 0 2px {COLORS['bg']}"
+        )
+
+        markers.append(
             html.Div(
                 [
-                    html.Div(
-                        [
-                            DashIconify(
-                                icon=fx.get("sport_icon", "mdi:help-circle"),
-                                style={
-                                    "color": fx.get(
-                                        "sport_icon_color",
-                                        COLORS["text_secondary"],
-                                    ),
-                                    "flexShrink": "0",
-                                    "fontSize": FONT_SIZES["heading"],
-                                    "display": "none" if crest else "block",
-                                },
-                            ),
-                            html.Img(
-                                src=crest,
-                                style={
-                                    "height": "2.125rem",
-                                    "width": "2.125rem",
-                                    "objectFit": "contain",
-                                    "display": "block" if crest else "none",
-                                },
-                            ),
-                            html.Span(
-                                f"{fx.get('home', '?')} vs {fx.get('away', '?')}",
-                                style={
-                                    "fontWeight": WEIGHT["semibold"]
-                                    if is_today
-                                    else WEIGHT["regular"],
-                                    "color": COLORS["text"],
-                                    "fontSize": FONT_SIZES["primary"],
-                                    "overflow": "hidden",
-                                    "textOverflow": "ellipsis",
-                                    "whiteSpace": "nowrap",
-                                },
-                            ),
-                        ],
+                    html.Img(
+                        src=fx.get("crest"),
                         style={
-                            "display": "flex",
-                            "alignItems": "center",
-                            "gap": "0.6rem",
-                            "flex": "1",
-                            "minWidth": "0",
+                            "width": "100%",
+                            "height": "100%",
+                            "objectFit": "contain",
+                            "display": "block" if has_crest else "none",
                         },
                     ),
-                    html.Div(
-                        [
-                            html.Span(
-                                date_display,
-                                style={
-                                    "color": COLORS["accent"]
-                                    if is_today
-                                    else COLORS["text_secondary"],
-                                    "fontWeight": WEIGHT["semibold"]
-                                    if is_today
-                                    else WEIGHT["regular"],
-                                    "fontSize": FONT_SIZES["secondary"],
-                                },
-                            ),
-                            html.Span(
-                                fx.get("time", ""),
-                                style={
-                                    "color": COLORS["gold"],
-                                    "fontWeight": WEIGHT["semibold"],
-                                    "fontSize": FONT_SIZES["secondary"],
-                                    "marginLeft": "0.5rem",
-                                },
-                            ),
-                        ],
-                        style={"whiteSpace": "nowrap"},
+                    DashIconify(
+                        icon=fx.get("sport_icon", "mdi:help-circle"),
+                        style={
+                            "color": "#0a0a0a",
+                            "fontSize": "1rem",
+                            "display": "none" if has_crest else "block",
+                        },
                     ),
                 ],
-                style=row_style(
-                    divider=True,
-                    display="flex",
-                    alignItems="center",
-                    justifyContent="space-between",
-                    opacity=_opacity_from_days_away(date_obj),
-                    borderLeft=f"2px solid {COLORS['accent']}"
-                    if is_today
-                    else "2px solid transparent",
-                ),
+                style=_badge_style(fx, pct, ring),
+            ),
+        )
+        markers.append(
+            html.Div(
+                _fixture_label(fx, date_obj, is_today),
+                style={
+                    "position": "absolute",
+                    "left": f"{pct}%",
+                    "top": label_top,
+                    "transform": "translateX(-50%)",
+                    "fontSize": FONT_SIZES["small"],
+                    "fontWeight": WEIGHT["semibold"] if is_today else WEIGHT["regular"],
+                    "color": COLORS["accent"] if is_today else COLORS["text_secondary"],
+                    "whiteSpace": "nowrap",
+                },
             ),
         )
 
     return html.Div(
-        fixture_rows,
-        style={"display": "flex", "flexDirection": "column", "gap": "0.2rem"},
+        [
+            html.Div(
+                [
+                    html.Span(
+                        "Today",
+                        style={
+                            "fontSize": FONT_SIZES["small"],
+                            "color": COLORS["text_muted"],
+                        },
+                    ),
+                    html.Span(
+                        f"+{days_ahead}d",
+                        style={
+                            "fontSize": FONT_SIZES["small"],
+                            "color": COLORS["text_muted"],
+                        },
+                    ),
+                ],
+                style={"display": "flex", "justifyContent": "space-between"},
+            ),
+            html.Div(
+                [
+                    html.Div(
+                        style={
+                            "position": "absolute",
+                            "left": "0",
+                            "right": "0",
+                            "top": _LINE_TOP,
+                            "height": "2px",
+                            "background": COLORS["hairline_strong"],
+                        },
+                    ),
+                    *markers,
+                ],
+                style={
+                    "position": "relative",
+                    "height": _TIMELINE_HEIGHT,
+                    "margin": "0.3rem 0.4rem 0 0.4rem",
+                },
+            ),
+        ],
     )

@@ -39,6 +39,26 @@ def _next_hours(
     return upcoming
 
 
+def _day_boundary_positions(upcoming: list[dict[str, Any]]) -> list[float]:
+    """Percentage x-positions (matching the sparkline's own point spacing -
+    `i / (n - 1) * 100`) at which the 48h window crosses into a new
+    calendar day, so "today" and "tomorrow" can be visually separated on
+    the trend instead of reading as one undifferentiated 48h block.
+    """
+    n = len(upcoming)
+    positions = []
+    prev_date: datetime.date | None = None
+    for i, hour in enumerate(upcoming):
+        try:
+            dt = datetime.datetime.fromisoformat(hour.get("time", ""))
+        except ValueError:
+            continue
+        if prev_date is not None and dt.date() != prev_date:
+            positions.append((i / (n - 1)) * 100)
+        prev_date = dt.date()
+    return positions
+
+
 def render_weather_sparklines(hourly_data: list[dict[str, Any]]) -> html.Div | None:
     """Next-48h temperature / rain-chance mini trend charts - fills the
     horizontal space between current conditions and tomorrow's preview in
@@ -50,6 +70,7 @@ def render_weather_sparklines(hourly_data: list[dict[str, Any]]) -> html.Div | N
 
     temps = [h.get("temp_c", 0) for h in upcoming]
     rain = [h.get("rain_chance", 0) for h in upcoming]
+    day_markers = _day_boundary_positions(upcoming)
 
     return html.Div(
         [
@@ -79,12 +100,21 @@ def render_weather_sparklines(hourly_data: list[dict[str, Any]]) -> html.Div | N
                     "marginBottom": "0.25rem",
                 },
             ),
-            sparkline(temps, color=COLORS["gold"], height="1.9rem"),
+            sparkline(
+                temps,
+                color=COLORS["gold"],
+                height="1.9rem",
+                day_markers=day_markers,
+            ),
             # Rain chance is always 0-100%, scaled to that fixed range (not
             # its own min/max) so height is a true reading of "how much",
             # comparable across sparklines/refreshes.
             sparkline(
-                rain, color=COLORS["accent"], height="0.9rem", fixed_range=(0, 100)
+                rain,
+                color=COLORS["accent"],
+                height="0.9rem",
+                fixed_range=(0, 100),
+                day_markers=day_markers,
             ),
         ],
         style={

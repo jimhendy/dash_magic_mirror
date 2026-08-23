@@ -16,6 +16,7 @@ from __future__ import annotations
 from dash import html
 
 _LINE_THICKNESS = 5.0  # % of the sparkline's own height
+_DAY_MARKER_COLOR = "rgba(255, 255, 255, 0.14)"
 
 
 def _scale(
@@ -90,9 +91,30 @@ def sparkline(
     color: str,
     height: str,
     fixed_range: tuple[float, float] | None = None,
+    day_markers: list[float] | None = None,
 ) -> html.Div:
-    """A two-layer sparkline: soft area fill + solid line, both from `values`."""
-    return html.Div(
+    """A two-layer sparkline: soft area fill + solid line, both from `values`.
+
+    `day_markers` is an optional list of x-positions (percent, 0-100,
+    matching this sparkline's own point spacing) at which to draw a thin
+    vertical divider behind the trend - used by the weather sparklines to
+    mark where one calendar day ends and the next begins across the 48h
+    window.
+    """
+    children = [
+        html.Div(
+            style={
+                "position": "absolute",
+                "top": "0",
+                "bottom": "0",
+                "left": f"{pct:.2f}%",
+                "width": "1px",
+                "background": _DAY_MARKER_COLOR,
+            },
+        )
+        for pct in (day_markers or [])
+    ]
+    children.extend(
         [
             html.Div(
                 style={
@@ -111,5 +133,8 @@ def sparkline(
                 },
             ),
         ],
+    )
+    return html.Div(
+        children,
         style={"position": "relative", "height": height, "width": "100%"},
     )
