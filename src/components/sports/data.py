@@ -231,8 +231,20 @@ def _extract_competition(fixture_text: str) -> str:
 
 
 def _tidy_channel_name(name: str) -> str:
-    """Tidy up channel names by removing common suffixes."""
+    """Tidy up channel names by removing common suffixes.
+
+    The source site's channel-logo `title`/`alt` text is often a full
+    sentence like "England v Pakistan Broadcast on Sky Sports Cricket" -
+    strip that "<teams> Broadcast on " boilerplate first so the channel
+    field doesn't repeat the same teams already shown in the fixture
+    heading above it.
+    """
     name = name.strip()
+    broadcast_marker = " broadcast on "
+    lower_name = name.lower()
+    marker_index = lower_name.find(broadcast_marker)
+    if marker_index != -1:
+        name = name[marker_index + len(broadcast_marker) :].strip()
     for prefix, formatted_name in [
         ("sky sports", "Sky Sports"),
         ("sky", "Sky"),
@@ -240,7 +252,8 @@ def _tidy_channel_name(name: str) -> str:
         ("bt", "BT"),
     ]:
         if name.lower().startswith(prefix):
-            return formatted_name + name.lower().removeprefix(prefix).strip().title()
+            remainder = name.lower().removeprefix(prefix).strip().title()
+            return f"{formatted_name} {remainder}".strip()
     return name
 
 

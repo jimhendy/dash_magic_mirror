@@ -79,13 +79,13 @@ RADIUS: dict[str, str] = {
 FONT_FAMILY = "'Inter', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
 
 FONT_SIZES: dict[str, str] = {
-    "display": "5.75rem",  # clock / hero numerals
-    "heading": "1.7rem",  # a section's single most important line
-    "primary": "1.55rem",  # main row content (times, team names, temps)
-    "secondary": "1.35rem",  # secondary row content
-    "meta": "1.1rem",  # subtext / meta info
-    "small": "0.95rem",  # rare very small annotations
-    "kicker": "0.95rem",  # section label
+    "display": "6.9rem",  # clock / hero numerals
+    "heading": "2.04rem",  # a section's single most important line
+    "primary": "1.86rem",  # main row content (times, team names, temps)
+    "secondary": "1.62rem",  # secondary row content
+    "meta": "1.32rem",  # subtext / meta info
+    "small": "1.14rem",  # rare very small annotations
+    "kicker": "1.14rem",  # section label
 }
 
 WEIGHT: dict[str, str] = {

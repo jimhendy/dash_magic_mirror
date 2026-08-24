@@ -13,11 +13,12 @@ from .constants import MAX_ARRIVAL_WINDOW_MINUTES
 # component actually gets, so it was liable to get silently clipped by
 # the page's `overflow: hidden` safety net whenever the page ran tight on
 # space. Reserving real height up front fixes that at the root.
+_PILL_SIZE = "2.2rem"  # 200% of the original 1.1rem
 _PILL_TOP = "0"
-_LINE_TOP = "1.35rem"
-_LABEL_TIER_1_TOP = "1.65rem"
-_LABEL_TIER_2_TOP = "2.85rem"
-_TIMELINE_HEIGHT = "4rem"
+_LINE_TOP = "1.9rem"
+_LABEL_TIER_1_TOP = "2.2rem"
+_LABEL_TIER_2_TOP = "3.4rem"
+_TIMELINE_HEIGHT = "4.8rem"
 
 
 def render_tfl_summary(
@@ -247,11 +248,11 @@ def _timeline(
         # red urgency ring) so it still reads as "the important one" even
         # when it isn't the one on top of an overlap.
         if is_urgent:
-            pill_ring = f"0 0 0 2px {COLORS['urgent']}, 0 0 0 4px {COLORS['bg']}"
+            pill_ring = f"0 0 0 3px {COLORS['urgent']}, 0 0 0 6px {COLORS['bg']}"
         elif is_priority:
-            pill_ring = f"0 0 0 2px {COLORS['bg']}, 0 0 0 3px {color}"
+            pill_ring = f"0 0 0 3px {COLORS['bg']}, 0 0 0 5px {color}"
         else:
-            pill_ring = f"0 0 0 2px {COLORS['bg']}"
+            pill_ring = f"0 0 0 3px {COLORS['bg']}"
 
         marker = html.Div(
             [
@@ -261,12 +262,12 @@ def _timeline(
                         "position": "absolute",
                         "left": f"{pct}%",
                         "top": _PILL_TOP,
-                        "width": "1.1rem",
-                        "height": "1.1rem",
+                        "width": _PILL_SIZE,
+                        "height": _PILL_SIZE,
                         "borderRadius": "50%",
                         "background": color,
                         "color": _contrast_text_color(color),
-                        "fontSize": "0.65rem",
+                        "fontSize": "1.3rem",
                         "fontWeight": WEIGHT["bold"],
                         "display": "flex",
                         "alignItems": "center",

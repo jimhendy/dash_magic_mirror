@@ -103,7 +103,7 @@ def render_weather_sparklines(hourly_data: list[dict[str, Any]]) -> html.Div | N
             sparkline(
                 temps,
                 color=COLORS["gold"],
-                height="1.9rem",
+                height="2.66rem",  # 40% bigger than the original 1.9rem
                 day_markers=day_markers,
             ),
             # Rain chance is always 0-100%, scaled to that fixed range (not
@@ -112,7 +112,7 @@ def render_weather_sparklines(hourly_data: list[dict[str, Any]]) -> html.Div | N
             sparkline(
                 rain,
                 color=COLORS["accent"],
-                height="0.9rem",
+                height="1.26rem",  # 40% bigger than the original 0.9rem
                 fixed_range=(0, 100),
                 day_markers=day_markers,
             ),
@@ -122,8 +122,8 @@ def render_weather_sparklines(hourly_data: list[dict[str, Any]]) -> html.Div | N
             "flexDirection": "column",
             "gap": "0.3rem",
             "flex": "1",
-            "minWidth": "9rem",
-            "maxWidth": "16rem",
+            "minWidth": "12.6rem",
+            "maxWidth": "22.4rem",
             "margin": "0 1.5rem",
         },
     )

@@ -10,7 +10,7 @@ from utils.calendar import (
     truncate_event_title,
 )
 from utils.dates import local_today
-from utils.styles import COLORS, FONT_SIZES, WEIGHT
+from utils.styles import COLORS, FONT_SIZES, RADIUS, WEIGHT
 
 from .data import CalendarEvent, get_events_for_date
 from .utils import generate_event_time_display, prepare_events_for_rendering
@@ -103,16 +103,27 @@ def _render_multi_day_event(
     the one place a filled block is the *right* call (it reads as a single
     connected span, the way Google/Outlook calendars render multi-day
     events), not a decorative box around static text.
+
+    The bar's corners read as a real timeline segment rather than a plain
+    rounded rectangle: an edge that's the event's actual start/end gets a
+    full pill-rounded cap, while an edge that's merely where the visible
+    today/tomorrow window cuts off an event continuing before or after it
+    stays square - the same "cut off vs. terminates here" convention
+    Google/Outlook calendars use for multi-day bars.
     """
     background = get_event_color_by_event(event.id)
     text_color = get_contrasting_text_color(background)
+    starts_here = event.start_datetime.date() == today
+    ends_here = event.end_datetime.date() == tomorrow
+    left_radius = RADIUS["pill"] if starts_here else "0"
+    right_radius = RADIUS["pill"] if ends_here else "0"
     return html.Div(
         truncate_event_title(event.title, 60),
         style={
             "background": background,
             "color": text_color,
-            "borderRadius": "0.4rem",
-            "padding": "0.35rem 0.7rem",
+            "borderRadius": f"{left_radius} {right_radius} {right_radius} {left_radius}",
+            "padding": "0.35rem 0.9rem",
             "fontSize": "1.32rem",  # meta (1.1rem) + 20%, calendar events read too small
             "fontWeight": WEIGHT["semibold"],
             "overflow": "hidden",

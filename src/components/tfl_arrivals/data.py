@@ -444,16 +444,23 @@ def process_line_status_data(line_status_data: list[dict]) -> dict[str, dict]:
             )
             reason = primary_status.get("reason", "")
 
-            # Determine status color based on severity
-            # TFL severity: 10=Good Service, lower numbers indicate problems
+            # Determine status color from TFL's actual severity codes - these
+            # are NOT a simple "lower number = worse" scale (severity 6 is
+            # "Severe Delays", which is worse than severity 8 "Bus Service"),
+            # so a naive `>= 6` threshold previously misclassified severe
+            # delays/closures/suspensions as the mild yellow tier. Explicit
+            # sets keyed to TFL's documented StatusSeverity codes instead.
             if status_severity == 10:
                 status_color = "green"
                 status_text = "Good Service"
-            elif status_severity >= 6:
-                status_color = "yellow"
+            elif status_severity in {1, 2, 3, 4, 5, 6, 11, 16, 20}:
+                # Closed, Suspended, Part Suspended, Planned/Part Closure,
+                # Severe Delays, Part Closed, Not Running, Service Closed.
+                status_color = "red"
                 status_text = status_description
             else:
-                status_color = "red"
+                # Minor Delays, Reduced/Bus Service, Diverted, etc.
+                status_color = "yellow"
                 status_text = status_description
 
             status_dict[line_id] = {

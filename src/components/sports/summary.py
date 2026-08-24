@@ -10,12 +10,20 @@ from utils.styles import COLORS, FONT_SIZES, WEIGHT
 # Same "everything positioned inside an explicitly-sized box" geometry
 # approach as the TFL arrivals timeline (src/components/tfl_arrivals/summary.py) -
 # a badge tier, a line, and two label tiers (to dodge same-day collisions).
-_BADGE_SIZE = "1.9rem"
-_BADGE_TOP = "0"
-_LINE_TOP = "2.2rem"
-_LABEL_TIER_1_TOP = "2.5rem"
-_LABEL_TIER_2_TOP = "3.7rem"
-_TIMELINE_HEIGHT = "4.9rem"
+_BADGE_SIZE = "3.8rem"  # 200% of the original 1.9rem
+_BADGE_SIZE_REM = 3.8
+_BADGE_LANE_GAP_REM = 0.4
+# Badges get two vertical lanes of their own (independent of the label
+# tiers below) so two fixtures landing close together on the timeline never
+# visually overlap - a close badge alternates into the lower lane instead
+# of stacking directly on top of the previous one.
+_BADGE_LANE_1_TOP = "0"
+_BADGE_LANE_2_TOP = f"{_BADGE_SIZE_REM + _BADGE_LANE_GAP_REM}rem"
+_BADGE_MIN_GAP_PCT = 16.0
+_LINE_TOP = f"{2 * _BADGE_SIZE_REM + _BADGE_LANE_GAP_REM + 0.3}rem"
+_LABEL_TIER_1_TOP = f"{2 * _BADGE_SIZE_REM + _BADGE_LANE_GAP_REM + 0.6}rem"
+_LABEL_TIER_2_TOP = f"{2 * _BADGE_SIZE_REM + _BADGE_LANE_GAP_REM + 1.8}rem"
+_TIMELINE_HEIGHT = f"{2 * _BADGE_SIZE_REM + _BADGE_LANE_GAP_REM + 2.3}rem"
 
 WINDOW_DAYS = 7
 
@@ -51,12 +59,12 @@ def _fixture_label(fx: dict[str, Any], date_obj: datetime.date, is_today: bool) 
     return f"{day_part} {time_part}".strip()
 
 
-def _badge_style(fx: dict[str, Any], pct: float, ring: str) -> dict:
+def _badge_style(fx: dict[str, Any], pct: float, ring: str, lane_top: str) -> dict:
     has_crest = bool(fx.get("crest"))
     return {
         "position": "absolute",
         "left": f"{pct}%",
-        "top": _BADGE_TOP,
+        "top": lane_top,
         "transform": "translate(-50%, 0)",
         "width": _BADGE_SIZE,
         "height": _BADGE_SIZE,
@@ -81,13 +89,18 @@ def _timeline(fixtures: list[dict[str, Any]], days_ahead: int) -> html.Div:
     a kickoff time is known, time of day) with a day/time label below.
 
     As with the TFL timeline, labels alternate between two vertical tiers
-    so two fixtures landing close together don't overlap illegibly.
+    so two fixtures landing close together don't overlap illegibly. Badges
+    get their own, independent two-lane alternation for the same reason -
+    at 200% size two same-day (or unknown-kickoff-time, which both default
+    to midday) fixtures would otherwise sit directly on top of each other.
     """
     today = local_today()
-    min_gap_pct = 8.0
-    last_tier_1_pct: float | None = None
+    label_min_gap_pct = 8.0
+    last_label_tier_1_pct: float | None = None
+    last_badge_lane_1_pct: float | None = None
+    last_badge_lane_2_pct: float | None = None
 
-    markers: list[html.Div] = []
+    positioned: list[tuple[dict[str, Any], datetime.date, bool, float]] = []
     for fx in fixtures:
         if not fx.get("parsed_date"):
             continue
@@ -105,19 +118,53 @@ def _timeline(fixtures: list[dict[str, Any]], days_ahead: int) -> html.Div:
             time_frac = 0.5  # unknown kickoff time - place mid-day
 
         pct = max(0.0, min(100.0, ((days_away + time_frac) / days_ahead) * 100))
-        is_today = days_away == 0
+        positioned.append((fx, date_obj, days_away == 0, pct))
+
+    # Badge-lane assignment needs fixtures in left-to-right (time) order to
+    # correctly detect "close together", regardless of the original
+    # per-sport selection order they arrived in.
+    positioned.sort(key=lambda p: p[3])
+
+    markers: list[html.Div] = []
+    for fx, date_obj, is_today, pct in positioned:
         has_crest = bool(fx.get("crest"))
 
-        if last_tier_1_pct is None or pct - last_tier_1_pct >= min_gap_pct:
+        if (
+            last_badge_lane_1_pct is None
+            or pct - last_badge_lane_1_pct >= _BADGE_MIN_GAP_PCT
+        ):
+            badge_lane_top = _BADGE_LANE_1_TOP
+            last_badge_lane_1_pct = pct
+        elif (
+            last_badge_lane_2_pct is None
+            or pct - last_badge_lane_2_pct >= _BADGE_MIN_GAP_PCT
+        ):
+            badge_lane_top = _BADGE_LANE_2_TOP
+            last_badge_lane_2_pct = pct
+        else:
+            # Both lanes are crowded (3+ fixtures within the same tight
+            # window) - fall back to whichever lane's last badge is
+            # furthest away, which is the best achievable separation.
+            if pct - last_badge_lane_1_pct >= pct - last_badge_lane_2_pct:
+                badge_lane_top = _BADGE_LANE_1_TOP
+                last_badge_lane_1_pct = pct
+            else:
+                badge_lane_top = _BADGE_LANE_2_TOP
+                last_badge_lane_2_pct = pct
+
+        if (
+            last_label_tier_1_pct is None
+            or pct - last_label_tier_1_pct >= label_min_gap_pct
+        ):
             label_top = _LABEL_TIER_1_TOP
-            last_tier_1_pct = pct
+            last_label_tier_1_pct = pct
         else:
             label_top = _LABEL_TIER_2_TOP
 
         ring = (
-            f"0 0 0 2px {COLORS['bg']}, 0 0 0 4px {COLORS['accent']}"
+            f"0 0 0 3px {COLORS['bg']}, 0 0 0 6px {COLORS['accent']}"
             if is_today
-            else f"0 0 0 2px {COLORS['bg']}"
+            else f"0 0 0 3px {COLORS['bg']}"
         )
 
         markers.append(
@@ -136,12 +183,12 @@ def _timeline(fixtures: list[dict[str, Any]], days_ahead: int) -> html.Div:
                         icon=fx.get("sport_icon", "mdi:help-circle"),
                         style={
                             "color": "#0a0a0a",
-                            "fontSize": "1rem",
+                            "fontSize": "2rem",
                             "display": "none" if has_crest else "block",
                         },
                     ),
                 ],
-                style=_badge_style(fx, pct, ring),
+                style=_badge_style(fx, pct, ring, badge_lane_top),
             ),
         )
         markers.append(
