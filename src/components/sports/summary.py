@@ -20,8 +20,8 @@ _LABEL_TOP = f"{_BADGE_SIZE_REM + 0.6}rem"
 # so two fixtures landing close together on the timeline read clearly
 # without their day/time text overlapping. The extra timeline height below
 # the badges is headroom for that diagonal descent.
-_LABEL_ANGLE_DEG = 35
-_TIMELINE_HEIGHT = f"{_BADGE_SIZE_REM + 4.5}rem"
+_LABEL_ANGLE_DEG = 18
+_TIMELINE_HEIGHT = f"{_BADGE_SIZE_REM + 3.2}rem"
 
 WINDOW_DAYS = 7
 
