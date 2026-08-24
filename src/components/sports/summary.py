@@ -9,14 +9,19 @@ from utils.styles import COLORS, FONT_SIZES, WEIGHT
 
 # Same "everything positioned inside an explicitly-sized box" geometry
 # approach as the TFL arrivals timeline (src/components/tfl_arrivals/summary.py) -
-# a badge tier, a line, and two label tiers (to dodge same-day collisions).
+# a badge tier, a line, and an angled label row (to dodge same-day collisions).
 _BADGE_SIZE_REM = 3.0
 _BADGE_SIZE = f"{_BADGE_SIZE_REM}rem"
 _BADGE_TOP = "0"
 _LINE_TOP = f"{_BADGE_SIZE_REM + 0.3}rem"
-_LABEL_TIER_1_TOP = f"{_BADGE_SIZE_REM + 0.6}rem"
-_LABEL_TIER_2_TOP = f"{_BADGE_SIZE_REM + 1.8}rem"
-_TIMELINE_HEIGHT = f"{_BADGE_SIZE_REM + 3.0}rem"
+_LABEL_TOP = f"{_BADGE_SIZE_REM + 0.6}rem"
+# Labels are angled instead of stacked into a second tier - a diagonal
+# label needs less horizontal room than a horizontal one of the same text,
+# so two fixtures landing close together on the timeline read clearly
+# without their day/time text overlapping. The extra timeline height below
+# the badges is headroom for that diagonal descent.
+_LABEL_ANGLE_DEG = 35
+_TIMELINE_HEIGHT = f"{_BADGE_SIZE_REM + 4.5}rem"
 
 WINDOW_DAYS = 7
 
@@ -87,15 +92,14 @@ def _timeline(fixtures: list[dict[str, Any]], days_ahead: int) -> html.Div:
     known, otherwise a colored sport icon - positioned by date (and, where
     a kickoff time is known, time of day) with a day/time label below.
 
-    As with the TFL timeline, labels alternate between two vertical tiers
-    so two fixtures landing close together don't overlap illegibly. Badges
-    all sit on a single lane - where two land close enough to overlap, the
-    sooner fixture is always painted on top (see `_badge_style`'s z-index),
-    so overlap always resolves in favor of "what's happening soonest".
+    Labels are angled (see `_LABEL_ANGLE_DEG`) rather than stacked into a
+    second tier, so two fixtures landing close together on the timeline
+    don't overlap illegibly. Badges all sit on a single lane - where two
+    land close enough to overlap, the sooner fixture is always painted on
+    top (see `_badge_style`'s z-index), so overlap always resolves in
+    favor of "what's happening soonest".
     """
     today = local_today()
-    label_min_gap_pct = 8.0
-    last_label_tier_1_pct: float | None = None
 
     markers: list[html.Div] = []
     for fx in fixtures:
@@ -117,15 +121,6 @@ def _timeline(fixtures: list[dict[str, Any]], days_ahead: int) -> html.Div:
         pct = max(0.0, min(100.0, ((days_away + time_frac) / days_ahead) * 100))
         is_today = days_away == 0
         has_crest = bool(fx.get("crest"))
-
-        if (
-            last_label_tier_1_pct is None
-            or pct - last_label_tier_1_pct >= label_min_gap_pct
-        ):
-            label_top = _LABEL_TIER_1_TOP
-            last_label_tier_1_pct = pct
-        else:
-            label_top = _LABEL_TIER_2_TOP
 
         ring = (
             f"0 0 0 2px {COLORS['bg']}, 0 0 0 4px {COLORS['accent']}"
@@ -163,8 +158,13 @@ def _timeline(fixtures: list[dict[str, Any]], days_ahead: int) -> html.Div:
                 style={
                     "position": "absolute",
                     "left": f"{pct}%",
-                    "top": label_top,
-                    "transform": "translateX(-50%)",
+                    "top": _LABEL_TOP,
+                    # Pivot at the label's own top-left corner (which sits
+                    # right under the badge) and angle down-right from
+                    # there, rather than centering horizontal text under
+                    # the badge.
+                    "transform": f"rotate({_LABEL_ANGLE_DEG}deg)",
+                    "transformOrigin": "top left",
                     "fontSize": FONT_SIZES["small"],
                     "fontWeight": WEIGHT["semibold"] if is_today else WEIGHT["regular"],
                     "color": COLORS["accent"] if is_today else COLORS["text_secondary"],
