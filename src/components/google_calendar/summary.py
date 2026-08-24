@@ -41,46 +41,67 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
             seen_ids.add(event.id)
             all_events.append(event)
 
-    multi_day_events = []
-    single_today_events = []
-    single_tomorrow_events = []
+    # All-day events (single-day or multi-day - a birthday, a holiday, a
+    # multi-day trip) always render as a solid colored bar, never in the
+    # plain accent-line list below: that's what actually distinguishes "no
+    # specific time, applies to the whole day" from a scheduled meeting.
+    # One spanning both today and tomorrow (a contiguous date range, so it
+    # touches both days iff its start is <= today and its end is >=
+    # tomorrow) gets a single bar above both columns; the rest are scoped
+    # to just the one day column they belong to.
+    spanning_all_day_events = []
+    today_all_day_events = []
+    tomorrow_all_day_events = []
+    today_timed_events = []
+    tomorrow_timed_events = []
 
     for event in all_events:
         start_date = event.start_datetime.date()
         end_date = event.end_datetime.date()
-        if start_date <= today and end_date >= tomorrow:
-            multi_day_events.append(event)
+        touches_today = start_date <= today <= end_date
+        touches_tomorrow = start_date <= tomorrow <= end_date
+
+        if event.is_all_day:
+            if touches_today and touches_tomorrow:
+                spanning_all_day_events.append(event)
+            else:
+                if touches_today:
+                    today_all_day_events.append(event)
+                if touches_tomorrow:
+                    tomorrow_all_day_events.append(event)
         else:
-            if start_date == today or (start_date < today and end_date == today):
-                single_today_events.append(event)
-            if start_date == tomorrow or (
-                start_date < tomorrow and end_date == tomorrow
-            ):
-                single_tomorrow_events.append(event)
+            if touches_today:
+                today_timed_events.append(event)
+            if touches_tomorrow:
+                tomorrow_timed_events.append(event)
+
+    covered_by_spanning = bool(spanning_all_day_events)
 
     return html.Div(
         [
             html.Div(
                 style={"display": "flex", "flexDirection": "column", "gap": "0.4rem"},
                 children=[
-                    _render_multi_day_event(event, today, tomorrow)
-                    for event in multi_day_events
+                    _render_all_day_bar(event, today, tomorrow)
+                    for event in spanning_all_day_events
                 ],
             )
-            if multi_day_events
+            if spanning_all_day_events
             else None,
             html.Div(
                 style={"display": "flex", "gap": "1.5rem"},
                 children=[
                     _render_day_column(
                         today,
-                        single_today_events,
-                        covered_by_multi_day=bool(multi_day_events),
+                        all_day_events=today_all_day_events,
+                        timed_events=today_timed_events,
+                        covered_by_spanning=covered_by_spanning,
                     ),
                     _render_day_column(
                         tomorrow,
-                        single_tomorrow_events,
-                        covered_by_multi_day=bool(multi_day_events),
+                        all_day_events=tomorrow_all_day_events,
+                        timed_events=tomorrow_timed_events,
+                        covered_by_spanning=covered_by_spanning,
                     ),
                 ],
             ),
@@ -94,27 +115,28 @@ def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
     )
 
 
-def _render_multi_day_event(
+def _render_all_day_bar(
     event: CalendarEvent,
-    today: datetime.date,
-    tomorrow: datetime.date,
+    window_start: datetime.date,
+    window_end: datetime.date,
 ) -> html.Div:
-    """A continuous colored bar for an event spanning today and tomorrow -
-    the one place a filled block is the *right* call (it reads as a single
-    connected span, the way Google/Outlook calendars render multi-day
-    events), not a decorative box around static text.
+    """A continuous colored bar for an all-day event, scoped to the given
+    `window_start`/`window_end` (either a single day, or today+tomorrow for
+    one spanning both) - the one place a filled block is the *right* call
+    (it reads as a single connected span, the way Google/Outlook calendars
+    render all-day events), not a decorative box around static text.
 
     The bar's corners read as a real timeline segment rather than a plain
     rounded rectangle: an edge that's the event's actual start/end gets a
     full pill-rounded cap, while an edge that's merely where the visible
-    today/tomorrow window cuts off an event continuing before or after it
-    stays square - the same "cut off vs. terminates here" convention
-    Google/Outlook calendars use for multi-day bars.
+    window cuts off an event continuing before or after it stays square -
+    the same "cut off vs. terminates here" convention Google/Outlook
+    calendars use for multi-day bars.
     """
     background = get_event_color_by_event(event.id)
     text_color = get_contrasting_text_color(background)
-    starts_here = event.start_datetime.date() == today
-    ends_here = event.end_datetime.date() == tomorrow
+    starts_here = event.start_datetime.date() == window_start
+    ends_here = event.end_datetime.date() == window_end
     left_radius = RADIUS["pill"] if starts_here else "0"
     right_radius = RADIUS["pill"] if ends_here else "0"
     return html.Div(
@@ -138,26 +160,30 @@ _MAX_EVENTS_PER_DAY = 4
 
 def _render_day_column(
     date: datetime.date,
-    events: list[CalendarEvent],
     *,
-    covered_by_multi_day: bool = False,
+    all_day_events: list[CalendarEvent],
+    timed_events: list[CalendarEvent],
+    covered_by_spanning: bool = False,
 ) -> html.Div:
-    """Render a single day column: plain event rows, colored only by a thin
-    left accent bar per event. Which column is "today" vs "tomorrow" is
-    obvious from position alone, so no label is rendered.
+    """Render a single day column: any all-day events as solid bars first,
+    then plain timed-event rows colored only by a thin left accent bar.
+    Which column is "today" vs "tomorrow" is obvious from position alone,
+    so no label is rendered.
 
-    `covered_by_multi_day` means a multi-day event bar (rendered above both
-    columns) already spans this day - so an empty `events` list here isn't
-    actually an empty day, and "Nothing scheduled" would be wrong.
+    `covered_by_spanning` means an all-day bar spanning both columns
+    (rendered above both) already covers this day - so no all-day and no
+    timed events here isn't actually an empty day, and "Nothing scheduled"
+    would be wrong.
     """
-    visible = events[:_MAX_EVENTS_PER_DAY]
-    overflow_count = len(events) - len(visible)
+    visible = timed_events[:_MAX_EVENTS_PER_DAY]
+    overflow_count = len(timed_events) - len(visible)
 
-    if visible:
-        rows = [_render_event(event, date) for event in visible]
-    elif covered_by_multi_day:
-        rows = []
-    else:
+    rows: list[html.Div] = [
+        _render_all_day_bar(event, date, date) for event in all_day_events
+    ]
+    rows.extend(_render_event(event, date) for event in visible)
+
+    if not rows and not covered_by_spanning:
         rows = [
             html.Div(
                 "Nothing scheduled",
@@ -177,6 +203,7 @@ def _render_day_column(
             "flex": "1",
             "display": "flex",
             "flexDirection": "column",
+            "gap": "0.3rem",
             "minWidth": "0",
             "overflow": "hidden",
         },
