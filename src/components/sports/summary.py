@@ -52,9 +52,13 @@ def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
 
 
 def _fixture_label(fx: dict[str, Any], date_obj: datetime.date, is_today: bool) -> str:
-    day_part = "TODAY" if is_today else date_obj.strftime("%a")
+    # Today's fixtures already stand out via the accent color and ring
+    # (see `_badge_style`/`ring` in `_timeline`), so spelling out "TODAY"
+    # here is redundant and just eats up label width.
     time_part = fx.get("time", "")
-    return f"{day_part} {time_part}".strip()
+    if is_today:
+        return time_part.strip()
+    return f"{date_obj.strftime('%a')} {time_part}".strip()
 
 
 def _badge_style(fx: dict[str, Any], pct: float, ring: str) -> dict:
