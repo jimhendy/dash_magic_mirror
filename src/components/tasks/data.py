@@ -328,7 +328,7 @@ def _advance_once(due_on: date, recurrence: TaskRecurrence) -> date:
     if recurrence == TaskRecurrence.WEEKLY:
         return due_on + timedelta(days=7)
     if recurrence == TaskRecurrence.MONTHLY:
-        month_index = due_on.month - 1 + 1
+        month_index = due_on.month
         year = due_on.year + month_index // 12
         month = month_index % 12 + 1
         day = min(due_on.day, calendar.monthrange(year, month)[1])
