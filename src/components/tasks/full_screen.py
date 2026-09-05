@@ -1,12 +1,29 @@
 from __future__ import annotations
 
+from typing import Any, cast
+
 from dash import dcc, html
 import dash_mantine_components as dmc
 
 from utils.dates import local_today
-from utils.styles import COLORS, FONT_SIZES, SPACE, WEIGHT, kicker_style, panel_style, row_style
+from utils.styles import (
+    COLORS,
+    FONT_SIZES,
+    SPACE,
+    WEIGHT,
+    kicker_style,
+    panel_style,
+    row_style,
+)
 
-from .data import TaskGroup, TaskRecurrence, TaskSnapshot, due_label, grouped_open_tasks, recurrence_label
+from .data import (
+    TaskGroup,
+    TaskRecurrence,
+    TaskSnapshot,
+    due_label,
+    grouped_open_tasks,
+    recurrence_label,
+)
 
 
 _INPUT_STYLE = {
@@ -90,73 +107,83 @@ def _add_person_section(component_id: str) -> html.Div:
                         variant="light",
                     ),
                 ],
-                style={"display": "grid", "gridTemplateColumns": "1fr auto", "gap": SPACE["md"]},
+                style={
+                    "display": "grid",
+                    "gridTemplateColumns": "1fr auto",
+                    "gap": SPACE["md"],
+                },
             ),
         ],
         style={"display": "flex", "flexDirection": "column", "gap": SPACE["md"]},
     )
 
 
-def _add_task_section(component_id: str, people_options: list[dict[str, str]]) -> html.Div:
+def _add_task_section(
+    component_id: str, people_options: list[dict[str, str]]
+) -> html.Div:
+    no_people = not people_options
     form_children = [
         dcc.Input(
             id=f"{component_id}-task-title",
             type="text",
             placeholder="Task title",
+            disabled=no_people,
             style=_INPUT_STYLE,
         ),
+        html.Div(
+            [
+                dcc.Dropdown(
+                    id=f"{component_id}-task-person",
+                    options=cast(Any, people_options),
+                    placeholder="Assign to",
+                    clearable=False,
+                    disabled=no_people,
+                    style=_DROPDOWN_STYLE,
+                ),
+                dcc.Input(
+                    id=f"{component_id}-task-due-on",
+                    type="text",
+                    placeholder="YYYY-MM-DD",
+                    value=local_today().isoformat(),
+                    disabled=no_people,
+                    style=_INPUT_STYLE,
+                ),
+                dcc.Dropdown(
+                    id=f"{component_id}-task-recurrence",
+                    options=cast(
+                        Any,
+                        [
+                            {"label": recurrence_label(value), "value": value.value}
+                            for value in TaskRecurrence
+                        ],
+                    ),
+                    value=TaskRecurrence.ONCE.value,
+                    clearable=False,
+                    disabled=no_people,
+                    style=_DROPDOWN_STYLE,
+                ),
+            ],
+            style={
+                "display": "grid",
+                "gridTemplateColumns": "1.3fr 0.9fr 0.9fr",
+                "gap": SPACE["md"],
+            },
+        ),
+        dmc.Button(
+            "Add task",
+            id=f"{component_id}-add-task",
+            color="teal",
+            variant="light",
+            disabled=no_people,
+            style={"alignSelf": "flex-start"},
+        ),
     ]
-
-    if not people_options:
+    if no_people:
         form_children.append(
             html.Div(
                 "Add a person first, then assign them tasks.",
                 style={"color": COLORS["text_muted"], "fontSize": FONT_SIZES["meta"]},
             ),
-        )
-    else:
-        form_children.extend(
-            [
-                html.Div(
-                    [
-                        dcc.Dropdown(
-                            id=f"{component_id}-task-person",
-                            options=people_options,
-                            placeholder="Assign to",
-                            clearable=False,
-                            style=_DROPDOWN_STYLE,
-                        ),
-                        dcc.Input(
-                            id=f"{component_id}-task-due-on",
-                            type="date",
-                            value=local_today().isoformat(),
-                            style=_INPUT_STYLE,
-                        ),
-                        dcc.Dropdown(
-                            id=f"{component_id}-task-recurrence",
-                            options=[
-                                {"label": recurrence_label(value), "value": value.value}
-                                for value in TaskRecurrence
-                            ],
-                            value=TaskRecurrence.ONCE.value,
-                            clearable=False,
-                            style=_DROPDOWN_STYLE,
-                        ),
-                    ],
-                    style={
-                        "display": "grid",
-                        "gridTemplateColumns": "1.3fr 0.9fr 0.9fr",
-                        "gap": SPACE["md"],
-                    },
-                ),
-                dmc.Button(
-                    "Add task",
-                    id=f"{component_id}-add-task",
-                    color="teal",
-                    variant="light",
-                    style={"alignSelf": "flex-start"},
-                ),
-            ],
         )
 
     return html.Div(
@@ -206,7 +233,10 @@ def _task_group(group: TaskGroup, component_id: str) -> html.Div:
                 or [
                     html.Div(
                         "No open tasks.",
-                        style={"color": COLORS["text_muted"], "fontSize": FONT_SIZES["meta"]},
+                        style={
+                            "color": COLORS["text_muted"],
+                            "fontSize": FONT_SIZES["meta"],
+                        },
                     ),
                 ],
                 style=panel_style(padding=f"0 {SPACE['lg']}"),
@@ -235,7 +265,9 @@ def _task_row(task, component_id: str, is_last: bool) -> html.Div:
                         f"{due_label(task)} · {recurrence_text}",
                         style={
                             "fontSize": FONT_SIZES["small"],
-                            "color": COLORS["urgent"] if overdue else COLORS["text_secondary"],
+                            "color": COLORS["urgent"]
+                            if overdue
+                            else COLORS["text_secondary"],
                             "marginTop": SPACE["xs"],
                         },
                     ),

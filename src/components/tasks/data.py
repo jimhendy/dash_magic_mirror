@@ -6,7 +6,7 @@ import os
 import threading
 import uuid
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -74,7 +74,9 @@ DEFAULT_TASKS_FILE = Path.home() / ".local" / "state" / "magic_mirror" / "tasks.
 class TaskStore:
     def __init__(self, path: Path | None = None):
         configured = os.environ.get("MAGIC_MIRROR_TASKS_FILE")
-        self.path = path or (Path(configured).expanduser() if configured else DEFAULT_TASKS_FILE)
+        self.path = path or (
+            Path(configured).expanduser() if configured else DEFAULT_TASKS_FILE
+        )
         self._lock = threading.RLock()
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -222,7 +224,9 @@ class TaskStore:
 
     @staticmethod
     def _task_from_dict(payload: dict[str, Any]) -> TaskItem:
-        recurrence = TaskRecurrence(str(payload.get("recurrence", TaskRecurrence.ONCE.value)))
+        recurrence = TaskRecurrence(
+            str(payload.get("recurrence", TaskRecurrence.ONCE.value))
+        )
         return TaskItem(
             id=str(payload.get("id", "")),
             title=str(payload.get("title", "")).strip(),

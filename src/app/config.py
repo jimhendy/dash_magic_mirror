@@ -10,6 +10,7 @@ from components.markets import Markets
 from components.news import News
 from components.news.constants import DEFAULT_RSS_URLS
 from components.sports import Sports
+from components.tasks import Tasks
 from components.tfl_arrivals import TFLArrivals
 from components.weather import Weather
 
@@ -88,6 +89,7 @@ COMPONENTS = [
         summary_ignore_destination=TFL_SUMMARY_IGNORE_DESTINATION,
         line_status_ids=TFL_LINE_STATUS_IDS,
     ),
+    Tasks(),
     Markets(),
     Sports(),
     News(

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, cast
+
 from dash import ALL, Dash, Input, Output, State, ctx, dcc, html, no_update
 
 from components.base import BaseComponent, PreloadedFullScreenMixin
@@ -49,18 +51,19 @@ class Tasks(PreloadedFullScreenMixin, BaseComponent):
             Output(f"{self.component_id}-task-person", "value"),
             Output(f"{self.component_id}-task-due-on", "value"),
             Output(f"{self.component_id}-task-recurrence", "value"),
-            Output("full-screen-modal-content", "children", allow_duplicate=True),
             Input(f"{self.component_id}-interval", "n_intervals"),
             Input(f"{self.component_id}-add-person", "n_clicks"),
             Input(f"{self.component_id}-add-task", "n_clicks"),
-            Input({"type": f"{self.component_id}-complete-task", "task_id": ALL}, "n_clicks"),
+            Input(
+                {"type": f"{self.component_id}-complete-task", "task_id": ALL},
+                "n_clicks",
+            ),
             State(f"{self.component_id}-person-name", "value"),
             State(f"{self.component_id}-task-title", "value"),
             State(f"{self.component_id}-task-person", "value"),
             State(f"{self.component_id}-task-due-on", "value"),
             State(f"{self.component_id}-task-recurrence", "value"),
             State(f"{self.component_id}-feedback", "data"),
-            State("full-screen-modal-title", "children"),
             prevent_initial_call=False,
         )
         def sync_task_views(
@@ -74,7 +77,6 @@ class Tasks(PreloadedFullScreenMixin, BaseComponent):
             task_due_on,
             task_recurrence,
             current_feedback,
-            current_modal_title,
         ):
             feedback = current_feedback
             next_person_name = no_update
@@ -88,7 +90,11 @@ class Tasks(PreloadedFullScreenMixin, BaseComponent):
                 if triggered == f"{self.component_id}-add-person":
                     snapshot = self.store.add_person(person_name or "")
                     new_person = snapshot.people[-1] if snapshot.people else None
-                    feedback = {"tone": "success", "message": f"Added {new_person.name}."} if new_person else None
+                    feedback = (
+                        {"tone": "success", "message": f"Added {new_person.name}."}
+                        if new_person
+                        else None
+                    )
                     next_person_name = ""
                     if new_person is not None:
                         next_task_person = new_person.id
@@ -103,8 +109,13 @@ class Tasks(PreloadedFullScreenMixin, BaseComponent):
                     next_task_title = ""
                     next_due_on = local_today().isoformat()
                     next_recurrence = TaskRecurrence.ONCE.value
-                elif isinstance(triggered, dict) and triggered.get("type") == f"{self.component_id}-complete-task":
-                    snapshot = self.store.complete_task(str(triggered.get("task_id", "")))
+                elif (
+                    isinstance(triggered, dict)
+                    and triggered.get("type") == f"{self.component_id}-complete-task"
+                ):
+                    snapshot = self.store.complete_task(
+                        str(triggered.get("task_id", ""))
+                    )
                     feedback = {"tone": "success", "message": "Task completed."}
                 else:
                     snapshot = self.store.load()
@@ -113,9 +124,6 @@ class Tasks(PreloadedFullScreenMixin, BaseComponent):
                 feedback = {"tone": "error", "message": str(exc)}
 
             title, content = self._full_screen_parts(snapshot, feedback)
-            modal_content = (
-                content if self._modal_is_showing_tasks(current_modal_title) else no_update
-            )
             return (
                 render_tasks_summary(snapshot),
                 title,
@@ -126,19 +134,33 @@ class Tasks(PreloadedFullScreenMixin, BaseComponent):
                 next_task_person,
                 next_due_on,
                 next_recurrence,
-                modal_content,
             )
+
+        @app.callback(
+            Output("full-screen-modal-content", "children", allow_duplicate=True),
+            Input(self.fullscreen_content_store_id(), "data"),
+            State("full-screen-modal-title", "children"),
+            prevent_initial_call=True,
+        )
+        def sync_open_modal(content, current_modal_title):
+            if self._modal_is_showing_tasks(current_modal_title):
+                return content
+            return no_update
 
     def _full_screen_parts(self, snapshot, feedback=None):
         title = html.Div(
             "Tasks",
             className="text-m",
-            **{"data-component-name": self.name},
+            **cast(Any, {"data-component-name": self.name}),
         )
-        content = render_tasks_fullscreen(snapshot, self.component_id, feedback=feedback)
+        content = render_tasks_fullscreen(
+            snapshot, self.component_id, feedback=feedback
+        )
         return title, content
 
     def _modal_is_showing_tasks(self, current_modal_title) -> bool:
         if not isinstance(current_modal_title, dict):
             return False
-        return current_modal_title.get("props", {}).get("data-component-name") == self.name
+        return (
+            current_modal_title.get("props", {}).get("data-component-name") == self.name
+        )

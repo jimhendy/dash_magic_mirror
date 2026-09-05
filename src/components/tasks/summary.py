@@ -13,7 +13,10 @@ def render_tasks_summary(snapshot: TaskSnapshot) -> html.Div:
                 html.Div("Tasks", style=kicker_style()),
                 html.Div(
                     "No people yet",
-                    style={"color": COLORS["text_muted"], "fontSize": FONT_SIZES["meta"]},
+                    style={
+                        "color": COLORS["text_muted"],
+                        "fontSize": FONT_SIZES["meta"],
+                    },
                 ),
             ],
             style={"display": "flex", "flexDirection": "column", "gap": SPACE["xs"]},
@@ -23,7 +26,10 @@ def render_tasks_summary(snapshot: TaskSnapshot) -> html.Div:
         [
             html.Div("Tasks", style=kicker_style()),
             html.Div(
-                [_summary_row(row, index == len(rows) - 1) for index, row in enumerate(rows)],
+                [
+                    _summary_row(row, index == len(rows) - 1)
+                    for index, row in enumerate(rows)
+                ],
                 style={"display": "flex", "flexDirection": "column"},
             ),
         ],
@@ -53,7 +59,11 @@ def _summary_row(row, is_last: bool) -> html.Div:
             ),
             html.Span(
                 status,
-                style={"fontSize": FONT_SIZES["small"], "color": color, "fontWeight": weight},
+                style={
+                    "fontSize": FONT_SIZES["small"],
+                    "color": color,
+                    "fontWeight": weight,
+                },
             ),
         ],
         style=row_style(
