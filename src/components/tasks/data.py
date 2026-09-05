@@ -303,12 +303,12 @@ def recurrence_label(recurrence: TaskRecurrence) -> str:
 def due_label(task: TaskItem, *, today: date | None = None) -> str:
     current_day = today or local_today()
     if task.due_on < current_day:
-        return f"Overdue since {task.due_on.strftime('%-d %b')}"
+        return f"Overdue since {_day_month(task.due_on)}"
     if task.due_on == current_day:
         return "Due today"
     if task.due_on == current_day + timedelta(days=1):
         return "Due tomorrow"
-    return f"Due {task.due_on.strftime('%a %-d %b')}"
+    return f"Due {task.due_on.strftime('%a')} {_day_month(task.due_on)}"
 
 
 def next_due_date(
@@ -334,4 +334,9 @@ def _advance_once(due_on: date, recurrence: TaskRecurrence) -> date:
         month = month_index % 12 + 1
         day = min(due_on.day, calendar.monthrange(year, month)[1])
         return date(year, month, day)
-    return due_on
+    msg = f"Unsupported recurring schedule: {recurrence}"
+    raise ValueError(msg)
+
+
+def _day_month(value: date) -> str:
+    return f"{value.day} {value.strftime('%b')}"

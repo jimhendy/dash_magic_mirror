@@ -80,6 +80,15 @@ def test_monthly_next_due_clamps_to_last_day_of_month():
     ) == date(2026, 2, 28)
 
 
+def test_one_off_next_due_is_rejected():
+    with pytest.raises(ValueError, match="Unsupported recurring schedule"):
+        next_due_date(
+            date(2026, 1, 31),
+            TaskRecurrence.ONCE,
+            reference_date=date(2026, 1, 31),
+        )
+
+
 def test_missing_due_date_falls_back_to_today(store):
     snapshot = store.add_person("Alice")
     person_id = snapshot.people[0].id
