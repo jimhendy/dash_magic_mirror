@@ -169,6 +169,7 @@ class TaskStore:
 
         with self._lock:
             payload = self._read_payload()
+            updated = False
             for task in payload["tasks"]:
                 if task["id"] != task_id:
                     continue
@@ -186,11 +187,16 @@ class TaskStore:
                     )
                     task["due_on"] = next_due.isoformat()
                     task["last_completed_at"] = completed_at
-                self._write_payload(payload)
-                return self.load()
+                updated = True
+                break
 
-        msg = "Task not found."
-        raise ValueError(msg)
+            if not updated:
+                msg = "Task not found."
+                raise ValueError(msg)
+
+            self._write_payload(payload)
+
+        return self.load()
 
     def _read_payload(self) -> dict[str, list[dict[str, Any]]]:
         if not self.path.exists():
@@ -275,6 +281,7 @@ def summary_rows(snapshot: TaskSnapshot) -> list[TaskSummaryRow]:
 
 def grouped_open_tasks(snapshot: TaskSnapshot) -> list[TaskGroup]:
     active = active_tasks(snapshot)
+    today = local_today()
     groups: list[TaskGroup] = []
     for person in sorted(snapshot.people, key=lambda item: item.name.casefold()):
         tasks = sorted(
@@ -285,7 +292,7 @@ def grouped_open_tasks(snapshot: TaskSnapshot) -> list[TaskGroup]:
             TaskGroup(
                 person=person,
                 tasks=tasks,
-                overdue_count=sum(1 for task in tasks if task.due_on < local_today()),
+                overdue_count=sum(1 for task in tasks if task.due_on < today),
             ),
         )
     return groups

@@ -89,7 +89,7 @@ class Tasks(PreloadedFullScreenMixin, BaseComponent):
                 triggered = ctx.triggered_id
                 if triggered == f"{self.component_id}-add-person":
                     added_name = " ".join((person_name or "").split())
-                    snapshot = self.store.add_person(person_name or "")
+                    snapshot = self.store.add_person(added_name)
                     new_person = next(
                         (
                             person
