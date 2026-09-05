@@ -329,9 +329,8 @@ def _advance_once(due_on: date, recurrence: TaskRecurrence) -> date:
     if recurrence == TaskRecurrence.WEEKLY:
         return due_on + timedelta(days=7)
     if recurrence == TaskRecurrence.MONTHLY:
-        month_index = due_on.month
-        year = due_on.year + month_index // 12
-        month = month_index % 12 + 1
+        year = due_on.year + (1 if due_on.month == 12 else 0)
+        month = 1 if due_on.month == 12 else due_on.month + 1
         day = min(due_on.day, calendar.monthrange(year, month)[1])
         return date(year, month, day)
     msg = f"Unsupported recurring schedule: {recurrence}"

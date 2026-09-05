@@ -88,8 +88,16 @@ class Tasks(PreloadedFullScreenMixin, BaseComponent):
             try:
                 triggered = ctx.triggered_id
                 if triggered == f"{self.component_id}-add-person":
+                    added_name = " ".join((person_name or "").split())
                     snapshot = self.store.add_person(person_name or "")
-                    new_person = snapshot.people[-1] if snapshot.people else None
+                    new_person = next(
+                        (
+                            person
+                            for person in snapshot.people
+                            if person.name.casefold() == added_name.casefold()
+                        ),
+                        None,
+                    )
                     feedback = (
                         {"tone": "success", "message": f"Added {new_person.name}."}
                         if new_person
