@@ -9,6 +9,7 @@ from components.tasks.data import (
     next_due_date,
     overdue_task_count,
 )
+from utils.dates import local_today
 
 
 @pytest.fixture
@@ -77,3 +78,23 @@ def test_monthly_next_due_clamps_to_last_day_of_month():
         TaskRecurrence.MONTHLY,
         reference_date=date(2026, 1, 31),
     ) == date(2026, 2, 28)
+
+
+def test_missing_due_date_falls_back_to_today(store):
+    snapshot = store.add_person("Alice")
+    person_id = snapshot.people[0].id
+    store.path.write_text(
+        (
+            '{"people":[{"id":"'
+            + person_id
+            + '","name":"Alice","created_at":"2026-09-05T00:00:00+00:00"}],'
+            '"tasks":[{"id":"task-1","title":"Bins","person_id":"'
+            + person_id
+            + '","recurrence":"once","created_at":"2026-09-05T00:00:00+00:00"}]}'
+        ),
+        encoding="utf-8",
+    )
+
+    loaded = store.load()
+
+    assert loaded.tasks[0].due_on == local_today()

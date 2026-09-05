@@ -227,11 +227,12 @@ class TaskStore:
         recurrence = TaskRecurrence(
             str(payload.get("recurrence", TaskRecurrence.ONCE.value))
         )
+        due_on_value = str(payload.get("due_on") or local_today().isoformat())
         return TaskItem(
             id=str(payload.get("id", "")),
             title=str(payload.get("title", "")).strip(),
             person_id=str(payload.get("person_id", "")),
-            due_on=date.fromisoformat(str(payload.get("due_on"))),
+            due_on=date.fromisoformat(due_on_value),
             recurrence=recurrence,
             created_at=str(payload.get("created_at", "")),
             completed_at=payload.get("completed_at"),
