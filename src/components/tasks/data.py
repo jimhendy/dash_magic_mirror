@@ -55,10 +55,14 @@ class TaskSnapshot:
 
 
 @dataclass(slots=True)
-class TaskSummaryRow:
+class TaskDigestRow:
+    """One line in the compact summary: a single open task plus the person it
+    belongs to and whether it's already overdue.
+    """
+
+    task: TaskItem
     person: TaskPerson
-    overdue_count: int
-    open_count: int
+    overdue: bool
 
 
 @dataclass(slots=True)
@@ -198,6 +202,21 @@ class TaskStore:
 
         return self.load()
 
+    def delete_task(self, task_id: str) -> TaskSnapshot:
+        """Remove a task outright - the only way to stop a recurring task,
+        which "Done" merely rolls forward to its next occurrence.
+        """
+        with self._lock:
+            payload = self._read_payload()
+            remaining = [task for task in payload["tasks"] if task.get("id") != task_id]
+            if len(remaining) == len(payload["tasks"]):
+                msg = "Task not found."
+                raise ValueError(msg)
+            payload["tasks"] = remaining
+            self._write_payload(payload)
+
+        return self.load()
+
     def _read_payload(self) -> dict[str, list[dict[str, Any]]]:
         if not self.path.exists():
             return {"people": [], "tasks": []}
@@ -231,7 +250,7 @@ class TaskStore:
     @staticmethod
     def _task_from_dict(payload: dict[str, Any]) -> TaskItem:
         recurrence = TaskRecurrence(
-            str(payload.get("recurrence", TaskRecurrence.ONCE.value))
+            str(payload.get("recurrence", TaskRecurrence.ONCE.value)),
         )
         due_on_value = str(payload.get("due_on") or local_today().isoformat())
         return TaskItem(
@@ -264,19 +283,38 @@ def overdue_task_count(
     )
 
 
-def open_task_count(snapshot: TaskSnapshot, person_id: str) -> int:
-    return sum(1 for task in active_tasks(snapshot) if task.person_id == person_id)
+def upcoming_task_rows(
+    snapshot: TaskSnapshot,
+    *,
+    limit: int = 5,
+    today: date | None = None,
+) -> tuple[list[TaskDigestRow], int]:
+    """The next `limit` open tasks across everyone, soonest-due first so
+    overdue work floats to the top and genuinely upcoming tasks follow it.
 
-
-def summary_rows(snapshot: TaskSnapshot) -> list[TaskSummaryRow]:
-    return [
-        TaskSummaryRow(
-            person=person,
-            overdue_count=overdue_task_count(snapshot, person.id),
-            open_count=open_task_count(snapshot, person.id),
+    Returns the visible rows plus the count of further open tasks that
+    didn't fit, so the caller can render a "+N more" line.
+    """
+    current_day = today or local_today()
+    people_by_id = {person.id: person for person in snapshot.people}
+    rows = [
+        TaskDigestRow(
+            task=task,
+            person=people_by_id[task.person_id],
+            overdue=task.due_on < current_day,
         )
-        for person in sorted(snapshot.people, key=lambda item: item.name.casefold())
+        for task in active_tasks(snapshot)
+        if task.person_id in people_by_id
     ]
+    rows.sort(
+        key=lambda row: (
+            row.task.due_on,
+            row.person.name.casefold(),
+            row.task.title.casefold(),
+        ),
+    )
+    visible = rows[:limit]
+    return visible, len(rows) - len(visible)
 
 
 def grouped_open_tasks(snapshot: TaskSnapshot) -> list[TaskGroup]:
@@ -318,13 +356,39 @@ def due_label(task: TaskItem, *, today: date | None = None) -> str:
     return f"Due {task.due_on.strftime('%a')} {_day_month(task.due_on)}"
 
 
+def short_due_label(task: TaskItem, *, today: date | None = None) -> str:
+    """A terse right-aligned due marker for the compact summary: "Overdue 3 Sep",
+    "Today", "Tomorrow", a weekday within the coming week, or "Sat 13 Sep"
+    further out.
+    """
+    current_day = today or local_today()
+    delta = (task.due_on - current_day).days
+    if delta < 0:
+        return f"Overdue {_day_month(task.due_on)}"
+    if delta == 0:
+        return "Today"
+    if delta == 1:
+        return "Tomorrow"
+    if delta < 7:
+        return task.due_on.strftime("%A")
+    return f"{task.due_on.strftime('%a')} {_day_month(task.due_on)}"
+
+
 def next_due_date(
     due_on: date,
     recurrence: TaskRecurrence,
     *,
     reference_date: date,
 ) -> date:
-    next_due = due_on
+    """The occurrence a recurring task rolls to when its current one is
+    completed. Completing an occurrence always consumes it, so this always
+    advances at least once - even when the task was ticked off early and
+    `due_on` is still in the future - then keeps skipping any occurrences
+    that have already passed relative to `reference_date` (the completion
+    date), so a long-overdue task lands on its next genuinely upcoming slot
+    rather than another date in the past.
+    """
+    next_due = _advance_once(due_on, recurrence)
     while next_due <= reference_date:
         next_due = _advance_once(next_due, recurrence)
     return next_due

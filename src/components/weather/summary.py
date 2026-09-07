@@ -85,7 +85,8 @@ def render_weather_summary(
                             DashIconify(
                                 icon=tomorrow.get("icon", "mdi:weather-partly-cloudy"),
                                 color=tomorrow.get(
-                                    "icon_color", COLORS["text_secondary"]
+                                    "icon_color",
+                                    COLORS["text_secondary"],
                                 ),
                                 style={
                                     "width": "2.75rem",

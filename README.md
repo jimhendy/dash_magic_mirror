@@ -159,6 +159,7 @@ The `@cache_json` decorator in `src/utils/file_cache.py` provides file-based cac
 from src.utils.file_cache import cache_json
 import datetime
 
+
 @cache_json(valid_lifetime=datetime.timedelta(hours=1))
 def fetch(self) -> dict:
     """Fetch data from external API."""

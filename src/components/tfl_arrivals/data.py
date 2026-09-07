@@ -238,7 +238,7 @@ def build_transfer_station_index(transfer_station_arrivals: list[dict]) -> dict:
         line_id = arr.get("lineId") or ""
         dest_id = arr.get("destinationNaptanId") or ""
         dest_name = arr.get("destinationName", "")
-        destination_key = dest_id if dest_id else _normalise_destination(dest_name)
+        destination_key = dest_id or _normalise_destination(dest_name)
         if vehicle_id:
             by_vehicle.setdefault(vehicle_id, []).append(arr)
         if line_id and destination_key:
@@ -288,7 +288,7 @@ def check_stops_at_transfer_station_indexed(
 
     # Fall back to line + destination match
     if not candidates:
-        dest_key = dest_id if dest_id else dest_name_norm
+        dest_key = dest_id or dest_name_norm
         if (line_id, dest_key) in by_line_dest:
             candidates.extend(by_line_dest[(line_id, dest_key)])
 
@@ -367,14 +367,8 @@ def process_arrivals_data(
                 line_id = arrival.get("lineId", "")
                 # Prefer mapping by human-readable name, then by id
                 mapped_color = LINE_COLORS.get(line_name) or LINE_COLORS.get(line_id)
-                line_color = (
-                    mapped_color
-                    if mapped_color
-                    else (
-                        BUS_FALLBACK_COLOR
-                        if mode_name == "bus"
-                        else RAIL_FALLBACK_COLOR
-                    )
+                line_color = mapped_color or (
+                    BUS_FALLBACK_COLOR if mode_name == "bus" else RAIL_FALLBACK_COLOR
                 )
                 icon_name = (
                     "tabler:bus"

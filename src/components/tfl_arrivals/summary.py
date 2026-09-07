@@ -75,15 +75,19 @@ def _legend_row(
     stop_disruptions: dict,
 ) -> html.Div | None:
     """One entry per distinct line/route actually showing on the timeline,
-    dot colored to match its marker color below.
+    dot colored to match its marker color below - always the line/route's
+    own brand color, so the legend keys the timeline consistently. Entries
+    are sorted alphabetically by name so the order never shifts between
+    refreshes.
 
     A line with real TfL status data (rail/tube lines - bus routes don't
     get one) is always shown prominently with its status word, not just
     when something's wrong: that's specifically the line(s) configured via
     `TFL_LINE_STATUS`, which the user cares about checking at a glance
-    every time, not only when it's delayed. Lines without status data
-    (bus routes) stay a quiet, compact dot+name - purely a color legend
-    for the timeline below.
+    every time, not only when it's delayed. The service state shows only
+    in that status word (and its color) - never in the dot. Lines without
+    status data (bus routes) stay a quiet, compact dot+name - purely a
+    color legend for the timeline below.
     """
     seen: dict[str, dict] = {}
     for arrival in arrivals:
@@ -92,7 +96,7 @@ def _legend_row(
             seen[name] = arrival
 
     entries = []
-    for name, arrival in seen.items():
+    for name, arrival in sorted(seen.items(), key=lambda kv: kv[0].casefold()):
         color = arrival.get("line_color") or COLORS["accent"]
         status = line_status.get(arrival.get("line_id", ""))
 
@@ -105,7 +109,7 @@ def _legend_row(
             entries.append(
                 html.Div(
                     [
-                        _dot(status_color, size="0.7rem"),
+                        _dot(color, size="0.7rem"),
                         html.Span(
                             f"{name}: ",
                             style={
@@ -164,7 +168,8 @@ def _legend_row(
         return None
 
     return html.Div(
-        entries, style={"display": "flex", "flexWrap": "wrap", "gap": "0.3rem 1.1rem"}
+        entries,
+        style={"display": "flex", "flexWrap": "wrap", "gap": "0.3rem 1.1rem"},
     )
 
 

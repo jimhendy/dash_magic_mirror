@@ -96,8 +96,14 @@ class Header(BaseComponent):
                     interval=self.PRESENCE_POLL_INTERVAL_MS,
                     n_intervals=0,
                 ),
-                # Top row: presence on the left, date on the right - plain
-                # flow, no absolute positioning or magic offsets.
+                # Top row: presence on the left, date centered above the
+                # clock. A symmetric 3-column grid (presence / date / empty
+                # mirror column) keeps the date genuinely centered over the
+                # hour:minute digits below regardless of how wide the
+                # presence badges render - plain flow, no absolute
+                # positioning or magic offsets. The right column is left
+                # empty on purpose: the markets widget is pinned into that
+                # corner separately (see app/config.py).
                 html.Div(
                     [
                         html.Div(
@@ -137,14 +143,16 @@ class Header(BaseComponent):
                             style={
                                 "display": "flex",
                                 "alignItems": "baseline",
+                                "justifyContent": "center",
                                 "gap": "0.4rem",
                             },
                         ),
+                        html.Div(),  # right mirror column, mirrors presence
                     ],
                     style={
-                        "display": "flex",
+                        "display": "grid",
+                        "gridTemplateColumns": "1fr auto 1fr",
                         "alignItems": "center",
-                        "justifyContent": "space-between",
                         "width": "100%",
                     },
                 ),

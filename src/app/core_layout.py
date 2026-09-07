@@ -199,7 +199,14 @@ def core_layout() -> Component:
 
     """
     return dmc.MantineProvider(
-        html.Div(
+        # This is a dark, always-on kiosk display - force Mantine's dark
+        # palette globally rather than defaulting to light. Without this,
+        # any Mantine popover/menu (a Select's dropdown, in particular)
+        # renders with a light background and near-invisible text against
+        # the rest of the app's near-black theme.
+        forceColorScheme="dark",
+        theme={"primaryColor": "teal"},
+        children=html.Div(
             id="core-layout",
             children=[
                 _empty_plotly_graph(),

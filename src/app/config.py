@@ -7,12 +7,11 @@ from components.google_calendar import GoogleCalendar
 from components.header import Header
 from components.header.component import PersonPresence, _norm
 from components.markets import Markets
-from components.news import News
-from components.news.constants import DEFAULT_RSS_URLS
 from components.sports import Sports
 from components.tasks import Tasks
 from components.tfl_arrivals import TFLArrivals
 from components.weather import Weather
+from utils.styles import SPACE
 
 env_path = Path(__file__).parents[2] / ".env"
 load_dotenv(env_path)
@@ -63,7 +62,14 @@ TFL_LINE_STATUS_IDS = [
     if value.strip()
 ]
 
-# Component instances
+# Component instances.
+#
+# The order here is the top-to-bottom order of the main vertical strip
+# (see `core_callbacks.refresh_all_components` -> `app-div`), except for
+# Markets: it's pinned into the top-right corner via `position: fixed`
+# (the `css_position` kwargs below land on its wrapper div, see
+# `BaseComponent.summary_layout`), so it's lifted out of the flow and its
+# position in this list doesn't matter.
 COMPONENTS = [
     Header(
         people=people,
@@ -83,21 +89,19 @@ COMPONENTS = [
             if calendar_id.startswith("GOOGLE_CALENDAR_ID_")
         ],
     ),
+    Tasks(),
+    Sports(),
     TFLArrivals(
         all_stop_ids=TFL_ALL_STOP_IDS,
         transfer_station_id=TFL_TRANSFER_STATION_ID,
         summary_ignore_destination=TFL_SUMMARY_IGNORE_DESTINATION,
         line_status_ids=TFL_LINE_STATUS_IDS,
     ),
-    Tasks(),
-    Markets(),
-    Sports(),
-    News(
-        rss_urls=[
-            url.strip()
-            for url in os.environ.get("NEWS_RSS_URLS", "").split(",")
-            if url.strip()
-        ]
-        or DEFAULT_RSS_URLS,
+    Markets(
+        position="fixed",
+        top=SPACE["lg"],
+        right=SPACE["xl"],
+        width="auto",
+        zIndex=50,
     ),
 ]
