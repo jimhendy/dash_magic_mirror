@@ -33,7 +33,7 @@ def add_callbacks() -> None:
         prevent_initial_call=False,
     )
 
-    # Main timer callback - handles countdown and mouse movement reset
+    # Main timer callback - handles countdown and activity reset
     app.clientside_callback(
         rf"""
         function(interval, countdown_text, current_style) {{
@@ -48,9 +48,13 @@ def add_callbacks() -> None:
             }}
             const match = countdown_text.startsWith(prefix) ? countdown_text.slice(prefix.length) : '{MODAL_COUNTDOWN_START}';
             let current = parseInt(match) || {MODAL_COUNTDOWN_START};
-            const lastMouseMove = window.lastMouseMove || 0;
+            // lastActivityTs covers mouse movement, clicks, touches, and
+            // keystrokes - using only mouse movement here let the modal
+            // (and any form inside it, e.g. Tasks) auto-close mid-typing
+            // whenever the user's hands stayed on the keyboard.
+            const lastActivity = window.lastActivityTs || 0;
             const now = Date.now();
-            if (now - lastMouseMove < 2000 && current <= {MODAL_COUNTDOWN_START - 5}) {{
+            if (now - lastActivity < 2000 && current <= {MODAL_COUNTDOWN_START - 5}) {{
                 return [window.dash_clientside.no_update, prefix + '{MODAL_COUNTDOWN_START}'];
             }}
             return [window.dash_clientside.no_update, prefix + Math.max(0, current - 1)];

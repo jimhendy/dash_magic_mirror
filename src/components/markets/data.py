@@ -51,7 +51,8 @@ async def async_fetch_market_chart(symbol: str) -> dict[str, Any]:
 
 
 def process_market_data(
-    raw: dict[str, Any], index: MarketIndex
+    raw: dict[str, Any],
+    index: MarketIndex,
 ) -> dict[str, Any] | None:
     """Extract a clean price series + summary stats from the raw chart response."""
     try:

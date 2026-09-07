@@ -49,6 +49,7 @@ def area_polygon(
     *,
     fixed_range: tuple[float, float] | None = None,
     pad: float = 0.15,
+    floor_pct: float = 100.0,
 ) -> str:
     """A `clip-path: polygon(...)` string tracing a filled area under `values`.
 
@@ -57,10 +58,16 @@ def area_polygon(
     value where the *absolute* level matters (e.g. rain chance: a quiet day
     at 1-5% shouldn't look as dramatic as a wet one just because it's
     auto-scaled to fill the same box).
+
+    `floor_pct` is the y-percent the fill drops to (100% = the bottom edge).
+    Set it to a baseline's y-position to fill only down to that baseline
+    rather than all the way down.
     """
     lo, hi = _scale(values, fixed_range=fixed_range, pad=pad)
     pts = [f"{x:.2f}% {y:.2f}%" for x, y in _points(values, lo, hi)]
-    return "polygon(0% 100%, " + ", ".join(pts) + ", 100% 100%)"
+    return (
+        f"polygon(0% {floor_pct:.2f}%, " + ", ".join(pts) + f", 100% {floor_pct:.2f}%)"
+    )
 
 
 def line_polygon(
@@ -85,6 +92,53 @@ def line_polygon(
     return "polygon(" + ", ".join(pts) + ")"
 
 
+def _trend_layers(
+    values: list[float],
+    *,
+    color: str,
+    fixed_range: tuple[float, float] | None,
+    clip: str | None = None,
+    area_floor_pct: float = 100.0,
+) -> list[html.Div]:
+    """The area-fill + solid-line pair for one colour. `clip` is an optional
+    extra `inset(...)` that restricts the pair to a horizontal band (used to
+    paint the above- and below-baseline stretches in different colours);
+    `area_floor_pct` is where the area fill bottoms out (a baseline's
+    y-position, so a split fill hugs the baseline rather than the box edge).
+    """
+    extra = {"clipPath": clip} if clip else {}
+    wrapper_style = {"position": "absolute", "inset": "0", **extra}
+    return [
+        html.Div(
+            style=wrapper_style,
+            children=[
+                html.Div(
+                    style={
+                        "position": "absolute",
+                        "inset": "0",
+                        "background": (
+                            f"linear-gradient(180deg, {color}80 0%, {color}1f 100%)"
+                        ),
+                        "clipPath": area_polygon(
+                            values,
+                            fixed_range=fixed_range,
+                            floor_pct=area_floor_pct,
+                        ),
+                    },
+                ),
+                html.Div(
+                    style={
+                        "position": "absolute",
+                        "inset": "0",
+                        "background": color,
+                        "clipPath": line_polygon(values, fixed_range=fixed_range),
+                    },
+                ),
+            ],
+        ),
+    ]
+
+
 def sparkline(
     values: list[float],
     *,
@@ -92,6 +146,8 @@ def sparkline(
     height: str,
     fixed_range: tuple[float, float] | None = None,
     day_markers: list[float] | None = None,
+    baseline: float | None = None,
+    baseline_color: str | None = None,
 ) -> html.Div:
     """A two-layer sparkline: soft area fill + solid line, both from `values`.
 
@@ -100,6 +156,12 @@ def sparkline(
     vertical divider behind the trend - used by the weather sparklines to
     mark where one calendar day ends and the next begins across the 48h
     window.
+
+    `baseline` (a value, not a percent) splits the colouring at that level:
+    the stretch of the trend at or above it stays `color`, the stretch below
+    it is painted `baseline_color`. Used by the markets sparklines so an
+    index that's up on the week but dipped intraday shows that dip in red
+    rather than reading as uniformly positive.
     """
     children = [
         html.Div(
@@ -114,26 +176,47 @@ def sparkline(
         )
         for pct in (day_markers or [])
     ]
-    children.extend(
-        [
+
+    split = baseline is not None and baseline_color is not None
+    if split:
+        lo, hi = _scale(values, fixed_range=fixed_range, pad=0.15)
+        span = (hi - lo) or 1.0
+        y_baseline = min(100.0, max(0.0, 100 - ((baseline - lo) / span) * 100))
+        children.extend(
+            _trend_layers(
+                values,
+                color=color,
+                fixed_range=fixed_range,
+                clip=f"inset(0 0 {100 - y_baseline:.2f}% 0)",
+                area_floor_pct=y_baseline,
+            ),
+        )
+        children.extend(
+            _trend_layers(
+                values,
+                color=baseline_color,
+                fixed_range=fixed_range,
+                clip=f"inset({y_baseline:.2f}% 0 0 0)",
+                area_floor_pct=y_baseline,
+            ),
+        )
+        children.append(
             html.Div(
                 style={
                     "position": "absolute",
-                    "inset": "0",
-                    "background": f"linear-gradient(180deg, {color}80 0%, {color}1f 100%)",
-                    "clipPath": area_polygon(values, fixed_range=fixed_range),
+                    "left": "0",
+                    "right": "0",
+                    "top": f"{y_baseline:.2f}%",
+                    "height": "1px",
+                    "background": "rgba(255, 255, 255, 0.18)",
                 },
             ),
-            html.Div(
-                style={
-                    "position": "absolute",
-                    "inset": "0",
-                    "background": color,
-                    "clipPath": line_polygon(values, fixed_range=fixed_range),
-                },
-            ),
-        ],
-    )
+        )
+    else:
+        children.extend(
+            _trend_layers(values, color=color, fixed_range=fixed_range),
+        )
+
     return html.Div(
         children,
         style={"position": "relative", "height": height, "width": "100%"},

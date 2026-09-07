@@ -95,9 +95,17 @@ def _market_card(market: dict[str, Any]) -> html.Div:
                     "alignItems": "flex-end",
                 },
             ),
-            # Chart: full CHART_RANGE, bigger than the summary sparkline
+            # Chart: full CHART_RANGE, bigger than the summary sparkline.
+            # Split at the period's opening level - green above, red below -
+            # so intraday dips read as dips regardless of the net move.
             html.Div(
-                sparkline(values, color=period_color, height="6rem"),
+                sparkline(
+                    values,
+                    color=COLORS["accent"],
+                    baseline_color=COLORS["urgent"],
+                    baseline=values[0],
+                    height="6rem",
+                ),
                 style={"margin": f"{SPACE['md']} 0"},
             ),
             html.Div(
@@ -122,10 +130,12 @@ def _market_card(market: dict[str, Any]) -> html.Div:
             html.Div(
                 [
                     _stat(
-                        "Day low", format_price(market["day_low"], market["currency"])
+                        "Day low",
+                        format_price(market["day_low"], market["currency"]),
                     ),
                     _stat(
-                        "Day high", format_price(market["day_high"], market["currency"])
+                        "Day high",
+                        format_price(market["day_high"], market["currency"]),
                     ),
                     _stat("Volume", format_volume(market["volume"])),
                 ],

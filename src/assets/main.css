@@ -14,6 +14,22 @@
     --font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
+/* The full-screen modal (#full-screen-modal, see core_layout.py) is a
+   plain div with an opaque background at z-index 9999. Mantine's own
+   z-index scale tops out at --mantine-z-index-popover: 300 - far below
+   that - so any Mantine popover opened from inside the modal (a Select's
+   option list, a DateInput's calendar) portals to <body> and renders
+   *behind* the modal's opaque background: fully present in the DOM,
+   completely invisible. `!important` guarantees this wins regardless of
+   whether Mantine's own runtime style tag lands before or after this
+   file in the cascade. */
+:root {
+    --mantine-z-index-popover: 10000 !important;
+    --mantine-z-index-modal: 10000 !important;
+    --mantine-z-index-overlay: 10000 !important;
+    --mantine-z-index-max: 10001 !important;
+}
+
 html {
     background: var(--bg);
     /* Every size in this app is in rem, deliberately, so a single root
@@ -78,15 +94,14 @@ body {
     outline: none;
 }
 
+/* Genuinely editable fields (the Tasks form) need real pointer events and
+   a text cursor to be usable - only strip the kiosk long-press/selection
+   affordances here, not interactivity itself. */
 input,
 textarea,
 [contenteditable] {
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    cursor: default;
-    pointer-events: none;
+    -webkit-tap-highlight-color: transparent;
+    cursor: text;
 }
 
 img {

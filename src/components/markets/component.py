@@ -28,7 +28,7 @@ class Markets(DataDrivenComponent):
         markets = await async_process_all_markets()
         if not markets:
             return ComponentPayload(
-                summary=self._build_placeholder(self.placeholder_error)
+                summary=self._build_placeholder(self.placeholder_error),
             )
 
         try:
@@ -37,7 +37,7 @@ class Markets(DataDrivenComponent):
         except Exception:  # noqa: BLE001
             logger.exception("Error rendering markets payload")
             return ComponentPayload(
-                summary=self._build_placeholder(self.placeholder_error)
+                summary=self._build_placeholder(self.placeholder_error),
             )
 
         title = html.Div(
