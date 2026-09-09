@@ -96,25 +96,17 @@ class Header(BaseComponent):
                     interval=self.PRESENCE_POLL_INTERVAL_MS,
                     n_intervals=0,
                 ),
-                # Top row: presence on the left, date centered above the
-                # clock. A symmetric 3-column grid (presence / date / empty
-                # mirror column) keeps the date genuinely centered over the
-                # hour:minute digits below regardless of how wide the
+                # Top row: presence on the right, date centered above the
+                # clock. A symmetric 3-column grid (empty mirror column /
+                # date / presence) keeps the date genuinely centered over
+                # the hour:minute digits below regardless of how wide the
                 # presence badges render - plain flow, no absolute
-                # positioning or magic offsets. The right column is left
+                # positioning or magic offsets. The left column is left
                 # empty on purpose: the markets widget is pinned into that
                 # corner separately (see app/config.py).
                 html.Div(
                     [
-                        html.Div(
-                            render_presence_badges(self.people),
-                            id=f"{self.component_id}-people",
-                            style={
-                                "display": "flex",
-                                "alignItems": "center",
-                                "gap": "1.1rem",
-                            },
-                        ),
+                        html.Div(),  # left mirror column (markets pinned here)
                         html.Div(
                             [
                                 html.Span(
@@ -147,7 +139,16 @@ class Header(BaseComponent):
                                 "gap": "0.4rem",
                             },
                         ),
-                        html.Div(),  # right mirror column, mirrors presence
+                        html.Div(
+                            render_presence_badges(self.people),
+                            id=f"{self.component_id}-people",
+                            style={
+                                "display": "flex",
+                                "flexDirection": "column",
+                                "alignItems": "flex-end",
+                                "gap": "0.35rem",
+                            },
+                        ),
                     ],
                     style={
                         "display": "grid",

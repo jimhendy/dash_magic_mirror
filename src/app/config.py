@@ -66,10 +66,12 @@ TFL_LINE_STATUS_IDS = [
 #
 # The order here is the top-to-bottom order of the main vertical strip
 # (see `core_callbacks.refresh_all_components` -> `app-div`), except for
-# Markets: it's pinned into the top-right corner via `position: fixed`
+# Markets: it's pinned into the top-left corner via `position: fixed`
 # (the `css_position` kwargs below land on its wrapper div, see
 # `BaseComponent.summary_layout`), so it's lifted out of the flow and its
-# position in this list doesn't matter.
+# position in this list doesn't matter. The header keeps its top-left grid
+# column empty to leave room for it (and pins presence into the top-right
+# column to mirror it).
 COMPONENTS = [
     Header(
         people=people,
@@ -100,7 +102,7 @@ COMPONENTS = [
     Markets(
         position="fixed",
         top=SPACE["lg"],
-        right=SPACE["xl"],
+        left=SPACE["xl"],
         width="auto",
         zIndex=50,
     ),

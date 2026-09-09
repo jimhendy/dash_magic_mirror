@@ -20,7 +20,7 @@ _SYMBOL_ICONS = {
 
 
 def render_markets_summary(markets: list[dict[str, Any]]) -> html.Div:
-    """One index per line, stacked in the top-right corner. The return
+    """One index per line, stacked in the top-left corner. The return
     (this week's % change) is the point of a glance-level summary, so it's
     the bold, colored figure; the current price is dropped entirely here in
     favor of the full-screen view, which has room for it.
@@ -36,7 +36,7 @@ def render_markets_summary(markets: list[dict[str, Any]]) -> html.Div:
         style={
             "display": "flex",
             "flexDirection": "column",
-            "alignItems": "flex-end",
+            "alignItems": "flex-start",
             "gap": "0.35rem",
         },
     )
