@@ -1,10 +1,8 @@
-import dash_mantine_components as dmc
 from dash import html
 from dash.development.base_component import Component
 
 from app.config import COMPONENTS
 from utils.constants import PANEL_TIMEOUT_SECONDS
-from utils.styles import MANTINE_THEME
 
 
 def core_layout() -> Component:
@@ -19,21 +17,15 @@ def core_layout() -> Component:
     panels = [
         component.panel_layout() for component in COMPONENTS if component.full_screen
     ]
-    return dmc.MantineProvider(
-        # Dark, always-on kiosk display: force Mantine's dark palette so
-        # its popovers (Select/DateInput in the Tasks panel) match.
-        forceColorScheme="dark",
-        theme=MANTINE_THEME,
-        children=html.Div(
-            [
-                html.Main(tiles, id="dashboard", className="dashboard"),
-                html.Div(
-                    panels,
-                    id="panels",
-                    className="panels",
-                    **{"data-timeout": str(PANEL_TIMEOUT_SECONDS)},
-                ),
-            ],
-            id="app-root",
-        ),
+    return html.Div(
+        [
+            html.Main(tiles, id="dashboard", className="dashboard"),
+            html.Div(
+                panels,
+                id="panels",
+                className="panels",
+                **{"data-timeout": str(PANEL_TIMEOUT_SECONDS)},
+            ),
+        ],
+        id="app-root",
     )

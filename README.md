@@ -146,7 +146,6 @@ Copy `.env.example` to `.env` and customize:
 - **Weather**: Set your postcode and WeatherAPI key
 - **Google Calendar**: Configure calendar IDs
 - **News**: Optional `NEWS_RSS_URLS` (comma-separated) - defaults to BBC World + Guardian World, no key required
-- **Tasks**: Optional `MAGIC_MIRROR_TASKS_FILE` to override where people/tasks are persisted (defaults to `~/.local/state/magic_mirror/tasks.json`)
 
 ## Features
 
@@ -154,7 +153,6 @@ Copy `.env.example` to `.env` and customize:
 - **Weather** - Current conditions and multi-day forecast (WeatherAPI.com), plus an hourly temperature/rain-chance chart in the detail panel
 - **Google Calendar** - Today and tomorrow on the dashboard, a day-by-day agenda for the next five weeks in the detail panel; each calendar keeps a consistent colour (by `GOOGLE_CALENDAR_ID_n` order) and birthdays get a cake icon
 - **TFL Transport** - Real-time London public transport arrivals, line status, and disruptions
-- **Tasks** - Household people, one-off chores, and recurring chores with overdue highlighting
 - **Sports Fixtures** - Upcoming matches across configured teams/sports, scraped from Where's The Match
 - **Markets** - S&P 500, FTSE 100 and ACWI with weekly sparklines; 3-month charts and 52-week range in the detail panel (Yahoo Finance, no key)
 - **News** - Rotating headlines from an RSS feed (default BBC News), full list in the detail panel (not on the dashboard by default - add `News()` to `COMPONENTS` and give it a grid area in `main.css`)

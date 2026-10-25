@@ -48,28 +48,6 @@ CALENDAR_PALETTE: list[str] = [
     "#9BD772",
 ]
 
-# Mantine theme for the few form controls (Tasks panel) so they match the
-# hand-rolled CSS rather than Mantine's defaults.
-MANTINE_THEME: dict = {
-    "primaryColor": "teal",
-    "fontFamily": FONT_FAMILY,
-    "defaultRadius": "md",
-    "colors": {
-        "dark": [
-            "#C9CED8",
-            "#A0A8B6",
-            "#7D8594",
-            "#626B7A",
-            "#2A303C",
-            "#1F2430",
-            "#1A1E27",
-            "#13161D",
-            "#0E1116",
-            "#0A0C10",
-        ],
-    },
-}
-
 
 def with_alpha(hex_color: str, alpha: float) -> str:
     """`#RRGGBB` -> `rgba(r, g, b, alpha)`."""

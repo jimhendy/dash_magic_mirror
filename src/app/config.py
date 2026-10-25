@@ -8,7 +8,6 @@ from components.header import Header
 from components.header.component import PersonPresence, _norm
 from components.markets import Markets
 from components.sports import Sports
-from components.tasks import Tasks
 from components.tfl_arrivals import TFLArrivals
 from components.weather import Weather
 
@@ -92,7 +91,6 @@ COMPONENTS = [
             if calendar_id.startswith("GOOGLE_CALENDAR_ID_")
         ],
     ),
-    Tasks(),
     Sports(),
     Markets(),
 ]

@@ -43,12 +43,12 @@
 /* Base                                                                    */
 /* ---------------------------------------------------------------------- */
 html {
-    /* 2% of the shorter viewport side: 16px on an 800x1280 tablet, scaling
-       up on larger/denser screens. */
-    font-size: clamp(13px, 2vmin, 26px);
+    /* 2.4% of the shorter viewport side: ~19px on an 800x1280 tablet, so
+       it reads from across the hallway, scaling up on larger screens. */
+    font-size: clamp(15px, 2.4vmin, 30px);
     /* ...but never so large that a squatter screen (e.g. 4:3) runs out of
-       height: 1.25% of the long side is the same 16px on 800x1280. */
-    font-size: clamp(12px, min(2vmin, 1.25vmax), 26px);
+       height: 1.5% of the long side is the same ~19px on 800x1280. */
+    font-size: clamp(14px, min(2.4vmin, 1.5vmax), 30px);
     background: var(--bg);
     height: 100%;
     overflow: hidden;
@@ -141,25 +141,26 @@ img {
     padding: calc(var(--gap) + env(safe-area-inset-top, 0px)) var(--gap) var(--gap);
     /* Portrait (the default): a tall single page, two columns wide. */
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: auto auto auto minmax(0, 1fr) minmax(0, 1.3fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
     grid-template-areas:
         "header          header"
         "weather         weather"
         "tfl_arrivals    tfl_arrivals"
         "google_calendar google_calendar"
-        "tasks           sports";
+        "sports          sports";
     transition: transform 0.35s var(--ease), opacity 0.35s var(--ease);
 }
 
 @media (orientation: landscape) {
     .dashboard {
         grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1fr);
-        grid-template-rows: auto minmax(0, 1fr) minmax(0, 0.25fr) minmax(0, 0.8fr);
+        /* Weather takes the height it needs; sport fills the rest of
+           its column. Transport gets the full height for its board. */
+        grid-template-rows: auto auto minmax(0, 1fr);
         grid-template-areas:
             "header  header          header"
             "weather google_calendar tfl_arrivals"
-            "weather google_calendar sports"
-            "tasks   google_calendar sports";
+            "sports  google_calendar tfl_arrivals";
     }
 }
 
@@ -267,7 +268,6 @@ img {
 
 /* Long lists fade out at the bottom rather than being hard-clipped. */
 .tile--google_calendar .tile__body,
-.tile--tasks .tile__body,
 .tile--sports .tile__body,
 .tile--tfl_arrivals .tile__body {
     -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 1.5rem), transparent);
@@ -497,10 +497,12 @@ img {
 /* ---------------------------------------------------------------------- */
 .wx-tile {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: "now chart outlook";
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+        "now   outlook"
+        "chart chart";
     align-items: center;
-    gap: 1.1rem;
+    gap: 0.5rem 1.1rem;
     height: 100%;
 }
 
@@ -513,25 +515,10 @@ img {
 .wxt-chart { grid-area: chart; }
 .wxt-outlook { grid-area: outlook; }
 
-/* Portrait: the 48h chart covers the coming hours; the hourly strip is
-   kept for landscape (and the panel). */
-@media (orientation: portrait) {
-    .wx-tile .wx-hours {
-        display: none;
-    }
-}
-
-.wx-top {
-    display: flex;
-    align-items: center;
-    gap: 1.1rem;
-}
-
-.wx-bottom {
-    display: flex;
-    gap: 1rem;
-    align-items: stretch;
-    min-height: 0;
+/* On the tile the 48h chart covers the coming hours; the hourly strip
+   is kept for the panel. */
+.wx-tile .wx-hours {
+    display: none;
 }
 
 .wxt-chart {
@@ -571,7 +558,7 @@ img {
 .wxt-chart__img {
     display: block;
     width: 100%;
-    height: 4.2rem;
+    height: 2.6rem;
 }
 
 .wxt-chart__days {
@@ -649,8 +636,8 @@ img {
 }
 
 .wx-now__icon {
-    width: 4.6rem;
-    height: 4.6rem;
+    width: 3.8rem;
+    height: 3.8rem;
 }
 
 .wx-now__text {
@@ -658,7 +645,7 @@ img {
 }
 
 .wx-now__temp {
-    font-size: 3.6rem;
+    font-size: 3.2rem;
     font-weight: 300;
     letter-spacing: -0.03em;
     line-height: 1;
@@ -741,28 +728,14 @@ img {
     height: 0.8rem;
 }
 
-/* Landscape: the weather tile is a narrow column. Regroup it as a grid:
-   now + 3-day outlook side by side, then the hourly strip, then the chart. */
+/* Landscape: the weather tile is a narrow column, so everything shrinks
+   a little. */
 @media (orientation: landscape) {
     .wx-tile {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        grid-template-areas:
-            "now     outlook"
-            "hours   hours"
-            "chart   chart";
-        align-content: space-between;
-        gap: 0.45rem 0.8rem;
+        gap: 0.5rem 0.8rem;
     }
 
-    .wx-top,
-    .wx-bottom {
-        display: contents;
-    }
-
-    .wx-now { grid-area: now; gap: 0.6rem; }
-    .wx-hours { grid-area: hours; grid-template-columns: repeat(6, minmax(0, 1fr)); }
-    .wxt-chart { grid-area: chart; }
+    .wx-now { gap: 0.6rem; }
 
     .wx-now__icon {
         width: 3.2rem;
@@ -854,7 +827,7 @@ img {
     grid-template-columns: 7.5rem minmax(0, 1fr) auto;
     align-items: center;
     gap: 0.85rem;
-    padding: 0.6rem 0;
+    padding: 0.42rem 0;
     border-top: 1px solid var(--line);
 }
 
@@ -1118,61 +1091,6 @@ img {
 }
 
 /* ---------------------------------------------------------------------- */
-/* Tasks tile                                                              */
-/* ---------------------------------------------------------------------- */
-.task-minis {
-    display: flex;
-    flex-direction: column;
-}
-
-.task-mini {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    padding: 0.5rem 0;
-    border-top: 1px solid var(--line);
-    min-width: 0;
-}
-
-.task-mini:first-child {
-    border-top: 0;
-    padding-top: 0;
-}
-
-.task-mini__check {
-    width: 1.3rem;
-    height: 1.3rem;
-    color: var(--text-3);
-}
-
-.task-mini__text {
-    flex: 1;
-    min-width: 0;
-}
-
-.task-mini__title {
-    font-size: 1rem;
-    font-weight: 500;
-}
-
-.task-mini__person {
-    font-size: 0.8rem;
-    color: var(--text-3);
-}
-
-.task-mini__due {
-    font-size: 0.8rem;
-    color: var(--text-2);
-    white-space: nowrap;
-}
-
-.task-mini.is-overdue .task-mini__check,
-.task-mini.is-overdue .task-mini__due {
-    color: var(--red);
-    font-weight: 600;
-}
-
-/* ---------------------------------------------------------------------- */
 /* Sports tile                                                             */
 /* ---------------------------------------------------------------------- */
 .fxs {
@@ -1192,6 +1110,25 @@ img {
 .fx:first-child {
     border-top: 0;
     padding-top: 0;
+}
+
+/* Portrait gives sport the full width: fixtures flow into two columns. */
+@media (orientation: portrait) {
+    .tile--sports .fxs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 1.4rem;
+    }
+
+    /* Two rows of two: the calendar gets the rest of the height. */
+    .tile--sports .fx:nth-child(n + 5) {
+        display: none;
+    }
+
+    .tile--sports .fx:nth-child(2) {
+        border-top: 0;
+        padding-top: 0;
+    }
 }
 
 .crest {
@@ -1328,14 +1265,15 @@ img {
 .dashboard > .tile--markets {
     grid-area: header !important;
     justify-self: start;
+    align-self: center;
     width: var(--markets-w);
-    padding-top: 0.75rem;
-    padding-bottom: 0.6rem;
+    padding: 0.55rem 0.8rem;
     z-index: 1;
 }
 
+/* The flags say what it is; no title bar, so it's no taller than the clock. */
 .tile--markets .tile__head {
-    margin-bottom: 0.35rem;
+    display: none;
 }
 
 .tile--markets .mkt {
@@ -1355,19 +1293,10 @@ img {
 }
 
 /* Landscape: the header has width to spare but not height - one line per
-   index and no title bar, so the card is no taller than the clock. */
+   index. */
 @media (orientation: landscape) {
     :root {
         --markets-w: 21rem;
-    }
-
-    .dashboard > .tile--markets {
-        align-self: center;
-        padding: 0.55rem 0.8rem;
-    }
-
-    .tile--markets .tile__head {
-        display: none;
     }
 
     .tile--markets .mkt {
@@ -2260,247 +2189,6 @@ img {
     font-size: 0.8rem;
     color: var(--text-3);
     margin-top: 0.3rem;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Tasks panel                                                             */
-/* ---------------------------------------------------------------------- */
-.tasks-detail {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-}
-
-@media (min-aspect-ratio: 1/1) {
-    .tasks-detail {
-        grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-    }
-}
-
-.tasks-list-col,
-.tasks-form-col {
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap);
-    min-width: 0;
-}
-
-.tasks-list-col > .section__title {
-    margin: 0.2rem 0 -0.2rem 0.2rem;
-}
-
-.task-groups {
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap);
-}
-
-.task-group__head {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    margin-bottom: 0.4rem;
-}
-
-.task-group__name {
-    font-weight: 700;
-    font-size: 1.1rem;
-    flex: 1;
-}
-
-.task-group__count {
-    font-size: 0.8rem;
-    color: var(--text-3);
-    background: var(--surface-2);
-    padding: 0.2rem 0.55rem;
-    border-radius: 999px;
-}
-
-.task-row {
-    display: flex;
-    align-items: center;
-    gap: 0.9rem;
-    padding: 0.65rem 0;
-    border-top: 1px solid var(--line);
-}
-
-.check-btn {
-    display: grid;
-    place-items: center;
-    width: 2.9rem;
-    height: 2.9rem;
-    border-radius: 50%;
-    border: 2px solid var(--line-strong);
-    color: transparent;
-    flex-shrink: 0;
-    transition: background-color 0.15s, color 0.15s, border-color 0.15s;
-}
-
-.check-btn .ic {
-    width: 1.35rem;
-    height: 1.35rem;
-}
-
-.check-btn:active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #04201c;
-}
-
-.task-row__text {
-    flex: 1;
-    min-width: 0;
-}
-
-.task-row__title {
-    font-size: 1.1rem;
-    font-weight: 500;
-}
-
-.task-row__meta {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 0.85rem;
-    color: var(--text-2);
-    margin-top: 0.1rem;
-}
-
-.task-row__repeat {
-    width: 0.95rem;
-    height: 0.95rem;
-}
-
-.task-row.is-overdue .task-row__meta {
-    color: var(--red);
-    font-weight: 600;
-}
-
-.task-row.is-overdue .check-btn {
-    border-color: rgba(255, 107, 107, 0.5);
-}
-
-.task-row__actions {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    flex-shrink: 0;
-}
-
-.task-row__confirm-text {
-    font-size: 0.85rem;
-    color: var(--text-2);
-}
-
-.task-row.is-confirming {
-    background: rgba(255, 107, 107, 0.06);
-    border-radius: var(--radius-sm);
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-}
-
-.form {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.form > .section__title {
-    margin-bottom: 0;
-}
-
-.field-label {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-3);
-    margin-bottom: -0.35rem;
-}
-
-.inline-form {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.6rem;
-}
-
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.45rem;
-    height: 3.1rem;
-    padding: 0 1.25rem;
-    border-radius: var(--radius-sm);
-    font-weight: 600;
-    font-size: 1rem;
-    white-space: nowrap;
-}
-
-.btn--primary {
-    background: var(--accent);
-    color: #04201c;
-    margin-top: 0.3rem;
-}
-
-.btn--secondary {
-    background: var(--surface-3);
-    color: var(--text);
-}
-
-.btn--danger {
-    background: var(--red);
-    color: #2a0505;
-}
-
-.btn--ghost {
-    background: transparent;
-    color: var(--text-2);
-    border: 1px solid var(--line-strong);
-}
-
-.btn--sm {
-    height: 2.5rem;
-    padding: 0 0.9rem;
-    font-size: 0.9rem;
-}
-
-.toast-slot:empty {
-    display: none;
-}
-
-.toast {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.8rem 1rem;
-    border-radius: var(--radius-sm);
-    background: rgba(94, 234, 212, 0.12);
-    color: var(--accent);
-    font-weight: 600;
-    animation: toast 4.5s var(--ease) forwards;
-}
-
-.toast.is-error {
-    background: rgba(255, 107, 107, 0.12);
-    color: var(--red);
-}
-
-@keyframes toast {
-    0% { opacity: 0; transform: translateY(-0.4rem); }
-    6% { opacity: 1; transform: none; }
-    85% { opacity: 1; }
-    100% { opacity: 0; }
-}
-
-/* Mantine inputs, tuned to the panel's surfaces. */
-.tasks-form-col .mantine-Input-input,
-.tasks-form-col .mantine-TextInput-input,
-.tasks-form-col .mantine-DatePickerInput-input {
-    background: var(--surface-2);
-    border-color: var(--line-strong);
-}
-
-.tasks-form-col .mantine-SegmentedControl-root {
-    background: var(--surface-2);
 }
 
 /* News panel */
