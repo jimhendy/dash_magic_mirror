@@ -1204,13 +1204,18 @@ img {
     border-radius: 50%;
     background: rgba(245, 246, 248, 0.92);
     padding: 0.3rem;
+    position: relative;
     flex-shrink: 0;
     overflow: hidden;
 }
 
+/* Pinned inside the padding: as a grid item, a tall logo's automatic
+   minimum height let it overflow the circle downwards (off-centre). */
 .crest img {
-    width: 100%;
-    height: 100%;
+    position: absolute;
+    inset: 0.3rem;
+    width: calc(100% - 0.6rem);
+    height: calc(100% - 0.6rem);
     object-fit: contain;
 }
 
