@@ -14,11 +14,17 @@ from loguru import logger
 
 @dataclass(slots=True)
 class ComponentPayload:
-    """Snapshot of component data ready to hydrate the UI."""
+    """Snapshot of component data ready to hydrate the UI.
+
+    `summary` fills the dashboard tile, `detail` the full-screen panel;
+    `subtitle` is the panel header's secondary line and `badge` the small
+    status pill in the tile header (both optional).
+    """
 
     summary: Any
-    fullscreen_title: Any | None = None
-    fullscreen_content: Any | None = None
+    detail: Any | None = None
+    subtitle: Any | None = None
+    badge: Any | None = None
     raw: Any | None = None
     updated_at: datetime = field(
         default_factory=lambda: datetime.now(UTC),

@@ -43,7 +43,11 @@ def datetime_from_str(datetime_str: str, *, is_all_day: bool) -> datetime.dateti
         return datetime.datetime.fromisoformat(datetime_str + "T00:00:00").replace(
             tzinfo=get_app_timezone(),
         )
-    return datetime.datetime.fromisoformat(datetime_str.replace("Z", "+00:00"))
+    parsed = datetime.datetime.fromisoformat(datetime_str.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=get_app_timezone())
+    # Always display in local time, whatever offset the API used.
+    return parsed.astimezone(get_app_timezone())
 
 
 def format_datetime(date_obj: datetime.datetime, *, is_all_day: bool) -> str:

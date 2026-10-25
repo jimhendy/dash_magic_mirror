@@ -1,257 +1,200 @@
-"""Summary view rendering for Google Calendar component."""
+"""Dashboard tile for the Google Calendar component: today, tomorrow and
+the rest of the week."""
 
 import datetime
 
 from dash import html
 
-from utils.calendar import (
-    get_contrasting_text_color,
-    get_event_color_by_event,
-    truncate_event_title,
-)
-from utils.dates import local_today
-from utils.styles import COLORS, FONT_SIZES, RADIUS, WEIGHT
+from utils.dates import local_now
+from utils.styles import with_alpha
+from utils.ui import badge, icon
 
 from .data import CalendarEvent, get_events_for_date
-from .utils import generate_event_time_display, prepare_events_for_rendering
+
+MAX_TIMED_PER_DAY = 6
+UPCOMING_DAYS = 7  # after tomorrow
+MAX_UPCOMING = 8
 
 
-def render_calendar_summary(events: list[CalendarEvent]) -> html.Div:
-    """Render the calendar summary view showing today and tomorrow.
+def is_birthday(event: CalendarEvent) -> bool:
+    return "birthday" in event.title.lower()
 
-    Args:
-        events: List of processed calendar events
 
-    Returns:
-        html.Div containing the calendar summary layout
+def event_sort_key(event: CalendarEvent):
+    return (not event.is_all_day, event.start_datetime, event.title.casefold())
 
-    """
-    sorted_events = prepare_events_for_rendering(events)
 
-    today = local_today()
+def all_day_pill(
+    event: CalendarEvent, color: str, label: str | None = None
+) -> html.Div:
+    return html.Div(
+        [
+            icon("mdi:cake-variant", "pill__icon")
+            if is_birthday(event)
+            else html.Span(className="pill__dot"),
+            html.Span(event.title, className="truncate"),
+            html.Span(label, className="pill__label") if label else None,
+        ],
+        className="pill",
+        style={"--ev": color, "background": with_alpha(color, 0.16)},
+    )
+
+
+def render_calendar_summary(
+    events: list[CalendarEvent],
+    colors: dict[str, str],
+) -> html.Div:
+    today = local_now().date()
     tomorrow = today + datetime.timedelta(days=1)
-
-    today_events = get_events_for_date(sorted_events, today)
-    tomorrow_events = get_events_for_date(sorted_events, tomorrow)
-
-    all_events = []
-    seen_ids = set()
-    for event in today_events + tomorrow_events:
-        if event.id not in seen_ids:
-            seen_ids.add(event.id)
-            all_events.append(event)
-
-    # All-day events (single-day or multi-day - a birthday, a holiday, a
-    # multi-day trip) always render as a solid colored bar, never in the
-    # plain accent-line list below: that's what actually distinguishes "no
-    # specific time, applies to the whole day" from a scheduled meeting.
-    # One spanning both today and tomorrow (a contiguous date range, so it
-    # touches both days iff its start is <= today and its end is >=
-    # tomorrow) gets a single bar above both columns; the rest are scoped
-    # to just the one day column they belong to.
-    spanning_all_day_events = []
-    today_all_day_events = []
-    tomorrow_all_day_events = []
-    today_timed_events = []
-    tomorrow_timed_events = []
-
-    for event in all_events:
-        start_date = event.start_datetime.date()
-        end_date = event.end_datetime.date()
-        touches_today = start_date <= today <= end_date
-        touches_tomorrow = start_date <= tomorrow <= end_date
-
-        if event.is_all_day:
-            if touches_today and touches_tomorrow:
-                spanning_all_day_events.append(event)
-            else:
-                if touches_today:
-                    today_all_day_events.append(event)
-                if touches_tomorrow:
-                    tomorrow_all_day_events.append(event)
-        else:
-            if touches_today:
-                today_timed_events.append(event)
-            if touches_tomorrow:
-                tomorrow_timed_events.append(event)
-
-    covered_by_spanning = bool(spanning_all_day_events)
-
     return html.Div(
         [
-            html.Div(
-                style={"display": "flex", "flexDirection": "column", "gap": "0.4rem"},
-                children=[
-                    _render_all_day_bar(event, today, tomorrow)
-                    for event in spanning_all_day_events
-                ],
-            )
-            if spanning_all_day_events
-            else None,
-            html.Div(
-                style={"display": "flex", "gap": "1.5rem"},
-                children=[
-                    _render_day_column(
-                        today,
-                        all_day_events=today_all_day_events,
-                        timed_events=today_timed_events,
-                        covered_by_spanning=covered_by_spanning,
-                    ),
-                    _render_day_column(
-                        tomorrow,
-                        all_day_events=tomorrow_all_day_events,
-                        timed_events=tomorrow_timed_events,
-                        covered_by_spanning=covered_by_spanning,
-                    ),
-                ],
-            ),
+            _day_column("Today", today, events, colors),
+            _day_column("Tomorrow", tomorrow, events, colors),
+            _upcoming_column(tomorrow, events, colors),
         ],
-        style={
-            "display": "flex",
-            "flexDirection": "column",
-            "gap": "0.6rem",
-            "width": "100%",
-        },
+        className="cal-tile",
     )
 
 
-def _render_all_day_bar(
-    event: CalendarEvent,
-    window_start: datetime.date,
-    window_end: datetime.date,
+def _upcoming_column(
+    tomorrow: datetime.date,
+    events: list[CalendarEvent],
+    colors: dict[str, str],
 ) -> html.Div:
-    """A continuous colored bar for an all-day event, scoped to the given
-    `window_start`/`window_end` (either a single day, or today+tomorrow for
-    one spanning both) - the one place a filled block is the *right* call
-    (it reads as a single connected span, the way Google/Outlook calendars
-    render all-day events), not a decorative box around static text.
+    """The rest of the week at a glance: one line per event, listed on the
+    day it starts. Events already under way show under today/tomorrow."""
+    start = tomorrow + datetime.timedelta(days=1)
+    end = start + datetime.timedelta(days=UPCOMING_DAYS)
+    seen: set[str] = set()
+    items: list[tuple[datetime.date, CalendarEvent]] = []
+    day = start
+    while day < end:
+        for event in sorted(get_events_for_date(events, day), key=event_sort_key):
+            if event.id not in seen and event.start_datetime.date() >= start:
+                seen.add(event.id)
+                items.append((day, event))
+        day += datetime.timedelta(days=1)
 
-    The bar's corners read as a real timeline segment rather than a plain
-    rounded rectangle: an edge that's the event's actual start/end gets a
-    full pill-rounded cap, while an edge that's merely where the visible
-    window cuts off an event continuing before or after it stays square -
-    the same "cut off vs. terminates here" convention Google/Outlook
-    calendars use for multi-day bars.
-    """
-    background = get_event_color_by_event(event.id)
-    text_color = get_contrasting_text_color(background)
-    starts_here = event.start_datetime.date() == window_start
-    ends_here = event.end_datetime.date() == window_end
-    left_radius = RADIUS["pill"] if starts_here else "0"
-    right_radius = RADIUS["pill"] if ends_here else "0"
-    return html.Div(
-        truncate_event_title(event.title, 60),
-        style={
-            "background": background,
-            "color": text_color,
-            "borderRadius": f"{left_radius} {right_radius} {right_radius} {left_radius}",
-            "padding": "0.35rem 0.9rem",
-            "fontSize": "1.32rem",  # meta (1.1rem) + 20%, calendar events read too small
-            "fontWeight": WEIGHT["semibold"],
-            "overflow": "hidden",
-            "textOverflow": "ellipsis",
-            "whiteSpace": "nowrap",
-        },
-    )
-
-
-_MAX_EVENTS_PER_DAY = 4
-
-
-def _render_day_column(
-    date: datetime.date,
-    *,
-    all_day_events: list[CalendarEvent],
-    timed_events: list[CalendarEvent],
-    covered_by_spanning: bool = False,
-) -> html.Div:
-    """Render a single day column: any all-day events as solid bars first,
-    then plain timed-event rows colored only by a thin left accent bar.
-    Which column is "today" vs "tomorrow" is obvious from position alone,
-    so no label is rendered.
-
-    `covered_by_spanning` means an all-day bar spanning both columns
-    (rendered above both) already covers this day - so no all-day and no
-    timed events here isn't actually an empty day, and "Nothing scheduled"
-    would be wrong.
-    """
-    visible = timed_events[:_MAX_EVENTS_PER_DAY]
-    overflow_count = len(timed_events) - len(visible)
-
-    rows: list[html.Div] = [
-        _render_all_day_bar(event, date, date) for event in all_day_events
-    ]
-    rows.extend(_render_event(event, date) for event in visible)
-
-    if not rows and not covered_by_spanning:
-        rows = [
-            html.Div(
-                "Nothing scheduled",
-                style={"fontSize": FONT_SIZES["meta"], "color": COLORS["text_muted"]},
-            ),
-        ]
-    if overflow_count > 0:
-        rows.append(
-            html.Div(
-                f"+{overflow_count} more",
-                style={"fontSize": FONT_SIZES["small"], "color": COLORS["text_muted"]},
-            ),
+    rows = [
+        html.Div(
+            [
+                html.Span(className="ev__bar", style={"background": color}),
+                html.Span(
+                    [
+                        html.Span(f"{date:%a}", className="ev__day"),
+                        html.Span(
+                            "All day"
+                            if event.is_all_day
+                            else f"{event.start_datetime:%H:%M}",
+                            className="ev__sub",
+                        ),
+                    ],
+                    className="ev__when",
+                ),
+                html.Span(event.title, className="ev__title truncate"),
+            ],
+            className="ev ev--upcoming",
         )
-
+        for date, event in items[:MAX_UPCOMING]
+        for color in [colors.get(event.calendar_id, "")]
+    ]
+    if len(items) > MAX_UPCOMING:
+        rows.append(html.Div(f"+{len(items) - MAX_UPCOMING} more", className="more"))
+    if not rows:
+        rows.append(html.Div("Nothing else this week", className="cal-empty"))
     return html.Div(
-        style={
-            "flex": "1",
-            "display": "flex",
-            "flexDirection": "column",
-            "gap": "0.3rem",
-            "minWidth": "0",
-            "overflow": "hidden",
-        },
-        children=rows,
+        [
+            html.Div(
+                [
+                    html.Span("Coming up", className="cal-col__label"),
+                    html.Span(
+                        f"{start:%a} – {end - datetime.timedelta(days=1):%a}",
+                        className="cal-col__date",
+                    ),
+                ],
+                className="cal-col__head",
+            ),
+            html.Div(rows, className="cal-col__body"),
+        ],
+        className="cal-col cal-col--upcoming",
     )
 
 
-def _render_event(event: CalendarEvent, display_date: datetime.date) -> html.Div:
-    """A single event: a thin left accent bar for color-coding, plain text
-    otherwise - no background box, no full border.
-    """
-    event_starts_here = event.start_datetime.date() == display_date
-    event_ends_here = event.end_datetime.date() == display_date
-    accent_color = get_event_color_by_event(event.id)
-    time_display = generate_event_time_display(
-        event,
-        event_starts_here,
-        event_ends_here,
-    )
+def _day_column(
+    label: str,
+    date: datetime.date,
+    events: list[CalendarEvent],
+    colors: dict[str, str],
+) -> html.Div:
+    day_events = sorted(get_events_for_date(events, date), key=event_sort_key)
+    all_day = [e for e in day_events if e.is_all_day]
+    timed = [e for e in day_events if not e.is_all_day]
+    visible = timed[:MAX_TIMED_PER_DAY]
+    hidden = len(timed) - len(visible)
+
+    body: list = [all_day_pill(e, colors.get(e.calendar_id, "")) for e in all_day]
+    body.extend(_timed_row(e, date, colors.get(e.calendar_id, "")) for e in visible)
+    if hidden > 0:
+        body.append(html.Div(f"+{hidden} more", className="more"))
+    if not body:
+        body.append(html.Div("Nothing planned", className="cal-empty"))
 
     return html.Div(
         [
             html.Div(
-                truncate_event_title(event.title, 40),
-                style={
-                    "fontSize": "1.32rem",  # meta (1.1rem) + 20%, calendar events read too small
-                    "fontWeight": WEIGHT["regular"],
-                    "color": COLORS["text"],
-                    "overflow": "hidden",
-                    "textOverflow": "ellipsis",
-                    "whiteSpace": "nowrap",
-                },
+                [
+                    html.Span(label, className="cal-col__label"),
+                    html.Span(f"{date:%a} {date.day}", className="cal-col__date"),
+                ],
+                className="cal-col__head",
             ),
-            html.Div(
-                time_display,
-                style={
-                    "fontSize": "1.14rem",  # small (0.95rem) + 20%
-                    "color": COLORS["text_muted"],
-                    "overflow": "hidden",
-                    "textOverflow": "ellipsis",
-                    "whiteSpace": "nowrap",
-                },
-            )
-            if time_display
-            else None,
+            html.Div(body, className="cal-col__body"),
         ],
-        style={
-            "borderLeft": f"3px solid {accent_color}",
-            "padding": "0.4rem 0 0.4rem 0.6rem",
-        },
+        className="cal-col",
     )
+
+
+def _timed_row(event: CalendarEvent, date: datetime.date, color: str) -> html.Div:
+    now = local_now()
+    starts_today = event.start_datetime.date() == date
+    if starts_today:
+        time_label = event.start_datetime.strftime("%H:%M")
+    elif event.end_datetime.date() == date:
+        time_label = f"–{event.end_datetime:%H:%M}"
+    else:
+        time_label = "All day"
+
+    state = ""
+    if event.end_datetime <= now:
+        state = " is-past"
+    elif event.start_datetime <= now < event.end_datetime:
+        state = " is-now"
+
+    return html.Div(
+        [
+            html.Span(className="ev__bar", style={"background": color}),
+            html.Span(time_label, className="ev__time"),
+            html.Span(event.title, className="ev__title truncate"),
+            html.Span("Now", className="ev__now") if state == " is-now" else None,
+        ],
+        className="ev" + state,
+    )
+
+
+def render_calendar_badge(events: list[CalendarEvent]):
+    """The next thing coming up today, if anything."""
+    now = local_now()
+    upcoming = sorted(
+        (
+            e
+            for e in events
+            if not e.is_all_day
+            and e.start_datetime > now
+            and e.start_datetime.date() == now.date()
+        ),
+        key=lambda e: e.start_datetime,
+    )
+    if upcoming:
+        nxt = upcoming[0]
+        return badge(f"Next {nxt.start_datetime:%H:%M}", "info", "mdi:clock-outline")
+    return None

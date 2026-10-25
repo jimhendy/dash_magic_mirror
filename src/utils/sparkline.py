@@ -1,223 +1,93 @@
-"""Reusable pure-CSS sparklines (`clip-path: polygon(...)` divs) - no SVG or
-charting library needed for a small decorative trend indicator. Dash's
-`html` module has no SVG primitives, and percentages in `clip-path` are
-relative to the element's own box, so this stays fully responsive to
-whatever width/height it's given. Used by both the weather and markets
-components.
+"""Tiny SVG sparklines, served as `data:` URIs in an `<img>`.
 
-Each sparkline layers two clipped shapes: a translucent area fill (context)
-under a solid, full-opacity "ribbon" tracing the actual line (the part that
-needs to read clearly from across a room) - a gradient fill alone reads as
-too faint at a glance.
+Dash's `html` module has no SVG elements, but an `<img>` pointing at an
+inline SVG gets a crisp, resolution-independent vector line for free.
+`preserveAspectRatio="none"` stretches it to whatever box CSS gives it and
+`vector-effect: non-scaling-stroke` keeps the stroke width constant while
+it stretches, so one helper serves both the small tile sparklines and the
+large detail charts.
 """
 
 from __future__ import annotations
 
+from urllib.parse import quote
+
 from dash import html
 
-_LINE_THICKNESS = 5.0  # % of the sparkline's own height
-_DAY_MARKER_COLOR = "rgba(255, 255, 255, 0.14)"
+_W = 100.0
+_H = 40.0
 
 
-def _scale(
-    values: list[float],
-    *,
-    fixed_range: tuple[float, float] | None,
-    pad: float,
-) -> tuple[float, float]:
+def _scale(values: list[float], fixed_range: tuple[float, float] | None, pad: float):
     if fixed_range is not None:
         return fixed_range
     lo, hi = min(values), max(values)
     span = (hi - lo) or 1.0
-    # Pad the range so the trend doesn't touch the very top/bottom edge.
     return lo - span * pad, hi + span * pad
 
 
-def _points(values: list[float], lo: float, hi: float) -> list[tuple[float, float]]:
-    span = (hi - lo) or 1.0
-    n = len(values)
-    if n == 1:
-        return [(0.0, 100 - ((values[0] - lo) / span) * 100)]
-    return [
-        ((i / (n - 1)) * 100, 100 - ((v - lo) / span) * 100)
-        for i, v in enumerate(values)
-    ]
-
-
-def area_polygon(
-    values: list[float],
-    *,
-    fixed_range: tuple[float, float] | None = None,
-    pad: float = 0.15,
-    floor_pct: float = 100.0,
-) -> str:
-    """A `clip-path: polygon(...)` string tracing a filled area under `values`.
-
-    With `fixed_range` (e.g. `(0, 100)` for a percentage), values are scaled
-    against that fixed scale instead of their own min/max - important for a
-    value where the *absolute* level matters (e.g. rain chance: a quiet day
-    at 1-5% shouldn't look as dramatic as a wet one just because it's
-    auto-scaled to fill the same box).
-
-    `floor_pct` is the y-percent the fill drops to (100% = the bottom edge).
-    Set it to a baseline's y-position to fill only down to that baseline
-    rather than all the way down.
-    """
-    lo, hi = _scale(values, fixed_range=fixed_range, pad=pad)
-    pts = [f"{x:.2f}% {y:.2f}%" for x, y in _points(values, lo, hi)]
-    return (
-        f"polygon(0% {floor_pct:.2f}%, " + ", ".join(pts) + f", 100% {floor_pct:.2f}%)"
-    )
-
-
-def line_polygon(
-    values: list[float],
-    *,
-    fixed_range: tuple[float, float] | None = None,
-    pad: float = 0.15,
-    thickness: float = _LINE_THICKNESS,
-) -> str:
-    """A thin solid "ribbon" tracing the line itself - a `clip-path` has no
-    stroke, so this fakes one: a band of fixed thickness around each point,
-    filled at full opacity, drawn on top of the (translucent) area fill.
-    """
-    lo, hi = _scale(values, fixed_range=fixed_range, pad=pad)
-    points = _points(values, lo, hi)
-    half = thickness / 2
-    top = [(x, max(0.0, y - half)) for x, y in points]
-    bottom = [(x, min(100.0, y + half)) for x, y in points]
-    pts = [f"{x:.2f}% {y:.2f}%" for x, y in top] + [
-        f"{x:.2f}% {y:.2f}%" for x, y in reversed(bottom)
-    ]
-    return "polygon(" + ", ".join(pts) + ")"
-
-
-def _trend_layers(
+def sparkline_svg(
     values: list[float],
     *,
     color: str,
-    fixed_range: tuple[float, float] | None,
-    clip: str | None = None,
-    area_floor_pct: float = 100.0,
-) -> list[html.Div]:
-    """The area-fill + solid-line pair for one colour. `clip` is an optional
-    extra `inset(...)` that restricts the pair to a horizontal band (used to
-    paint the above- and below-baseline stretches in different colours);
-    `area_floor_pct` is where the area fill bottoms out (a baseline's
-    y-position, so a split fill hugs the baseline rather than the box edge).
-    """
-    extra = {"clipPath": clip} if clip else {}
-    wrapper_style = {"position": "absolute", "inset": "0", **extra}
-    return [
-        html.Div(
-            style=wrapper_style,
-            children=[
-                html.Div(
-                    style={
-                        "position": "absolute",
-                        "inset": "0",
-                        "background": (
-                            f"linear-gradient(180deg, {color}80 0%, {color}1f 100%)"
-                        ),
-                        "clipPath": area_polygon(
-                            values,
-                            fixed_range=fixed_range,
-                            floor_pct=area_floor_pct,
-                        ),
-                    },
-                ),
-                html.Div(
-                    style={
-                        "position": "absolute",
-                        "inset": "0",
-                        "background": color,
-                        "clipPath": line_polygon(values, fixed_range=fixed_range),
-                    },
-                ),
-            ],
-        ),
+    fixed_range: tuple[float, float] | None = None,
+    baseline: float | None = None,
+    stroke: float = 2.0,
+    fill: bool = True,
+    pad: float = 0.12,
+) -> str:
+    """Return the raw SVG markup for a sparkline of `values`."""
+    if not values:
+        values = [0.0]
+    if len(values) == 1:
+        values = values * 2
+    lo, hi = _scale(values, fixed_range, pad)
+    span = (hi - lo) or 1.0
+    n = len(values)
+
+    def y(v: float) -> float:
+        return _H - ((v - lo) / span) * _H
+
+    pts = [(i / (n - 1) * _W, y(v)) for i, v in enumerate(values)]
+    line = " ".join(f"{x:.2f},{yy:.2f}" for x, yy in pts)
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {_W:g} {_H:g}" '
+        'preserveAspectRatio="none">',
+        "<defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'>"
+        f"<stop offset='0' stop-color='{color}' stop-opacity='0.35'/>"
+        f"<stop offset='1' stop-color='{color}' stop-opacity='0'/>"
+        "</linearGradient></defs>",
     ]
+    if fill:
+        area = f"0,{_H} {line} {_W:g},{_H}"
+        parts.append(f"<polygon points='{area}' fill='url(#g)'/>")
+    if baseline is not None and lo <= baseline <= hi:
+        by = y(baseline)
+        parts.append(
+            f"<line x1='0' y1='{by:.2f}' x2='{_W:g}' y2='{by:.2f}' "
+            "stroke='white' stroke-opacity='0.18' stroke-dasharray='2 2' "
+            "vector-effect='non-scaling-stroke' stroke-width='1'/>",
+        )
+    parts.append(
+        f"<polyline points='{line}' fill='none' stroke='{color}' "
+        f"stroke-width='{stroke}' stroke-linejoin='round' stroke-linecap='round' "
+        "vector-effect='non-scaling-stroke'/>",
+    )
+    parts.append("</svg>")
+    return "".join(parts)
 
 
 def sparkline(
     values: list[float],
     *,
     color: str,
-    height: str,
-    fixed_range: tuple[float, float] | None = None,
-    day_markers: list[float] | None = None,
-    baseline: float | None = None,
-    baseline_color: str | None = None,
-) -> html.Div:
-    """A two-layer sparkline: soft area fill + solid line, both from `values`.
-
-    `day_markers` is an optional list of x-positions (percent, 0-100,
-    matching this sparkline's own point spacing) at which to draw a thin
-    vertical divider behind the trend - used by the weather sparklines to
-    mark where one calendar day ends and the next begins across the 48h
-    window.
-
-    `baseline` (a value, not a percent) splits the colouring at that level:
-    the stretch of the trend at or above it stays `color`, the stretch below
-    it is painted `baseline_color`. Used by the markets sparklines so an
-    index that's up on the week but dipped intraday shows that dip in red
-    rather than reading as uniformly positive.
-    """
-    children = [
-        html.Div(
-            style={
-                "position": "absolute",
-                "top": "0",
-                "bottom": "0",
-                "left": f"{pct:.2f}%",
-                "width": "1px",
-                "background": _DAY_MARKER_COLOR,
-            },
-        )
-        for pct in (day_markers or [])
-    ]
-
-    split = baseline is not None and baseline_color is not None
-    if split:
-        lo, hi = _scale(values, fixed_range=fixed_range, pad=0.15)
-        span = (hi - lo) or 1.0
-        y_baseline = min(100.0, max(0.0, 100 - ((baseline - lo) / span) * 100))
-        children.extend(
-            _trend_layers(
-                values,
-                color=color,
-                fixed_range=fixed_range,
-                clip=f"inset(0 0 {100 - y_baseline:.2f}% 0)",
-                area_floor_pct=y_baseline,
-            ),
-        )
-        children.extend(
-            _trend_layers(
-                values,
-                color=baseline_color,
-                fixed_range=fixed_range,
-                clip=f"inset({y_baseline:.2f}% 0 0 0)",
-                area_floor_pct=y_baseline,
-            ),
-        )
-        children.append(
-            html.Div(
-                style={
-                    "position": "absolute",
-                    "left": "0",
-                    "right": "0",
-                    "top": f"{y_baseline:.2f}%",
-                    "height": "1px",
-                    "background": "rgba(255, 255, 255, 0.18)",
-                },
-            ),
-        )
-    else:
-        children.extend(
-            _trend_layers(values, color=color, fixed_range=fixed_range),
-        )
-
-    return html.Div(
-        children,
-        style={"position": "relative", "height": height, "width": "100%"},
+    class_name: str = "spark",
+    **kwargs,
+) -> html.Img:
+    """An `<img>` rendering `values` as a sparkline; size it with CSS."""
+    svg = sparkline_svg(values, color=color, **kwargs)
+    return html.Img(
+        src="data:image/svg+xml;charset=utf-8," + quote(svg),
+        className=class_name,
+        alt="",
     )

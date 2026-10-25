@@ -3,36 +3,23 @@ from typing import Any
 from dash import html
 
 from utils.sparkline import sparkline
-from utils.styles import COLORS, FONT_SIZES, SPACE, WEIGHT, kicker_style, panel_style
+from utils.ui import empty_state, icon, stat
 
 from .constants import CHART_RANGE
 from .data import change_pct
 from .format import format_price, format_volume
+from .summary import change_label, trend_color
 
 
 def render_markets_fullscreen(markets: list[dict[str, Any]]) -> html.Div:
-    """One detailed card per index: price, day change, a full-range chart,
-    a 52-week range indicator, and day high/low/volume - the "much more"
-    version of the summary row.
-    """
     if not markets:
         return html.Div(
-            "No market data available",
-            style={
-                "color": COLORS["text_muted"],
-                "textAlign": "center",
-                "padding": SPACE["xl"],
-            },
+            empty_state("No market data available", "mdi:chart-line"),
+            className="detail",
         )
-
     return html.Div(
-        [_market_card(m) for m in markets],
-        style={
-            "display": "flex",
-            "flexDirection": "column",
-            "gap": SPACE["xl"],
-            "padding": SPACE["xl"],
-        },
+        html.Div([_market_card(m) for m in markets], className="mkt-grid"),
+        className="detail",
     )
 
 
@@ -40,202 +27,103 @@ def _market_card(market: dict[str, Any]) -> html.Div:
     series = market.get("series") or []
     values = [pt["close"] for pt in series] or [market["price"]]
     day_pct = market["day_change_pct"]
-    day_up = day_pct >= 0
-    day_color = COLORS["accent"] if day_up else COLORS["urgent"]
-
     period_pct = change_pct(series)
-    period_up = period_pct >= 0
-    period_color = COLORS["accent"] if period_up else COLORS["urgent"]
-
     start_label = series[0]["time"].strftime("%d %b") if series else ""
     end_label = series[-1]["time"].strftime("%d %b") if series else ""
-
-    return html.Div(
-        [
-            # Header: name, price, day change
-            html.Div(
-                [
-                    html.Div(
-                        [
-                            html.Div(market["label"], style=kicker_style()),
-                            html.Span(
-                                format_price(market["price"], market["currency"]),
-                                style={
-                                    "fontSize": FONT_SIZES["heading"],
-                                    "fontWeight": WEIGHT["semibold"],
-                                    "color": COLORS["text"],
-                                },
-                            ),
-                        ],
-                    ),
-                    html.Div(
-                        [
-                            html.Span(
-                                f"{'+' if day_up else ''}{day_pct:.2f}%",
-                                style={
-                                    "fontSize": FONT_SIZES["primary"],
-                                    "fontWeight": WEIGHT["bold"],
-                                    "color": day_color,
-                                },
-                            ),
-                            html.Div(
-                                "today",
-                                style={
-                                    "fontSize": FONT_SIZES["small"],
-                                    "color": COLORS["text_muted"],
-                                },
-                            ),
-                        ],
-                        style={"textAlign": "right"},
-                    ),
-                ],
-                style={
-                    "display": "flex",
-                    "justifyContent": "space-between",
-                    "alignItems": "flex-end",
-                },
-            ),
-            # Chart: full CHART_RANGE, bigger than the summary sparkline.
-            # Split at the period's opening level - green above, red below -
-            # so intraday dips read as dips regardless of the net move.
-            html.Div(
-                sparkline(
-                    values,
-                    color=COLORS["accent"],
-                    baseline_color=COLORS["urgent"],
-                    baseline=values[0],
-                    height="6rem",
-                ),
-                style={"margin": f"{SPACE['md']} 0"},
-            ),
-            html.Div(
-                [
-                    html.Span(start_label, style={"color": COLORS["text_muted"]}),
-                    html.Span(
-                        f"{CHART_RANGE} change: {'+' if period_up else ''}{period_pct:.1f}%",
-                        style={"color": period_color, "fontWeight": WEIGHT["semibold"]},
-                    ),
-                    html.Span(end_label, style={"color": COLORS["text_muted"]}),
-                ],
-                style={
-                    "display": "flex",
-                    "justifyContent": "space-between",
-                    "fontSize": FONT_SIZES["small"],
-                    "marginBottom": SPACE["lg"],
-                },
-            ),
-            # 52-week range
-            _range_bar(market),
-            # Day high/low + volume
-            html.Div(
-                [
-                    _stat(
-                        "Day low",
-                        format_price(market["day_low"], market["currency"]),
-                    ),
-                    _stat(
-                        "Day high",
-                        format_price(market["day_high"], market["currency"]),
-                    ),
-                    _stat("Volume", format_volume(market["volume"])),
-                ],
-                style={"display": "flex", "gap": SPACE["xl"], "marginTop": SPACE["lg"]},
-            ),
-        ],
-        style=panel_style(padding=SPACE["xl"]),
-    )
-
-
-def _stat(label: str, value: str) -> html.Div:
-    return html.Div(
-        [
-            html.Div(
-                label,
-                style={
-                    "fontSize": FONT_SIZES["small"],
-                    "color": COLORS["text_muted"],
-                    "textTransform": "uppercase",
-                    "letterSpacing": "0.06em",
-                },
-            ),
-            html.Div(
-                value,
-                style={
-                    "fontSize": FONT_SIZES["secondary"],
-                    "color": COLORS["text"],
-                    "fontWeight": WEIGHT["semibold"],
-                },
-            ),
-        ],
-    )
-
-
-def _range_bar(market: dict[str, Any]) -> html.Div:
-    """Where the current price sits within its 52-week range."""
-    lo, hi, price = (
-        market.get("fifty_two_week_low"),
-        market.get("fifty_two_week_high"),
-        market.get("price"),
-    )
-    if lo is None or hi is None or price is None or hi <= lo:
-        return html.Div()
-
-    pct = max(0.0, min(100.0, (price - lo) / (hi - lo) * 100))
     currency = market["currency"]
 
     return html.Div(
         [
             html.Div(
                 [
-                    html.Span("52-week low", style={"color": COLORS["text_muted"]}),
-                    html.Span("52-week high", style={"color": COLORS["text_muted"]}),
+                    html.Div(
+                        [
+                            html.Div(
+                                [
+                                    icon(
+                                        market.get("icon", "mdi:chart-line"),
+                                        "mkt-card__flag",
+                                    ),
+                                    market["label"],
+                                ],
+                                className="mkt-card__label",
+                            ),
+                            html.Div(
+                                format_price(market["price"], currency),
+                                className="mkt-card__price",
+                            ),
+                        ],
+                    ),
+                    html.Div(
+                        [
+                            html.Div(
+                                change_label(day_pct),
+                                className="mkt__change mkt__change--lg "
+                                + ("is-up" if day_pct >= 0 else "is-down"),
+                            ),
+                            html.Div("today", className="mkt-card__caption"),
+                        ],
+                        className="mkt-card__day",
+                    ),
                 ],
-                style={
-                    "display": "flex",
-                    "justifyContent": "space-between",
-                    "fontSize": FONT_SIZES["small"],
-                    "marginBottom": "0.3rem",
-                },
-            ),
-            html.Div(
-                html.Div(
-                    style={
-                        "position": "absolute",
-                        "left": f"{pct}%",
-                        "top": "-0.2rem",
-                        "width": "0.6rem",
-                        "height": "0.6rem",
-                        "borderRadius": "50%",
-                        "background": COLORS["accent"],
-                        "transform": "translateX(-50%)",
-                        "boxShadow": f"0 0 0 3px {COLORS['bg']}",
-                    },
-                ),
-                style={
-                    "position": "relative",
-                    "height": "0.2rem",
-                    "background": COLORS["hairline_strong"],
-                    "borderRadius": "999px",
-                },
+                className="mkt-card__head",
             ),
             html.Div(
                 [
-                    html.Span(
-                        format_price(lo, currency),
-                        style={"color": COLORS["text_secondary"]},
+                    sparkline(
+                        values,
+                        color=trend_color(period_pct),
+                        class_name="mkt-card__chart",
+                        baseline=values[0],
+                        stroke=2.5,
                     ),
-                    html.Span(
-                        format_price(hi, currency),
-                        style={"color": COLORS["text_secondary"]},
+                    html.Div(
+                        [
+                            html.Span(start_label),
+                            html.Span(
+                                f"{CHART_RANGE} {'+' if period_pct >= 0 else ''}{period_pct:.1f}%",
+                                className="is-up" if period_pct >= 0 else "is-down",
+                            ),
+                            html.Span(end_label),
+                        ],
+                        className="mkt-card__axis",
                     ),
                 ],
-                style={
-                    "display": "flex",
-                    "justifyContent": "space-between",
-                    "fontSize": FONT_SIZES["small"],
-                    "marginTop": "0.3rem",
-                },
+            ),
+            _range_bar(market),
+            html.Div(
+                [
+                    stat("Day high", format_price(market.get("day_high"), currency)),
+                    stat("Day low", format_price(market.get("day_low"), currency)),
+                    stat("Volume", format_volume(market.get("volume"))),
+                ],
+                className="stat-grid stat-grid--3",
             ),
         ],
-        style={"marginTop": SPACE["sm"]},
+        className="card mkt-card",
+    )
+
+
+def _range_bar(market: dict[str, Any]) -> html.Div | None:
+    lo, hi = market.get("fifty_two_week_low"), market.get("fifty_two_week_high")
+    if lo is None or hi is None or hi <= lo:
+        return None
+    pct = max(0.0, min(100.0, (market["price"] - lo) / (hi - lo) * 100))
+    currency = market["currency"]
+    return html.Div(
+        [
+            html.Div("52-week range", className="stat__label"),
+            html.Div(
+                html.Div(className="range__marker", style={"left": f"{pct:.1f}%"}),
+                className="range range--wide",
+            ),
+            html.Div(
+                [
+                    html.Span(format_price(lo, currency)),
+                    html.Span(format_price(hi, currency)),
+                ],
+                className="mkt-card__axis",
+            ),
+        ],
+        className="mkt-card__range",
     )

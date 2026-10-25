@@ -6,12 +6,10 @@ from functools import lru_cache
 from typing import Any
 
 import httpx
-from dash_iconify import DashIconify
 from loguru import logger
 
 from utils.dates import utc_now
 from utils.file_cache import cache_json
-from utils.styles import COLORS
 
 from .constants import (
     ARRIVALS_API_URL,
@@ -376,22 +374,13 @@ def process_arrivals_data(
                     else "material-symbols:train-outline"
                 )
 
-                # Use optimized indexed version
-                transfer_indicator = ""
-                if transfer_index:
-                    if check_stops_at_transfer_station_indexed(
-                        arrival,
-                        transfer_index,
-                        transfer_station_id,
-                    ):
-                        if is_summary:
-                            transfer_indicator = DashIconify(
-                                icon="mdi:alpha-b-circle-outline",
-                                color=COLORS["accent"],
-                                style={"width": "1.2rem", "height": "1.2rem"},
-                            )
-                        else:
-                            transfer_indicator = "✓"
+                via_transfer = bool(
+                    transfer_index
+                ) and check_stops_at_transfer_station_indexed(
+                    arrival,
+                    transfer_index,
+                    transfer_station_id,
+                )
 
                 processed_arrival = {
                     "id": arrival.get("id", ""),
@@ -406,7 +395,7 @@ def process_arrivals_data(
                     "direction": arrival.get("direction", ""),
                     "mode": arrival.get("modeName", ""),
                     "station_name": clean_station_name(arrival.get("stationName", "")),
-                    "transfer_station_indicator": transfer_indicator,
+                    "via_transfer": via_transfer,
                 }
                 processed_arrivals.append(processed_arrival)
             except (ValueError, TypeError) as e:
@@ -506,12 +495,3 @@ def clean_station_name(station_name: str) -> str:
         .replace(" Underground Station", "")
         .replace(" Station", "")
     )
-
-
-def get_time_color_and_weight(minutes: int) -> tuple[str, str]:
-    """Get color and font weight for time display based on urgency."""
-    if minutes < 2:
-        return COLORS["urgent"], "700"  # Imminent
-    if minutes < 5:
-        return COLORS["gold"], "600"  # Soon
-    return COLORS["text"], "400"  # Normal

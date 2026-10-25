@@ -1,237 +1,112 @@
 import datetime
 from typing import Any
 
-from dash import dcc, html
-from dash_iconify import DashIconify
+from dash import html
 
 from utils.dates import local_today
-from utils.styles import COLORS, WEIGHT, row_style
+from utils.ui import empty_state, filter_chips
 
 from .data import SPORTS, get_full_screen_fixtures
+from .summary import crest, fixture_date
 
 
-def render_sports_fullscreen(data: dict[str, Any], component_id: str) -> html.Div:
-    """Render the sports full screen view with detailed fixture information including filter controls."""
-    fixtures = get_full_screen_fixtures(data)
-
+def render_sports_fullscreen(data: dict[str, Any]) -> html.Div:
+    """Every upcoming fixture, grouped by day, with a per-sport filter."""
+    today = local_today()
+    fixtures = [
+        fx
+        for fx in get_full_screen_fixtures(data)
+        if (fixture_date(fx) or datetime.date.max) >= today
+    ]
     if not fixtures:
         return html.Div(
-            [
-                html.Div(
-                    "No upcoming fixtures found",
-                    style={
-                        "color": COLORS["text_secondary"],
-                        "textAlign": "center",
-                        "padding": "2rem",
-                        "fontSize": "1.2rem",
-                    },
-                ),
-            ],
+            empty_state("No upcoming fixtures found", "mdi:trophy-outline"),
+            className="detail",
         )
 
-    # Build filter options
-    filter_options = [
-        {"label": "All", "value": "all"},
-    ]
-    for sport in SPORTS:
-        label = sport.display_name or sport.url.title()
-        filter_options.append({"label": label, "value": label.lower()})
-
-    # Create table data
-    table_data = []
-    today = local_today()
-
+    by_day: dict[datetime.date | None, list[dict[str, Any]]] = {}
     for fx in fixtures:
-        # Format date
-        date_display = ""
-        is_today = False
+        by_day.setdefault(fixture_date(fx), []).append(fx)
 
-        if fx.get("parsed_date"):
-            try:
-                date_obj = datetime.date.fromisoformat(fx["parsed_date"])
-                if date_obj < today:
-                    continue  # Skip past fixtures
-                is_today = date_obj == today
-
-                if is_today:
-                    date_display = "TODAY"
-                elif date_obj == today + datetime.timedelta(days=1):
-                    date_display = "TOMORROW"
-                else:
-                    date_display = date_obj.strftime("%a %d %b")
-            except ValueError:
-                date_display = fx.get("date_time_raw", "")[:15]
-
-        row = {
-            "Sport": fx.get("sport_name", ""),
-            "Date": date_display,
-            "Time": fx.get("time", ""),
-            "Home": fx.get("home", ""),
-            "Away": fx.get("away", ""),
-            "Competition": fx.get("competition", ""),
-            "Channel": fx.get("channel", ""),
-            "Crest": fx.get("crest"),
-            "_is_today": is_today,
-            "_sport_icon": fx.get("sport_icon", "mdi:help-circle"),
-            "_sport_color": fx.get("sport_icon_color", COLORS["text_secondary"]),
-        }
-        table_data.append(row)
-
-    fixture_rows = []
-    for idx, row in enumerate(table_data):
-        is_today = row["_is_today"]
-        sport_value = row["Sport"].lower()
-
-        fixture_rows.append(
+    days = []
+    for date, items in by_day.items():
+        if date is None:
+            title, sub = "Date to be confirmed", ""
+        elif date == today:
+            title, sub = "Today", f"{date:%A} {date.day} {date:%B}"
+        elif date == today + datetime.timedelta(days=1):
+            title, sub = "Tomorrow", f"{date:%A} {date.day} {date:%B}"
+        else:
+            title, sub = (
+                f"{date:%A} {date.day} {date:%B}",
+                f"in {(date - today).days} days",
+            )
+        days.append(
             html.Div(
                 [
-                    # Left: sport icon/crest + teams
                     html.Div(
                         [
-                            DashIconify(
-                                icon=row["_sport_icon"],
-                                style={
-                                    "color": row["_sport_color"],
-                                    "fontSize": "1.4rem",
-                                    "display": "none" if row.get("Crest") else "block",
-                                },
-                            ),
-                            html.Img(
-                                src=row.get("Crest"),
-                                style={
-                                    "height": "1.875rem",
-                                    "width": "1.875rem",
-                                    "objectFit": "contain",
-                                    "display": "block" if row.get("Crest") else "none",
-                                },
-                            ),
-                            html.Div(
-                                [
-                                    html.Span(
-                                        f"{row['Home']} vs {row['Away']}",
-                                        style={
-                                            "fontSize": "1.25rem",
-                                            "fontWeight": WEIGHT["semibold"],
-                                            "color": COLORS["text"],
-                                        },
-                                    ),
-                                    html.Div(
-                                        f"{row['Sport']} · {row['Competition']}",
-                                        style={
-                                            "fontSize": "0.9rem",
-                                            "color": COLORS["text_muted"],
-                                            "marginTop": "0.15rem",
-                                        },
-                                    ),
-                                ],
-                            ),
+                            html.Span(title, className="agenda-day__title"),
+                            html.Span(sub, className="agenda-day__sub"),
                         ],
-                        style={
-                            "display": "flex",
-                            "alignItems": "center",
-                            "gap": "0.7rem",
-                            "flex": "1",
-                        },
+                        className="agenda-day__head"
+                        + (" is-today" if date == today else ""),
                     ),
-                    # Right: date/time/channel
-                    html.Div(
-                        [
-                            html.Span(
-                                row["Date"],
-                                style={
-                                    "color": COLORS["accent"]
-                                    if is_today
-                                    else COLORS["text"],
-                                    "fontWeight": WEIGHT["semibold"],
-                                    "fontSize": "1.1rem",
-                                    "marginRight": "0.9rem",
-                                },
-                            ),
-                            html.Span(
-                                row["Time"],
-                                style={
-                                    "color": COLORS["gold"],
-                                    "fontWeight": WEIGHT["semibold"],
-                                    "fontSize": "1.05rem",
-                                    "marginRight": "0.9rem",
-                                },
-                            ),
-                            html.Span(
-                                row["Channel"],
-                                style={
-                                    "color": COLORS["text_muted"],
-                                    "fontSize": "0.9rem",
-                                },
-                            ),
-                        ],
-                        style={
-                            "display": "flex",
-                            "alignItems": "center",
-                            "whiteSpace": "nowrap",
-                        },
-                    ),
+                    html.Div([_fixture_row(fx) for fx in items], className="fx-rows"),
                 ],
-                id=f"{component_id}-fixture-card-{idx}",
-                **{"data-sport": sport_value},
-                style=row_style(
-                    divider=True,
-                    display="flex",
-                    alignItems="center",
-                    justifyContent="space-between",
-                    padding="0.8rem 0",
-                    borderLeft=f"2px solid {COLORS['accent']}"
-                    if is_today
-                    else "2px solid transparent",
-                ),
+                className="agenda-day card",
+                **{"data-filter-scope": ""},
             ),
         )
 
+    sport_options = [
+        ((s.display_name or s.url.title()).lower(), s.display_name or s.url.title())
+        for s in SPORTS
+    ]
+    return html.Div(
+        [filter_chips("sport", sport_options), html.Div(days, className="agenda")],
+        className="detail",
+    )
+
+
+def _fixture_row(fx: dict[str, Any]) -> html.Div:
     return html.Div(
         [
-            # Filter bar
+            crest(fx),
             html.Div(
                 [
-                    dcc.RadioItems(
-                        id=f"{component_id}-sport-filter",
-                        options=filter_options,
-                        value="all",
-                        inline=True,
-                        labelStyle={
-                            "marginRight": "0.75rem",
-                            "cursor": "pointer",
-                            "display": "flex",
-                            "alignItems": "center",
-                            "gap": "0.25rem",
-                        },
-                        style={
-                            "fontSize": "0.9rem",
-                            "display": "flex",
-                            "flexWrap": "wrap",
-                            "gap": "1rem",
-                            "color": COLORS["text"],
-                            "justifyContent": "center",
-                            "width": "100%",
-                        },
+                    html.Div(
+                        [
+                            html.Span(fx.get("home", ""), className="fx-row__team"),
+                            html.Span("v", className="fx-row__v"),
+                            html.Span(fx.get("away", ""), className="fx-row__team"),
+                        ],
+                        className="fx-row__teams",
+                    ),
+                    html.Div(
+                        " · ".join(
+                            p
+                            for p in (
+                                fx.get("sport_name", ""),
+                                fx.get("competition", ""),
+                            )
+                            if p
+                        ),
+                        className="fx-row__comp",
                     ),
                 ],
-                style={
-                    "position": "sticky",
-                    "top": "0",
-                    "zIndex": 1,
-                    "background": COLORS["bg"],
-                    "padding": "0.6rem 0.6rem 0.3rem 0.6rem",
-                    "borderBottom": f"1px solid {COLORS['hairline_strong']}",
-                    "marginBottom": "0.6rem",
-                    "display": "flex",
-                    "justifyContent": "center",
-                },
+                className="fx-row__text",
             ),
-            # Fixtures wrapper
             html.Div(
-                fixture_rows,
-                id=f"{component_id}-fixtures-wrapper",
-                style={"padding": "0 1rem"},
+                [
+                    html.Div(fx.get("time") or "TBC", className="fx-row__time"),
+                    html.Div(fx.get("channel", ""), className="fx-row__channel")
+                    if fx.get("channel")
+                    else None,
+                ],
+                className="fx-row__right",
             ),
         ],
-        style={"color": COLORS["text"]},
+        className="fx-row",
+        **{"data-filter-key": (fx.get("sport_name") or "").lower()},
     )

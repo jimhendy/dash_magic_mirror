@@ -12,14 +12,14 @@ components/<name>/
   component.py     # Dash wiring: registers with the DataRepository, hydrate callback
   constants.py      # cache lifetimes, timeouts, etc.
   data.py           # fetch + parse external data (the only place that talks to a network/API)
-  summary.py        # the compact single-line card shown in the always-on strip
-  full_screen.py    # the detailed view shown when a card is tapped
+  summary.py        # the dashboard tile's contents (and its header badge)
+  full_screen.py    # the detail panel shown when the tile is tapped
 ```
 
 Two shared pieces do most of the heavy lifting:
 
 - **`utils.data_repository.DataRepository`** (`src/utils/data_repository.py`) - a single background asyncio loop that polls each component's `data.py` on its own cadence (with jitter, so components don't all hit the network at once) and caches the rendered result in memory. Every browser tab reads from this shared cache instead of triggering its own fetch, so opening the dashboard on a second device never doubles API traffic.
-- **`components.base.DataDrivenComponent`** (`src/components/base.py`) - the base class every fetch-driven component subclasses. It owns registering with the `DataRepository`, the loading/error placeholder, and the hydrate callback that pushes the latest cached payload into the page. A concrete component only implements `_build_payload()` (fetch data, render it) - everything else (the interval, the full-screen preload stores, the callback wiring) is inherited.
+- **`components.base.DataDrivenComponent`** (`src/components/base.py`) - the base class every fetch-driven component subclasses. It owns registering with the `DataRepository`, the loading/error placeholder, the tile and panel chrome, and one hydrate callback that pushes the latest cached `ComponentPayload` (`summary`, `detail`, `subtitle`, `badge`) into the page - skipping the update entirely when nothing changed since that browser last received it. A concrete component only implements `_build_payload()` (fetch data, render it) and sets `title`/`icon`/`accent`; everything else is inherited.
 
 This split is deliberate: `data.py` never touches the Dash layer, and `component.py`/`summary.py`/`full_screen.py` never talk to the network directly - they only ever read from the repository. If this ever moves to a Home Assistant setup where fetching/caching lives in a standalone service, only `DataRepository`'s internals need to change (in-process background loop -> HTTP client against that service); no component code would need to move.
 
@@ -35,9 +35,22 @@ Detection flow, per configured person:
 3. MAC match validation (with a warning on mismatch)
 4. Grace-window debouncing (a device is considered "home" until the grace period expires after its last positive sighting)
 
+### Tiles, panels and taps
+
+The page is a CSS grid of **tiles** (`BaseComponent.tile_layout`) plus every component's **detail panel** (`BaseComponent.panel_layout`), all rendered up front by `app/core_layout.py` (a layout *function*, so each page load starts from the latest cached data). Panels sit hidden in one overlay and are shown/hidden by `src/assets/dashboard.js` - plain DOM code, not Dash callbacks:
+
+- A tap on a tile (`[data-open]`) is tracked with pointer down/up on the tile frame, which is never re-rendered, so one tap always opens its panel immediately - no server round-trip, nothing to render at tap time, and a background refresh replacing the tile's contents mid-tap can't swallow it. The synthetic click that follows the tap is swallowed so it can't land on a button inside the freshly opened panel.
+- Panels return home after `PANEL_TIMEOUT_SECONDS` (`src/utils/constants.py`) of inactivity, shown as a draining ring in the panel header; any touch resets it. The Home button / Escape close immediately.
+- The clock, filter chips (`[data-filter-group]` / `[data-filter-key]`) and headline rotation (`[data-rotate]`) are also handled there, so the Dash renderer isn't kept busy once a second on a slow tablet.
+
 ### Design system
 
-The whole UI is built from one token module, `src/utils/styles.py`, in an editorial "quiet luxury" style rather than a boxed dashboard-template look: individual rows (a calendar event, a bus arrival, a fixture) are plain text on the near-black background, not wrapped in bordered/shadowed cards - the one thing that most reads as "generated from a UI kit". Each section instead opens with a small muted uppercase "kicker" label (`kicker_style()`), color-codes at most with a thin left accent bar (`row_style(accent=...)`), and hero numerals (the clock, the current temperature) use a very light font weight (`hero_style()`) contrasted against small bold labels to carry the hierarchy instead of boxes. One accent color is used consistently for "now / today / live" states; red is reserved only for genuinely time-critical states (an arrival under 2 minutes, a service disruption). No `backdrop-filter` blur and minimal shadow anywhere, so it stays cheap to render on the Pi 4/tablet GPU. The Inter typeface is loaded via Google Fonts in `app/main.py`'s `index_string`. Top-level page rhythm comes from a single `gap` on the outer flex container (`app/core_layout.py`), not per-component separator elements, so spacing stays consistent regardless of how much each component renders.
+Styling lives almost entirely in `src/assets/main.css` as classes; Python renders semantic markup via small builders in `src/utils/ui.py` (`badge`, `section`, `stat`, `empty_state`, `filter_chips`, ...). The few colours Python needs (TfL line colours, weather icon tints, Plotly figures, calendar colours) come from `src/utils/styles.py` - keep its tokens in sync with the `:root` custom properties at the top of `main.css`.
+
+- **Dark, card-based layout** tuned for a wall-mounted tablet: each tile has an accent-tinted icon, an uppercase title, an optional status badge (e.g. "Rain likely 16:00", "Weaver: Good service", "1 overdue") and a chevron that signals it can be tapped.
+- **Responsive to the screen, not hard-coded to one:** the root font size is `2vmin` (16px on an 800x1280 tablet), everything else is in rem, and `grid-template-areas` switch between a portrait and a landscape arrangement. Nothing scrolls on the dashboard; long lists fade out at the tile edge.
+- **Colour has meaning:** teal = now/today/good, red only for genuinely urgent states (imminent departure, overdue, severe disruption), gold for warmth/sun, blue for rain.
+- **Cheap to render:** transform/opacity transitions only, no `backdrop-filter`, sparklines are tiny inline SVGs (`src/utils/sparkline.py`), and the Inter typeface is loaded from Google Fonts in `app/main.py`.
 
 ## Setup
 
@@ -138,14 +151,15 @@ Copy `.env.example` to `.env` and customize:
 ## Features
 
 - **Header (Clock + Presence)** - Unified time + household presence badges
-- **Weather** - Current conditions and multi-day forecast (WeatherAPI.com), plus an hourly temperature/rain-chance chart in the full-screen view
-- **Google Calendar** - Upcoming events across multiple calendars, with smart date formatting and birthday detection
+- **Weather** - Current conditions and multi-day forecast (WeatherAPI.com), plus an hourly temperature/rain-chance chart in the detail panel
+- **Google Calendar** - Today and tomorrow on the dashboard, a day-by-day agenda for the next five weeks in the detail panel; each calendar keeps a consistent colour (by `GOOGLE_CALENDAR_ID_n` order) and birthdays get a cake icon
 - **TFL Transport** - Real-time London public transport arrivals, line status, and disruptions
 - **Tasks** - Household people, one-off chores, and recurring chores with overdue highlighting
 - **Sports Fixtures** - Upcoming matches across configured teams/sports, scraped from Where's The Match
-- **News** - Rotating headlines from an RSS feed (default BBC News), full list in the full-screen view
+- **Markets** - S&P 500, FTSE 100 and ACWI with weekly sparklines; 3-month charts and 52-week range in the detail panel (Yahoo Finance, no key)
+- **News** - Rotating headlines from an RSS feed (default BBC News), full list in the detail panel (not on the dashboard by default - add `News()` to `COMPONENTS` and give it a grid area in `main.css`)
 
-Tap any card to open its full-screen view; it auto-closes after a countdown (reset by touch/mouse activity), or use the Back button. The trash-can icon in the full-screen nav bar force-clears that component's cache and refetches immediately.
+Tap any tile to open its detail panel; it returns home after a period of inactivity (the ring in the top-right counts down, and any touch resets it), or tap **Home**. The refresh icon in a panel's header force-clears that component's cache and refetches immediately.
 
 ## Component Development & Rate Limiting
 
@@ -201,6 +215,6 @@ New components should register with `DataRepository` (by subclassing `DataDriven
 The `cache_json` decorator provides effective rate limiting, but it's a simple file-based cache, not a production caching system:
 
 1. **File system race conditions** - concurrent writes from multiple processes could rarely corrupt a cache file (mitigated: corrupt files are detected and refetched).
-2. **No external invalidation** - stale data persists until the cache naturally expires; use the full-screen modal's cache-clear button, or a shorter lifetime, if that matters for a given component.
+2. **No external invalidation** - stale data persists until the cache naturally expires; use the refresh button in a component's detail panel, or a shorter lifetime, if that matters for a given component.
 3. **No automatic cleanup** of old cache files - `magic-mirror-cache/`/`~/.cache/magic_mirror/` will grow slowly over time.
 4. **Argument hashing** is based on the string representation of arguments (MD5) - fine for simple hashable arguments, not guaranteed stable for complex objects.

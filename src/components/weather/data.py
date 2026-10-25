@@ -62,6 +62,13 @@ def _extract_current_details(current_dict: dict[str, Any]) -> dict[str, Any]:
     icon, icon_color = get_weather_icon(condition, is_day=is_day)
     details = {
         "temperature": round(current_dict.get("temp_c", 0)),
+        "feels_like": round(
+            current_dict.get("feelslike_c", current_dict.get("temp_c", 0))
+        ),
+        "wind_mph": round(current_dict.get("wind_mph", 0)),
+        "wind_dir": current_dict.get("wind_dir", ""),
+        "humidity": current_dict.get("humidity", 0),
+        "uv": current_dict.get("uv", 0),
         "condition": condition,
         "icon": icon,
         "icon_color": icon_color,
@@ -174,3 +181,40 @@ def process_detailed_weather_data(
         "hourly": hourly_data,
         "daily": daily_data,
     }
+
+
+def upcoming_hours(
+    hourly_data: list[dict[str, Any]],
+    hours: int,
+    *,
+    now: datetime.datetime | None = None,
+) -> list[dict[str, Any]]:
+    """The hourly forecast entries from the current hour onwards, at most
+    `hours` of them, each with a parsed tz-aware `dt` added.
+    """
+    from utils.dates import local_now
+
+    now = now or local_now()
+    current_hour = now.replace(minute=0, second=0, microsecond=0)
+    upcoming = []
+    for hour in hourly_data:
+        try:
+            dt = datetime.datetime.fromisoformat(hour.get("time", ""))
+        except ValueError:
+            continue
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=now.tzinfo)
+        if dt >= current_hour:
+            upcoming.append({**hour, "dt": dt})
+    upcoming.sort(key=lambda h: h["dt"])
+    return upcoming[:hours]
+
+
+def first_rain_hour(
+    hours: list[dict[str, Any]],
+    threshold: int = 50,
+) -> dict[str, Any] | None:
+    """The first of `hours` (as returned by `upcoming_hours`) whose chance of
+    rain reaches `threshold` percent, if any.
+    """
+    return next((h for h in hours if h.get("rain_chance", 0) >= threshold), None)

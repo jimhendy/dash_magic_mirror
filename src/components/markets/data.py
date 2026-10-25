@@ -76,7 +76,7 @@ def process_market_data(
         return None
 
     price = meta.get("regularMarketPrice", series[-1]["close"])
-    previous_close = meta.get("chartPreviousClose") or series[-1]["close"]
+    previous_close = _previous_close(series, meta)
     day_change_pct = (
         ((price - previous_close) / previous_close * 100) if previous_close else 0.0
     )
@@ -84,6 +84,7 @@ def process_market_data(
     return {
         "symbol": index.symbol,
         "label": index.label,
+        "icon": index.icon,
         "currency": meta.get("currency", ""),
         "price": price,
         "day_change_pct": day_change_pct,
@@ -94,6 +95,25 @@ def process_market_data(
         "volume": meta.get("regularMarketVolume"),
         "series": series,  # full CHART_RANGE, for the full-screen chart
     }
+
+
+def _previous_close(series: list[dict[str, Any]], meta: dict[str, Any]) -> float:
+    """The last close before the current session.
+
+    Not `meta["chartPreviousClose"]`: that's the close before the start of
+    the whole chart range (months ago), not yesterday's.
+    """
+    market_time = meta.get("regularMarketTime")
+    last = series[-1]
+    if market_time and (
+        datetime.datetime.fromtimestamp(market_time, tz=datetime.UTC).date()
+        > last["time"].date()
+    ):
+        # The series hasn't caught up with today's session yet.
+        return last["close"]
+    if len(series) >= 2:
+        return series[-2]["close"]
+    return meta.get("chartPreviousClose") or last["close"]
 
 
 async def async_process_all_markets() -> list[dict[str, Any]]:

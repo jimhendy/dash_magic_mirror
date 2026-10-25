@@ -2,221 +2,105 @@ import datetime
 from typing import Any
 
 from dash import html
-from dash_iconify import DashIconify
 
 from utils.dates import local_today
-from utils.styles import COLORS, FONT_SIZES, WEIGHT
+from utils.ui import badge, empty_state, icon
 
-# Same "everything positioned inside an explicitly-sized box" geometry
-# approach as the TFL arrivals timeline (src/components/tfl_arrivals/summary.py) -
-# a badge tier, a line, and an angled label row (to dodge same-day collisions).
-_BADGE_SIZE_REM = 3.0
-_BADGE_SIZE = f"{_BADGE_SIZE_REM}rem"
-_BADGE_TOP = "0"
-_LINE_TOP = f"{_BADGE_SIZE_REM + 0.3}rem"
-_LABEL_TOP = f"{_BADGE_SIZE_REM + 0.6}rem"
-# Labels are angled instead of stacked into a second tier - a diagonal
-# label needs less horizontal room than a horizontal one of the same text,
-# so two fixtures landing close together on the timeline read clearly
-# without their day/time text overlapping. The extra timeline height below
-# the badges is headroom for that diagonal descent.
-_LABEL_ANGLE_DEG = 18
-_TIMELINE_HEIGHT = f"{_BADGE_SIZE_REM + 3.2}rem"
-
+TILE_FIXTURES = 8
 WINDOW_DAYS = 7
 
 
-def render_sports_summary(data: dict[str, Any], component_id: str) -> html.Div:
-    """Render the sports summary as a single 7-day timeline, mirroring the
-    TFL arrivals timeline, instead of one full-width row per fixture - a
-    crest/icon badge per fixture is a far more compact way to show "who's
-    playing and when" than a text row; tapping the card still opens the
-    full-screen view for the rest of the details (competition, channel,
-    per-sport filtering).
-    """
+def fixture_date(fx: dict[str, Any]) -> datetime.date | None:
+    try:
+        return datetime.date.fromisoformat(fx.get("parsed_date") or "")
+    except ValueError:
+        return None
+
+
+def when_label(date: datetime.date | None, time_str: str) -> str:
+    today = local_today()
+    if date is None:
+        return time_str
+    if date == today:
+        day = "Today"
+    elif date == today + datetime.timedelta(days=1):
+        day = "Tomorrow"
+    elif (date - today).days < 7:
+        day = date.strftime("%a")
+    else:
+        day = f"{date:%a} {date.day} {date:%b}"
+    return f"{day} {time_str}".strip()
+
+
+def crest(fx: dict[str, Any]) -> html.Div:
+    """The followed team's crest where known, else the sport's icon."""
+    if fx.get("crest"):
+        return html.Div(html.Img(src=fx["crest"], alt=""), className="crest")
+    return html.Div(
+        icon(fx.get("sport_icon", "mdi:trophy-outline"), "crest__icon"),
+        className="crest crest--icon",
+        style={"--crest": fx.get("sport_icon_color", "#888")},
+    )
+
+
+def render_sports_summary(data: dict[str, Any]) -> html.Div:
     from .data import get_summary_fixtures
 
-    fixtures = get_summary_fixtures(data, limit=8, days_ahead=WINDOW_DAYS)
-
+    fixtures = get_summary_fixtures(data, limit=TILE_FIXTURES, days_ahead=WINDOW_DAYS)
     if not fixtures:
-        return html.Div(
-            "No upcoming fixtures",
-            style={
-                "color": COLORS["text_muted"],
-                "fontSize": FONT_SIZES["primary"],
-                "padding": "0.4rem 0",
-            },
-        )
+        return empty_state("No fixtures this week", "mdi:trophy-outline")
 
-    return _timeline(fixtures, days_ahead=WINDOW_DAYS)
-
-
-def _fixture_label(fx: dict[str, Any], date_obj: datetime.date, is_today: bool) -> str:
-    # Today's fixtures already stand out via the accent color and ring
-    # (see `_badge_style`/`ring` in `_timeline`), so spelling out "TODAY"
-    # here is redundant and just eats up label width.
-    time_part = fx.get("time", "")
-    if is_today:
-        return time_part.strip()
-    return f"{date_obj.strftime('%a')} {time_part}".strip()
-
-
-def _badge_style(fx: dict[str, Any], pct: float, ring: str) -> dict:
-    has_crest = bool(fx.get("crest"))
-    return {
-        "position": "absolute",
-        "left": f"{pct}%",
-        "top": _BADGE_TOP,
-        "transform": "translate(-50%, 0)",
-        "width": _BADGE_SIZE,
-        "height": _BADGE_SIZE,
-        "borderRadius": "50%",
-        # A softened off-white (not flat #fff) so crest badges don't read as
-        # stark white blobs against the dark background.
-        "background": "rgba(245, 246, 248, 0.88)"
-        if has_crest
-        else fx.get("sport_icon_color", COLORS["text_secondary"]),
-        "display": "flex",
-        "alignItems": "center",
-        "justifyContent": "center",
-        "boxSizing": "border-box",
-        "padding": "0.2rem",
-        "boxShadow": ring,
-        "flexShrink": 0,
-        # Sooner fixtures paint on top of later ones when two badges land
-        # close enough to overlap, rather than whichever happened to be
-        # last in DOM order.
-        "zIndex": int((100 - pct) * 100),
-    }
-
-
-def _timeline(fixtures: list[dict[str, Any]], days_ahead: int) -> html.Div:
-    """A single horizontal line spanning "today" to `days_ahead` from now.
-    Each fixture is a badge on the line - the followed team's crest where
-    known, otherwise a colored sport icon - positioned by date (and, where
-    a kickoff time is known, time of day) with a day/time label below.
-
-    Labels are angled (see `_LABEL_ANGLE_DEG`) rather than stacked into a
-    second tier, so two fixtures landing close together on the timeline
-    don't overlap illegibly. Badges all sit on a single lane - where two
-    land close enough to overlap, the sooner fixture is always painted on
-    top (see `_badge_style`'s z-index), so overlap always resolves in
-    favor of "what's happening soonest".
-    """
     today = local_today()
-
-    markers: list[html.Div] = []
+    rows = []
     for fx in fixtures:
-        if not fx.get("parsed_date"):
-            continue
-        try:
-            date_obj = datetime.date.fromisoformat(fx["parsed_date"])
-        except ValueError:
-            continue
-
-        days_away = (date_obj - today).days
-        time_str = fx.get("time", "")
-        try:
-            hour_str, minute_str = time_str.split(":", 1)
-            time_frac = (int(hour_str) + int(minute_str) / 60) / 24
-        except (ValueError, AttributeError):
-            time_frac = 0.5  # unknown kickoff time - place mid-day
-
-        pct = max(0.0, min(100.0, ((days_away + time_frac) / days_ahead) * 100))
-        is_today = days_away == 0
-        has_crest = bool(fx.get("crest"))
-
-        ring = (
-            f"0 0 0 2px {COLORS['bg']}, 0 0 0 4px {COLORS['accent']}"
-            if is_today
-            else f"0 0 0 2px {COLORS['bg']}"
-        )
-
-        markers.append(
+        date = fixture_date(fx)
+        rows.append(
             html.Div(
                 [
-                    html.Img(
-                        src=fx.get("crest"),
-                        style={
-                            "width": "100%",
-                            "height": "100%",
-                            "objectFit": "contain",
-                            "display": "block" if has_crest else "none",
-                        },
-                    ),
-                    DashIconify(
-                        icon=fx.get("sport_icon", "mdi:help-circle"),
-                        style={
-                            "color": "#0a0a0a",
-                            "fontSize": "1.6rem",
-                            "display": "none" if has_crest else "block",
-                        },
-                    ),
-                ],
-                style=_badge_style(fx, pct, ring),
-            ),
-        )
-        markers.append(
-            html.Div(
-                _fixture_label(fx, date_obj, is_today),
-                style={
-                    "position": "absolute",
-                    "left": f"{pct}%",
-                    "top": _LABEL_TOP,
-                    # Pivot at the label's own top-left corner (which sits
-                    # right under the badge) and angle down-right from
-                    # there, rather than centering horizontal text under
-                    # the badge.
-                    "transform": f"rotate({_LABEL_ANGLE_DEG}deg)",
-                    "transformOrigin": "top left",
-                    "fontSize": FONT_SIZES["small"],
-                    "fontWeight": WEIGHT["semibold"] if is_today else WEIGHT["regular"],
-                    "color": COLORS["accent"] if is_today else COLORS["text_secondary"],
-                    "whiteSpace": "nowrap",
-                },
-            ),
-        )
-
-    return html.Div(
-        [
-            html.Div(
-                [
-                    html.Span(
-                        "Today",
-                        style={
-                            "fontSize": FONT_SIZES["small"],
-                            "color": COLORS["text_muted"],
-                        },
-                    ),
-                    html.Span(
-                        f"+{days_ahead}d",
-                        style={
-                            "fontSize": FONT_SIZES["small"],
-                            "color": COLORS["text_muted"],
-                        },
-                    ),
-                ],
-                style={"display": "flex", "justifyContent": "space-between"},
-            ),
-            html.Div(
-                [
+                    crest(fx),
                     html.Div(
-                        style={
-                            "position": "absolute",
-                            "left": "0",
-                            "right": "0",
-                            "top": _LINE_TOP,
-                            "height": "2px",
-                            "background": COLORS["hairline_strong"],
-                        },
+                        [
+                            html.Div(
+                                f"{fx.get('home', '')} v {fx.get('away', '')}",
+                                className="fx__teams truncate",
+                            ),
+                            html.Div(
+                                fx.get("competition") or fx.get("sport_name", ""),
+                                className="fx__comp truncate",
+                            ),
+                        ],
+                        className="fx__text",
                     ),
-                    *markers,
+                    html.Div(
+                        [
+                            html.Div(
+                                when_label(date, fx.get("time", "")),
+                                className="fx__when",
+                            ),
+                            html.Div(
+                                fx.get("channel", ""), className="fx__channel truncate"
+                            ),
+                        ],
+                        className="fx__right",
+                    ),
                 ],
-                style={
-                    "position": "relative",
-                    "height": _TIMELINE_HEIGHT,
-                    "margin": "0.3rem 0.4rem 0 0.4rem",
-                },
+                className="fx" + (" is-today" if date == today else ""),
             ),
-        ],
-    )
+        )
+    return html.Div(rows, className="fxs")
+
+
+def render_sports_badge(data: dict[str, Any]):
+    from .data import get_summary_fixtures
+
+    today = local_today()
+    todays = [
+        fx
+        for fx in get_summary_fixtures(data, limit=10, days_ahead=0)
+        if fixture_date(fx) == today
+    ]
+    if todays:
+        return badge(
+            f"Today {todays[0].get('time', '')}".strip(), "good", "mdi:television-play"
+        )
+    return None

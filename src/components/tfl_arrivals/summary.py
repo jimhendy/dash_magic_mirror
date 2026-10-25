@@ -1,346 +1,158 @@
 from dash import html
 
-from utils.styles import COLORS, FONT_SIZES, WEIGHT
+from utils.dates import get_app_timezone
+from utils.styles import COLORS, contrast_text
+from utils.ui import badge, empty_state, icon
 
 from .constants import MAX_ARRIVAL_WINDOW_MINUTES
 
-# Vertical geometry of the timeline - everything (destination pills, the
-# line itself, and both tiers of minute labels) is placed at an absolute
-# position *within* this explicitly-sized box, rather than escaping it via
-# negative offsets. A box only contributes its own declared height to the
-# page's layout - content positioned outside it (e.g. `top: -1.5rem`) is
-# invisible to the flexbox sizing that decides how much room this
-# component actually gets, so it was liable to get silently clipped by
-# the page's `overflow: hidden` safety net whenever the page ran tight on
-# space. Reserving real height up front fixes that at the root.
-_PILL_SIZE = "2.2rem"  # 200% of the original 1.1rem
-_PILL_TOP = "0"
-_LINE_TOP = "1.9rem"
-_LABEL_TIER_1_TOP = "2.2rem"
-_LABEL_TIER_2_TOP = "3.4rem"
-_TIMELINE_HEIGHT = "4.8rem"
+TILE_ROWS = 7
+PRIMARY_ROWS = 5  # keep in sync with .board__row:nth-child in main.css
+TIMES_PER_ROW = 5
+
+
+def line_badge(arrival: dict, *, compact: bool = False) -> html.Span:
+    """A line/route pill in the line's own brand colour."""
+    color = arrival.get("line_color") or COLORS["accent"]
+    is_bus = (arrival.get("mode") or "").lower() == "bus"
+    return html.Span(
+        [
+            icon("mdi:bus" if is_bus else "mdi:train", "line__icon")
+            if not compact
+            else None,
+            html.Span(arrival.get("line_name") or "?", className="line__name"),
+        ],
+        className="line",
+        style={"background": color, "color": contrast_text(color)},
+    )
+
+
+def format_minutes(minutes: int) -> str:
+    return "Due" if minutes <= 0 else f"{minutes} min"
+
+
+def group_departures(arrivals: list[dict]) -> list[dict]:
+    """Collapse individual arrivals into one row per (line, destination),
+    each with its upcoming minute countdowns, soonest row first.
+    """
+    groups: dict[tuple[str, str], dict] = {}
+    for arrival in sorted(arrivals, key=lambda a: a["minutes"]):
+        key = (arrival.get("line_id", ""), arrival.get("destination", ""))
+        group = groups.setdefault(key, {"first": arrival, "minutes": [], "via": False})
+        group["minutes"].append(arrival["minutes"])
+        group["via"] = group["via"] or bool(arrival.get("via_transfer"))
+    return sorted(groups.values(), key=lambda g: g["minutes"][0])
 
 
 def render_tfl_summary(
     arrivals: list[dict],
-    line_status: dict,
-    stop_disruptions: dict,
     *,
     priority_line_ids: list[str] | None = None,
 ) -> html.Div:
-    """Render TFL summary: a legend identifying each line/route by its
-    actual brand color, then a single 90-minute timeline marking every
-    upcoming arrival across every configured stop - each marker colored
-    and lettered by destination so it's identifiable without full text.
-
-    `priority_line_ids` (the configured `TFL_LINE_STATUS` order, most
-    important first - currently just the Weaver line) never gets buried:
-    when two markers land close enough in time to visually overlap, the
-    priority one is always painted last/on top rather than whichever
-    happened to sort there by arrival time.
+    """A compact departure board: one row per line + destination with the
+    next few countdowns. Rows for the configured priority lines
+    (`TFL_LINE_STATUS`) are always kept even when buses are sooner.
     """
-    legend = _legend_row(arrivals, line_status, stop_disruptions)
-
-    children: list[html.Div] = []
-    if legend is not None:
-        children.append(legend)
-    children.append(_timeline(arrivals, priority_line_ids=priority_line_ids or []))
-
-    return html.Div(
-        children,
-        style={
-            "color": COLORS["text"],
-            "display": "flex",
-            "flexDirection": "column",
-            "gap": "0.4rem",
-        },
-    )
-
-
-def _dot(color: str, size: str = "0.6rem") -> html.Div:
-    return html.Div(
-        style={
-            "width": size,
-            "height": size,
-            "borderRadius": "50%",
-            "background": color,
-            "flexShrink": 0,
-        },
-    )
-
-
-def _legend_row(
-    arrivals: list[dict],
-    line_status: dict,
-    stop_disruptions: dict,
-) -> html.Div | None:
-    """One entry per distinct line/route actually showing on the timeline,
-    dot colored to match its marker color below - always the line/route's
-    own brand color, so the legend keys the timeline consistently. Entries
-    are sorted alphabetically by name so the order never shifts between
-    refreshes.
-
-    A line with real TfL status data (rail/tube lines - bus routes don't
-    get one) is always shown prominently with its status word, not just
-    when something's wrong: that's specifically the line(s) configured via
-    `TFL_LINE_STATUS`, which the user cares about checking at a glance
-    every time, not only when it's delayed. The service state shows only
-    in that status word (and its color) - never in the dot. Lines without
-    status data (bus routes) stay a quiet, compact dot+name - purely a
-    color legend for the timeline below.
-    """
-    seen: dict[str, dict] = {}
-    for arrival in arrivals:
-        name = arrival.get("line_name") or "?"
-        if name not in seen:
-            seen[name] = arrival
-
-    entries = []
-    for name, arrival in sorted(seen.items(), key=lambda kv: kv[0].casefold()):
-        color = arrival.get("line_color") or COLORS["accent"]
-        status = line_status.get(arrival.get("line_id", ""))
-
-        if status:
-            status_color = {
-                "green": COLORS["accent"],
-                "yellow": COLORS["gold"],
-                "red": COLORS["urgent"],
-            }.get(status["status_color"], COLORS["text_secondary"])
-            entries.append(
-                html.Div(
-                    [
-                        _dot(color, size="0.7rem"),
-                        html.Span(
-                            f"{name}: ",
-                            style={
-                                "fontSize": FONT_SIZES["secondary"],
-                                "color": COLORS["text_secondary"],
-                            },
-                        ),
-                        html.Span(
-                            status["status_text"],
-                            style={
-                                "fontSize": FONT_SIZES["secondary"],
-                                "fontWeight": WEIGHT["bold"],
-                                "color": status_color,
-                            },
-                        ),
-                    ],
-                    style={"display": "flex", "alignItems": "center", "gap": "0.4rem"},
-                ),
-            )
-        else:
-            entries.append(
-                html.Div(
-                    [
-                        _dot(color, size="0.5rem"),
-                        html.Span(
-                            name,
-                            style={
-                                "fontSize": FONT_SIZES["small"],
-                                "color": COLORS["text_muted"],
-                            },
-                        ),
-                    ],
-                    style={"display": "flex", "alignItems": "center", "gap": "0.3rem"},
-                ),
-            )
-
-    if stop_disruptions:
-        entries.append(
-            html.Div(
-                [
-                    _dot(COLORS["gold"]),
-                    html.Span(
-                        "Disruptions",
-                        style={
-                            "fontSize": FONT_SIZES["small"],
-                            "fontWeight": WEIGHT["bold"],
-                            "color": COLORS["gold"],
-                        },
-                    ),
-                ],
-                style={"display": "flex", "alignItems": "center", "gap": "0.3rem"},
-            ),
+    groups = group_departures(arrivals)
+    if not groups:
+        return empty_state(
+            f"No departures in the next {MAX_ARRIVAL_WINDOW_MINUTES} minutes",
+            "mdi:sleep",
         )
 
-    if not entries:
-        return None
+    # The first PRIMARY_ROWS are what portrait shows (CSS hides the rest);
+    # priority-line rows are guaranteed a place among them.
+    priority = set(priority_line_ids or [])
+    primary = [g for g in groups if g["first"].get("line_id") in priority][:2]
+    primary += [g for g in groups if g not in primary][: PRIMARY_ROWS - len(primary)]
+    primary.sort(key=lambda g: g["minutes"][0])
+    extra = [g for g in groups if g not in primary][: TILE_ROWS - len(primary)]
+    chosen = primary + extra
 
-    return html.Div(
-        entries,
-        style={"display": "flex", "flexWrap": "wrap", "gap": "0.3rem 1.1rem"},
-    )
-
-
-def _contrast_text_color(hex_color: str) -> str:
-    """Black or white, whichever reads better on `hex_color`."""
-    try:
-        h = hex_color.lstrip("#")
-        r, g, b = (int(h[i : i + 2], 16) / 255 for i in (0, 2, 4))
-    except (ValueError, IndexError):
-        return COLORS["text"]
-    luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
-    return "#0a0a0a" if luminance > 0.6 else "#ffffff"
+    return html.Div([_row(g) for g in chosen], className="board")
 
 
-def _destination_letter(destination: str) -> str:
-    destination = (destination or "").strip()
-    return destination[0].upper() if destination else "?"
+def _origin(first: dict) -> str:
+    """'from <stop> · <clock time>' for a row's soonest departure."""
+    parts = []
+    if first.get("station_name"):
+        parts.append(f"from {first['station_name']}")
+    when = first.get("arrival_time")
+    if when is not None and hasattr(when, "astimezone"):
+        parts.append(when.astimezone(get_app_timezone()).strftime("%H:%M"))
+    return " · ".join(parts)
 
 
-def _timeline(
-    arrivals: list[dict],
-    window_minutes: int = MAX_ARRIVAL_WINDOW_MINUTES,
-    *,
-    priority_line_ids: list[str] = (),
-) -> html.Div:
-    """A single horizontal line spanning "now" to `window_minutes` from now.
-    Each upcoming arrival is a small pill on the line: colored by the
-    line/route's actual brand color (matching the legend above) and
-    lettered with its destination's initial - a compact way to show
-    *which service, toward where* without full text - with the minute
-    countdown labeled below (imminent arrivals get a red ring instead of
-    recoloring the pill, so line identity and urgency are both visible
-    at once).
-
-    Markers are absolutely positioned by time, so two arrivals close
-    enough together can visually overlap; which one ends up "on top" is
-    otherwise just whichever happened to render last in DOM order. A
-    `priority_line_ids` marker is always rendered last (and so painted on
-    top) regardless of arrival time, so it never gets hidden behind a
-    lower-priority marker it happens to overlap.
-    """
-    priority_ids = set(priority_line_ids)
-    upcoming = sorted(
-        (a for a in arrivals if 0 <= a["minutes"] <= window_minutes),
-        key=lambda a: a["minutes"],
-    )
-    if not upcoming:
-        return html.Div(
-            "No arrivals in the next 90 minutes",
-            style={
-                "fontSize": FONT_SIZES["primary"],
-                "color": COLORS["text_muted"],
-                "padding": "0.4rem 0",
-            },
-        )
-
-    # Only drop a label to the second tier when it would actually collide
-    # with the previous one in the first tier - alternating by position in
-    # the list regardless of spacing (the previous approach) made
-    # well-separated arrivals on the *same* line jump between tiers for no
-    # visible reason, which read as arbitrary/buggy rather than adaptive.
-    min_gap_pct = 6.0
-    last_tier_1_pct: float | None = None
-
-    other_markers = []
-    priority_markers = []
-    for arrival in upcoming:
-        pct = (arrival["minutes"] / window_minutes) * 100
-        color = arrival.get("line_color") or COLORS["accent"]
-        is_urgent = arrival["minutes"] < 2
-        is_priority = arrival.get("line_id") in priority_ids
-        label = "Due" if arrival["minutes"] == 0 else f"{arrival['minutes']}m"
-
-        if last_tier_1_pct is None or pct - last_tier_1_pct >= min_gap_pct:
-            label_top = _LABEL_TIER_1_TOP
-            last_tier_1_pct = pct
-        else:
-            label_top = _LABEL_TIER_2_TOP
-
-        # A priority marker keeps a permanent ring (thinner/quieter than the
-        # red urgency ring) so it still reads as "the important one" even
-        # when it isn't the one on top of an overlap.
-        if is_urgent:
-            pill_ring = f"0 0 0 3px {COLORS['urgent']}, 0 0 0 6px {COLORS['bg']}"
-        elif is_priority:
-            pill_ring = f"0 0 0 3px {COLORS['bg']}, 0 0 0 5px {color}"
-        else:
-            pill_ring = f"0 0 0 3px {COLORS['bg']}"
-
-        marker = html.Div(
-            [
-                html.Div(
-                    _destination_letter(arrival.get("destination", "")),
-                    style={
-                        "position": "absolute",
-                        "left": f"{pct}%",
-                        "top": _PILL_TOP,
-                        "width": _PILL_SIZE,
-                        "height": _PILL_SIZE,
-                        "borderRadius": "50%",
-                        "background": color,
-                        "color": _contrast_text_color(color),
-                        "fontSize": "1.3rem",
-                        "fontWeight": WEIGHT["bold"],
-                        "display": "flex",
-                        "alignItems": "center",
-                        "justifyContent": "center",
-                        "transform": "translate(-50%, -50%)",
-                        "boxShadow": pill_ring,
-                    },
-                ),
-                html.Div(
-                    label,
-                    style={
-                        "position": "absolute",
-                        "left": f"{pct}%",
-                        "top": label_top,
-                        "transform": "translateX(-50%)",
-                        "fontSize": FONT_SIZES["small"],
-                        "color": COLORS["urgent"]
-                        if is_urgent
-                        else COLORS["text_secondary"],
-                        "whiteSpace": "nowrap",
-                    },
-                ),
-            ],
-        )
-        (priority_markers if is_priority else other_markers).append(marker)
-
-    markers = other_markers + priority_markers
-
+def _row(group: dict) -> html.Div:
+    first = group["first"]
+    minutes = group["minutes"][:TIMES_PER_ROW]
+    soonest = minutes[0]
     return html.Div(
         [
-            html.Div(
-                [
-                    html.Span(
-                        "Now",
-                        style={
-                            "fontSize": FONT_SIZES["small"],
-                            "color": COLORS["text_muted"],
-                        },
-                    ),
-                    html.Span(
-                        f"+{window_minutes}m",
-                        style={
-                            "fontSize": FONT_SIZES["small"],
-                            "color": COLORS["text_muted"],
-                        },
-                    ),
-                ],
-                style={"display": "flex", "justifyContent": "space-between"},
-            ),
+            line_badge(first),
             html.Div(
                 [
                     html.Div(
-                        style={
-                            "position": "absolute",
-                            "left": "0",
-                            "right": "0",
-                            "top": _LINE_TOP,
-                            "height": "2px",
-                            "background": COLORS["hairline_strong"],
-                        },
+                        [
+                            html.Span(
+                                first.get("destination", ""), className="truncate"
+                            ),
+                            icon("mdi:swap-horizontal-circle", "board__via")
+                            if group["via"]
+                            else None,
+                        ],
+                        className="board__dest",
                     ),
-                    *markers,
+                    html.Div(_origin(first), className="board__origin truncate"),
                 ],
-                style={
-                    "position": "relative",
-                    "height": _TIMELINE_HEIGHT,
-                    "margin": "0.3rem 0.4rem 0 0.4rem",
-                },
+                className="board__text",
+            ),
+            html.Div(
+                [
+                    html.Span(
+                        format_minutes(soonest),
+                        className="board__next" + (" is-urgent" if soonest < 2 else ""),
+                    ),
+                    html.Span(
+                        ", ".join(str(m) for m in minutes[1:]) + " min",
+                        className="board__later",
+                    )
+                    if len(minutes) > 1
+                    else None,
+                ],
+                className="board__times",
             ),
         ],
+        className="board__row",
     )
+
+
+def render_tfl_badge(
+    line_status: dict,
+    stop_disruptions: dict,
+    priority_line_ids: list[str],
+):
+    """Service status for the lines the household actually cares about
+    (`TFL_LINE_STATUS`): worst status first, then stop disruptions, else
+    a reassuring "Good service".
+    """
+    statuses = [
+        line_status[lid] for lid in priority_line_ids if lid in line_status
+    ] or list(
+        line_status.values(),
+    )
+    bad = [s for s in statuses if s["status_color"] != "green"]
+    if bad:
+        worst = min(bad, key=lambda s: 0 if s["status_color"] == "red" else 1)
+        tone = "bad" if worst["status_color"] == "red" else "warn"
+        return badge(
+            f"{worst['line_name']}: {worst['status_text']}",
+            tone,
+            "mdi:alert-circle-outline",
+        )
+    if stop_disruptions:
+        return badge("Stop disruption", "warn", "mdi:alert-outline")
+    if statuses:
+        name = statuses[0]["line_name"] if len(statuses) == 1 else "Lines"
+        return badge(f"{name}: Good service", "good", "mdi:check-circle-outline")
+    return None

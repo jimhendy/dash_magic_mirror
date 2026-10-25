@@ -11,14 +11,17 @@ USER_AGENT: str = "Mozilla/5.0 (compatible; MagicMirror/1.0)"
 class MarketIndex:
     symbol: str  # Yahoo Finance ticker
     label: str  # short display name
+    # Circular national flag (Iconify "circle-flags" set) so each index is
+    # recognisable at a glance - a globe for the global ACWI.
+    icon: str = "mdi:chart-line"
 
 
 # ACWI itself isn't directly tradable/quotable for free, so the iShares
 # MSCI ACWI ETF (ticker ACWI) is used as the standard free-data proxy.
 MARKET_INDICES: list[MarketIndex] = [
-    MarketIndex(symbol="^GSPC", label="S&P 500"),
-    MarketIndex(symbol="^FTSE", label="FTSE 100"),
-    MarketIndex(symbol="ACWI", label="ACWI"),
+    MarketIndex(symbol="^GSPC", label="S&P 500", icon="circle-flags:us"),
+    MarketIndex(symbol="^FTSE", label="FTSE 100", icon="circle-flags:gb"),
+    MarketIndex(symbol="ACWI", label="ACWI", icon="mdi:earth"),
 ]
 
 # One fetch per symbol covers both views: the summary sparkline takes the

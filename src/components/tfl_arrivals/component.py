@@ -1,10 +1,10 @@
 import asyncio
 
-from dash import Dash, Input, Output, html
 from loguru import logger
 
 from components.base import DataDrivenComponent
 from utils.data_repository import ComponentPayload
+from utils.styles import COLORS
 
 from .data import (
     fetch_arrivals_for_stop,
@@ -16,7 +16,7 @@ from .data import (
     process_stoppoint_disruptions,
 )
 from .full_screen import render_tfl_fullscreen
-from .summary import render_tfl_summary
+from .summary import render_tfl_badge, render_tfl_summary
 
 
 class TFLArrivals(DataDrivenComponent):
@@ -31,10 +31,13 @@ class TFLArrivals(DataDrivenComponent):
     and reusing it for both views is both simpler and less wasteful.
     """
 
+    title = "Transport"
+    icon = "mdi:train-car"
+    accent = COLORS["urgent"]
     refresh_seconds = 30
     jitter_seconds = 10
     placeholder_error = "Transport data unavailable"
-    placeholder_loading = "Loading transport data..."
+    placeholder_loading = "Loading departures…"
 
     def __init__(
         self,
@@ -55,45 +58,39 @@ class TFLArrivals(DataDrivenComponent):
     async def _build_payload(self) -> ComponentPayload | None:
         return await asyncio.to_thread(self._compute_payload_sync)
 
-    def _compute_payload_sync(self) -> ComponentPayload:
+    def _compute_payload_sync(self) -> ComponentPayload | None:
         if not self.all_stop_ids:
-            return ComponentPayload(
-                summary=self._build_placeholder("Transport stops not configured"),
-            )
+            message = self._build_placeholder("Transport stops not configured")
+            return ComponentPayload(summary=message, detail=message)
 
         try:
             timeline_arrivals, arrivals_by_stop, line_status, stop_disruptions = (
                 self._get_arrivals_data()
             )
-            summary_children = render_tfl_summary(
+            summary = render_tfl_summary(
                 timeline_arrivals,
-                line_status,
-                stop_disruptions,
                 priority_line_ids=self._line_status_ids,
             )
-            fullscreen_content = render_tfl_fullscreen(
-                arrivals_by_stop,
-                line_status,
-                stop_disruptions,
-                self.component_id,
+            detail = render_tfl_fullscreen(
+                arrivals_by_stop, line_status, stop_disruptions
             )
-
+            badge = render_tfl_badge(
+                line_status, stop_disruptions, self._line_status_ids
+            )
         except Exception:  # noqa: BLE001
             logger.exception("Error building TFL payload")
-            return ComponentPayload(
-                summary=self._build_placeholder(self.placeholder_error),
-            )
+            return None
 
-        title = html.Div(
-            "Transport",
-            className="text-m",
-            **{"data-component-name": self.name},
-        )
-
+        stops = [
+            s.get("station_name")
+            for s in arrivals_by_stop.values()
+            if s.get("station_name")
+        ]
         return ComponentPayload(
-            summary=summary_children,
-            fullscreen_title=title,
-            fullscreen_content=fullscreen_content,
+            summary=summary,
+            detail=detail,
+            subtitle=" · ".join(stops) or "Live departures",
+            badge=badge,
             raw={
                 "timeline": timeline_arrivals,
                 "full": arrivals_by_stop,
@@ -147,16 +144,3 @@ class TFLArrivals(DataDrivenComponent):
         stop_disruptions_raw = fetch_stoppoint_disruptions(self.all_stop_ids)
         stop_disruptions = process_stoppoint_disruptions(stop_disruptions_raw)
         return timeline_arrivals, arrivals_by_stop, line_status, stop_disruptions
-
-    def _add_callbacks(self, app: Dash) -> None:
-        super()._add_callbacks(app)
-
-        # Client-side filtering of arrivals rows by selected line
-        app.clientside_callback(
-            "function(value){\n  try {\n    const wrapper = document.getElementById('"
-            f"{self.component_id}-arrivals-wrapper"
-            "');\n    if(!wrapper){return window.dash_clientside.no_update;}\n    const rows = wrapper.querySelectorAll('[data-line]');\n    if(!rows.length){return window.dash_clientside.no_update;}\n    const sel = (value || 'all').toLowerCase();\n    rows.forEach(r=>{\n      const line = (r.getAttribute('data-line') || '').toLowerCase();\n      if(sel==='all' || line===sel){\n        r.style.display = 'flex';\n      } else {\n        r.style.display = 'none';\n      }\n    });\n  } catch(e){ console.warn('tfl line filter failed', e); }\n  return '';\n}",
-            Output(f"{self.component_id}-line-filter", "title"),  # dummy no-op output
-            Input(f"{self.component_id}-line-filter", "value"),
-            prevent_initial_call=False,
-        )

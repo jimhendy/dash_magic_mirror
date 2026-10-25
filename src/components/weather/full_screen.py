@@ -1,417 +1,266 @@
 import datetime
-from dataclasses import dataclass
 from typing import Any
 
 import plotly.graph_objects as go
 from dash import dcc, html
-from dash_iconify import DashIconify
 
-from utils.dates import get_app_timezone, local_now
-from utils.styles import COLORS, FONT_FAMILY, SPACE, row_style
+from utils.dates import local_today
+from utils.styles import COLORS, FONT_FAMILY, with_alpha
+from utils.ui import icon, section, stat
 
+from .data import upcoming_hours
 
-def _with_alpha(hex_color: str, alpha: float) -> str:
-    """`#RRGGBB` -> `rgba(r, g, b, alpha)` - Plotly fill colors need an
-    explicit rgba string, unlike the CSS hex-alpha-suffix trick used
-    elsewhere in this app.
-    """
-    hex_color = hex_color.lstrip("#")
-    r, g, b = (int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
-    return f"rgba({r}, {g}, {b}, {alpha})"
+CHART_HOURS = 24
 
 
-def _format_day_name(date: str | datetime.date | datetime.datetime) -> str:
-    """Format date to day name (e.g., '2025-08-25' -> '25th')."""
-    if isinstance(date, datetime.date):
-        pass
-    elif isinstance(date, str):
-        date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
-    elif isinstance(date, datetime.datetime):
-        date = date.date()
-    else:
-        msg = f"Invalid date type: {type(date)}"
-        raise ValueError(msg)
+def render_weather_fullscreen(weather_data: dict[str, Any]) -> html.Div:
+    current = weather_data.get("current", {})
+    hourly = weather_data.get("hourly", [])
+    daily = weather_data.get("daily", [])
+    today = daily[0] if daily else {}
+    hours = upcoming_hours(hourly, CHART_HOURS)
 
-    day = date.day
-    if 10 <= day % 100 <= 20:
-        suffix = "th"
-    else:
-        suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
-    return f"{day}{suffix}"
-
-
-@dataclass
-class HourlyWeather:
-    time: datetime.datetime
-    temp_c: float
-    feels_like: float
-    rain_chance: float
-    icon: str
-    condition: str
-    cloud_cover: float
-
-
-def _create_hourly_timeseries(
-    hourly_data: list[dict[str, Any]],
-    daily_data: list[dict[str, Any]],
-    font_size: int = 20,
-    line_shape: str = "hv",
-) -> go.Figure:
-    """Create a timeseries plot for hourly weather data."""
-    if not hourly_data:
-        return go.Figure()
-
-    # Extract data for plotting
-    hour_data = []
-    now = local_now()
-    tomorrow = now + datetime.timedelta(days=1)
-    tz = get_app_timezone()
-
-    for hour in hourly_data:  # Show 24 hours
-        dt = datetime.datetime.fromisoformat(hour.get("time", ""))
-        # Ensure timezone-aware in app timezone
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=tz)
-        if dt < now or dt >= tomorrow:
-            continue
-        hour_data.append(
-            HourlyWeather(
-                time=dt,
-                temp_c=hour.get("temp_c", 0),
-                feels_like=hour.get("feels_like", 0),
-                rain_chance=hour.get("rain_chance", 0),
-                icon=hour.get("icon", ""),
-                condition=hour.get("condition", ""),
-                cloud_cover=hour.get("cloud", 0),
+    return html.Div(
+        [
+            html.Div(
+                [_now_card(current), _stats(current, today)],
+                className="wx-detail__top",
             ),
-        )
+            section(
+                "Next 24 hours",
+                html.Div(
+                    [
+                        html.Div(
+                            [
+                                _hour_column(h, index == 0)
+                                for index, h in enumerate(hours)
+                            ],
+                            className="wx-scroll hscroll",
+                        ),
+                        html.Div(
+                            dcc.Graph(
+                                figure=_hourly_chart(hours),
+                                config={
+                                    "displayModeBar": False,
+                                    "responsive": True,
+                                    "staticPlot": True,
+                                },
+                                className="wx-chart__graph",
+                            ),
+                            className="wx-chart",
+                        )
+                        if len(hours) > 1
+                        else None,
+                    ],
+                ),
+                class_name="card",
+            ),
+            section(
+                f"{len(daily)}-day forecast",
+                _daily_rows(daily),
+                class_name="card",
+            ),
+        ],
+        className="detail wx-detail",
+    )
 
-    hour_data.sort(key=lambda x: x.time)  # Ensure sorted by time
 
-    if not hour_data:
-        return go.Figure()
+def _now_card(current: dict[str, Any]) -> html.Div:
+    return html.Div(
+        [
+            icon(
+                current.get("icon", "mdi:weather-partly-cloudy"),
+                "wx-big__icon",
+                current.get("icon_color"),
+            ),
+            html.Div(
+                [
+                    html.Div(
+                        f"{current.get('temperature', '–')}°", className="wx-big__temp"
+                    ),
+                    html.Div(current.get("condition", ""), className="wx-big__cond"),
+                    html.Div(
+                        f"Feels like {current.get('feels_like', '–')}°",
+                        className="wx-big__feels",
+                    ),
+                ],
+            ),
+        ],
+        className="card wx-big",
+    )
 
-    temp_color = COLORS["gold"]
-    rain_color = COLORS["accent"]
-    cloud_color = COLORS["text_secondary"]
 
-    # Create single plot (no subplots)
+def _fmt_time(value: Any) -> str:
+    return value.strftime("%H:%M") if isinstance(value, datetime.datetime) else "–"
+
+
+def _stats(current: dict[str, Any], today: dict[str, Any]) -> html.Div:
+    wind = f"{current.get('wind_mph', '–')} mph {current.get('wind_dir', '')}".strip()
+    return html.Div(
+        [
+            stat("Wind", wind, "mdi:weather-windy"),
+            stat("Humidity", f"{current.get('humidity', '–')}%", "mdi:water-percent"),
+            stat(
+                "Rain today",
+                f"{today.get('rain_chance', '–')}%",
+                "mdi:umbrella-outline",
+            ),
+            stat(
+                "UV index",
+                f"{current.get('uv', today.get('uv_index', '–'))}",
+                "mdi:white-balance-sunny",
+            ),
+            stat("Sunrise", _fmt_time(today.get("sunrise")), "mdi:weather-sunset-up"),
+            stat("Sunset", _fmt_time(today.get("sunset")), "mdi:weather-sunset-down"),
+        ],
+        className="card stat-grid",
+    )
+
+
+def _hour_column(hour: dict[str, Any], is_now: bool) -> html.Div:
+    rain = hour.get("rain_chance", 0)
+    return html.Div(
+        [
+            html.Div(
+                "Now" if is_now else hour["dt"].strftime("%H:%M"),
+                className="wx-hour__time",
+            ),
+            icon(
+                hour.get("icon", "mdi:weather-partly-cloudy"),
+                "wx-hour__icon",
+                hour.get("icon_color"),
+            ),
+            html.Div(f"{hour.get('temp_c', '–')}°", className="wx-hour__temp"),
+            html.Div(
+                [icon("mdi:water", "wx-hour__drop"), f"{rain}%"],
+                className="wx-hour__rain" + (" is-wet" if rain >= 40 else ""),
+            ),
+        ],
+        className="wx-hour" + (" is-now" if is_now else ""),
+    )
+
+
+def _hourly_chart(hours: list[dict[str, Any]]) -> go.Figure:
+    """Temperature line over rain-chance bars for the next 24 hours."""
+    times = [h["dt"] for h in hours]
+    temps = [h.get("temp_c", 0) for h in hours]
+    rain = [h.get("rain_chance", 0) for h in hours]
+
     fig = go.Figure()
-
-    # Cloud cover: a soft ambient backdrop (area only, no visible line),
-    # added first so it renders behind the rain/temperature traces.
     fig.add_trace(
-        go.Scatter(
-            x=[hd.time for hd in hour_data],
-            y=[hd.cloud_cover for hd in hour_data],
-            mode="lines",
-            name="Cloud Cover",
-            line=dict(color=cloud_color, width=0),
-            fill="tozeroy",
-            fillcolor=_with_alpha(cloud_color, 0.14),
+        go.Bar(
+            x=times,
+            y=rain,
             yaxis="y2",
-            line_shape=line_shape,
-            hoverinfo="skip",
+            marker=dict(color=with_alpha(COLORS["blue"], 0.45), line=dict(width=0)),
+            name="Rain",
         ),
     )
-
-    # Rain chance: area + line, matching the summary sparkline's styling.
     fig.add_trace(
         go.Scatter(
-            x=[hd.time for hd in hour_data],
-            y=[hd.rain_chance for hd in hour_data],
+            x=times,
+            y=temps,
             mode="lines",
-            name="Rain Chance",
-            line=dict(color=rain_color, width=2),
-            fill="tozeroy",
-            fillcolor=_with_alpha(rain_color, 0.22),
-            yaxis="y2",
-            line_shape=line_shape,
-        ),
-    )
-
-    # Temperature: the dominant signal - a clean bold line reads clearly on
-    # its own, so it's left unfilled rather than tinting the whole chart.
-    fig.add_trace(
-        go.Scatter(
-            x=[hd.time for hd in hour_data],
-            y=[hd.temp_c for hd in hour_data],
-            mode="lines",
+            line=dict(color=COLORS["gold"], width=3, shape="spline", smoothing=0.6),
             name="Temperature",
-            line=dict(color=temp_color, width=4),
         ),
     )
-
-    # Maximized layout with no legend and tight margins
-    fig.update_layout(
-        height=None,  # Let the container control height
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(color=COLORS["text"], size=font_size, family=FONT_FAMILY),
-        showlegend=False,  # Show legend
-        margin=dict(l=40, r=40, t=20, b=40),  # Tight margins for maximum space
-        hovermode=None,
-        # Adjust y-axis range for tighter layout without icons/annotations at top
-        yaxis=dict(
-            range=[
-                min(hd.temp_c for hd in hour_data) - 1,
-                max(hd.temp_c for hd in hour_data) + 1,
-            ],
-        ),
-        autosize=True,  # Let the chart resize to fit container
-    )
-
-    # Clean up axes
-    fig.update_xaxes(
-        showgrid=False,
-        tickformat="%-I %p",
-        tickangle=0,
-        color=COLORS["text_secondary"],
-        linecolor=COLORS["hairline_strong"],
-        dtick=4 * 3600000,  # Every 4 hours
-        tickfont=dict(size=font_size),
-        title=None,
-    )
-
-    # Temperature axis (left)
-    fig.update_yaxes(
-        title=None,
-        ticksuffix="°C",
-        color=temp_color,
-        linecolor=temp_color,
-        tickcolor=temp_color,
-        tickfont=dict(size=font_size, color=temp_color),
-        side="left",
-        showgrid=False,
-    )
-
-    # Rain chance axis (right)
-    fig.update_layout(
-        yaxis2=dict(
-            title=None,
-            ticksuffix="%",
-            overlaying="y",
-            side="right",
-            color=rain_color,
-            linecolor=rain_color,
-            tickcolor=rain_color,
-            range=[0, 100],
-            tickfont=dict(size=font_size, color=rain_color),
-            showgrid=False,
-        ),
-    )
-
-    # Add a dim divider line if the x-axis crosses a day boundary
-    for i in range(1, len(hour_data)):
-        if hour_data[i].time.date() != hour_data[i - 1].time.date():
+    # Midnight divider when the 24h window crosses into tomorrow.
+    for prev, cur in zip(times, times[1:], strict=False):
+        if cur.date() != prev.date():
             fig.add_vline(
-                x=hour_data[i].time,
-                line=dict(color=COLORS["text_muted"], width=2, dash="dash"),
+                x=cur, line=dict(color=COLORS["hairline_strong"], width=1, dash="dot")
             )
 
-    # Add a sunrise and sunset symbols at the top of the plot (assuming it will not be peak temp)
-    # Sunrise and sunset are in the daily_data so need to extract based on the current x-axis
-    days = set(hd.time.date() for hd in hour_data)
-    sunrises = [
-        dd.get("sunrise", "") for dd in daily_data if dd.get("date", "") in days
-    ]
-    sunsets = [dd.get("sunset", "") for dd in daily_data if dd.get("date", "") in days]
-    for sr in sunrises:
-        if not isinstance(sr, datetime.datetime):
-            continue
-        sr_dt = sr if sr.tzinfo is not None else sr.replace(tzinfo=tz)
-        if sr_dt < now or sr_dt >= tomorrow:
-            continue
-        fig.add_annotation(
-            x=sr_dt,
-            y=max(hd.temp_c for hd in hour_data) + 1,
-            text=f"☀️ {sr_dt.strftime('%-H:%M')}",
-            showarrow=False,
-            font=dict(size=20),
-        )
-    for ss in sunsets:
-        if not isinstance(ss, datetime.datetime):
-            continue
-        ss_dt = ss if ss.tzinfo is not None else ss.replace(tzinfo=tz)
-        if ss_dt < now or ss_dt >= tomorrow:
-            continue
-        fig.add_annotation(
-            x=ss_dt,
-            y=max(hd.temp_c for hd in hour_data) + 1,
-            text=f"☽ {ss_dt.strftime('%H:%M')}",
-            showarrow=False,
-            font=dict(size=20),
-        )
-
+    lo, hi = min(temps), max(temps)
+    fig.update_layout(
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=COLORS["text_secondary"], size=13, family=FONT_FAMILY),
+        showlegend=False,
+        margin=dict(l=36, r=40, t=10, b=28),
+        bargap=0.35,
+        autosize=True,
+        xaxis=dict(
+            showgrid=False,
+            tickformat="%H:%M",
+            dtick=3 * 3600000,
+            linecolor=COLORS["hairline_strong"],
+        ),
+        yaxis=dict(
+            range=[lo - 1.5, hi + 1.5],
+            ticksuffix="°",
+            showgrid=True,
+            gridcolor=COLORS["hairline"],
+            zeroline=False,
+            tickfont=dict(color=COLORS["gold"]),
+            nticks=5,
+        ),
+        yaxis2=dict(
+            overlaying="y",
+            side="right",
+            range=[0, 100],
+            ticksuffix="%",
+            showgrid=False,
+            zeroline=False,
+            tickfont=dict(color=COLORS["blue"]),
+            nticks=3,
+        ),
+    )
     return fig
 
 
-def _render_daily_item(day_data: dict[str, Any]) -> html.Div:
-    """Render a single daily forecast item."""
-    return html.Div(
-        [
-            # Day name
-            html.Div(
-                _format_day_name(day_data.get("date", "")),
-                style={"fontWeight": "600", "color": COLORS["text"]},
-                className="text-ms",
-            ),
-            # Weather icon and condition
+def _daily_rows(daily: list[dict[str, Any]]) -> html.Div:
+    if not daily:
+        return html.Div()
+    lo = min(d.get("low", 0) for d in daily)
+    hi = max(d.get("high", 0) for d in daily)
+    span = (hi - lo) or 1
+    today = local_today()
+
+    rows = []
+    for d in daily:
+        date = d.get("date")
+        if date == today:
+            name = "Today"
+        elif date == today + datetime.timedelta(days=1):
+            name = "Tomorrow"
+        else:
+            name = date.strftime("%A") if date else ""
+        left = (d.get("low", 0) - lo) / span * 100
+        width = (d.get("high", 0) - d.get("low", 0)) / span * 100
+        rows.append(
             html.Div(
                 [
-                    DashIconify(
-                        icon=day_data.get("icon", "mdi:weather-partly-cloudy"),
-                        color=day_data.get("icon_color", COLORS["text_secondary"]),
-                        style={
-                            "width": "2.5rem",
-                            "height": "2.5rem",
-                            "marginRight": "0.75rem",
-                        },
+                    html.Div(name, className="wx-day__name"),
+                    icon(
+                        d.get("icon", "mdi:weather-partly-cloudy"),
+                        "wx-day__icon",
+                        d.get("icon_color"),
                     ),
+                    html.Div(d.get("condition", ""), className="wx-day__cond truncate"),
                     html.Div(
                         [
-                            html.Div(
-                                day_data.get("condition", ""),
-                                className="text-ms",
-                                style={"color": COLORS["text"]},
-                            ),
-                            html.Div(
-                                f"UV: {day_data.get('uv_index', 0)}",
-                                className="text-s",
-                                style={
-                                    "color": COLORS["text_muted"],
-                                    "fontSize": "0.75rem",
-                                    "marginTop": "0.25rem",
-                                },
-                            ),
+                            icon("mdi:water", "wx-hour__drop"),
+                            f"{d.get('rain_chance', 0)}%",
                         ],
-                        style={"flex": "1", "textAlign": "left"},
+                        className="wx-day__rain"
+                        + (" is-wet" if d.get("rain_chance", 0) >= 40 else ""),
                     ),
-                ],
-                style={"display": "flex", "alignItems": "center", "width": "12rem"},
-            ),
-            # High/Low temperatures
-            html.Div(
-                [
-                    html.Span(
-                        f"{day_data.get('high', 0)}°",
-                        style={
-                            "fontWeight": "700",
-                            "marginRight": "0.5rem",
-                            "color": COLORS["gold"],
-                        },
-                    ),
-                    html.Span(
-                        f"{day_data.get('low', 0)}°",
-                        style={
-                            "color": COLORS["text_secondary"],
-                            "marginRight": "1rem",
-                        },
-                    ),
-                ],
-                style={"width": "4rem", "textAlign": "right"},
-                className="text-ms",
-            ),
-            # Rain chance and precipitation
-            html.Div(
-                [
+                    html.Div(f"{d.get('low', '–')}°", className="wx-day__low"),
                     html.Div(
-                        [
-                            DashIconify(
-                                icon="mdi:water-percent",
-                                color=COLORS["accent"],
-                                style={"marginRight": "0.25rem"},
-                            ),
-                            html.Span(
-                                f"{day_data.get('rain_chance', 0)}%",
-                                style={"color": COLORS["text"]},
-                            ),
-                        ],
-                        style={
-                            "display": "flex",
-                            "alignItems": "center",
-                            "marginBottom": "0.25rem",
-                        },
-                        className="text-ms",
+                        html.Div(
+                            className="range__fill",
+                            style={
+                                "left": f"{left:.1f}%",
+                                "width": f"{max(width, 4):.1f}%",
+                            },
+                        ),
+                        className="range",
                     ),
-                    html.Div(
-                        f"{day_data.get('total_precip', 0):.1f}mm",
-                        style={"color": COLORS["text_muted"], "fontSize": "0.75rem"},
-                    )
-                    if day_data.get("total_precip", 0) > 0
-                    else None,
+                    html.Div(f"{d.get('high', '–')}°", className="wx-day__high"),
                 ],
-                style={"width": "3.5rem", "textAlign": "center"},
+                className="wx-day",
             ),
-            # Wind
-            html.Div(
-                [
-                    DashIconify(
-                        icon="mdi:weather-windy",
-                        color=COLORS["text_secondary"],
-                        style={"marginRight": "0.25rem"},
-                    ),
-                    html.Span(
-                        f"{day_data.get('max_wind', 0)} mph",
-                        style={"color": COLORS["text"]},
-                    ),
-                ],
-                style={
-                    "display": "flex",
-                    "alignItems": "center",
-                    "width": "4rem",
-                    "justifyContent": "center",
-                },
-                className="text-ms",
-            ),
-        ],
-        style=row_style(
-            divider=True,
-            display="flex",
-            alignItems="center",
-            justifyContent="space-between",
-            width="100%",
-            height="30%",
-        ),
-        className="daily-item",
-    )
-
-
-def render_weather_fullscreen(
-    weather_data: dict[str, Any],
-    component_id: str,
-) -> html.Div:
-    hourly_data = weather_data.get("hourly", [])
-    daily_data = weather_data.get("daily", [])
-
-    return html.Div(
-        [
-            html.Div(
-                [
-                    dcc.Graph(
-                        figure=_create_hourly_timeseries(hourly_data, daily_data),
-                        config={
-                            "displayModeBar": False,
-                            "responsive": True,
-                            "staticPlot": True,
-                        },
-                        style={"height": "100%", "width": "100%"},
-                    ),
-                ],
-                style={"height": "66%"},
-            ),
-            # Daily Forecast
-            html.Div(
-                [_render_daily_item(day) for day in daily_data],
-                style={"height": "30%", "padding": f"0 {SPACE['lg']}"},
-            ),
-        ],
-        style={
-            "height": "100%",
-            "color": COLORS["text"],
-            "background": COLORS["bg"],
-            "display": "flex",
-            "flexDirection": "column",
-        },
-        id=f"{component_id}-fullscreen",
-    )
+        )
+    return html.Div(rows, className="wx-days")

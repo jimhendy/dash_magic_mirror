@@ -1,4 +1,3 @@
-from dash import html
 from loguru import logger
 
 from components.base import DataDrivenComponent
@@ -11,22 +10,24 @@ from .data import (
     process_weather_data,
 )
 from .full_screen import render_weather_fullscreen
-from .summary import render_weather_summary
+from .summary import render_weather_badge, render_weather_summary
 
 
 class Weather(DataDrivenComponent):
-    """Weather component for the Magic Mirror application.
-    Displays current weather, chance of rain, and 3-day forecast for a given UK postcode.
+    """Current conditions, the next few hours, and a 3-day forecast for a UK
+    postcode.
 
     Uses WeatherAPI.com for weather data.
     Requires a free API key from https://www.weatherapi.com/signup.aspx
     """
 
-    icon_size = "5.5rem"
+    title = "Weather"
+    icon = "mdi:weather-partly-cloudy"
+    accent = COLORS["gold"]
     refresh_seconds = 15 * 60
     jitter_seconds = 60
     placeholder_error = "Weather unavailable"
-    placeholder_loading = "Loading weather..."
+    placeholder_loading = "Loading weather…"
 
     def __init__(self, postcode: str, api_key: str, **kwargs):
         self.postcode = postcode.upper().replace(" ", "")
@@ -42,42 +43,26 @@ class Weather(DataDrivenComponent):
         raw = await async_fetch_weather_data(self.api_key, self.postcode)
         if not raw:
             logger.warning(f"Weather API returned no data for {self.postcode}")
-            return ComponentPayload(
-                summary=self._build_placeholder(self.placeholder_error),
-            )
+            return None
 
         try:
             summary_data = process_weather_data(raw, self.postcode)
             detailed_data = process_detailed_weather_data(raw, self.postcode)
-            summary_children = render_weather_summary(
-                summary_data,
-                self.component_id,
-                self.icon_size,
-                hourly_data=detailed_data.get("hourly", []),
+            hourly = detailed_data.get("hourly", [])
+            summary = render_weather_summary(
+                summary_data, hourly, detailed_data.get("daily", [])
             )
-            content = render_weather_fullscreen(detailed_data, self.component_id)
+            detail = render_weather_fullscreen(detailed_data)
+            badge = render_weather_badge(summary_data.get("location", ""), hourly)
         except Exception:  # noqa: BLE001
             logger.exception("Error rendering weather payload")
-            return ComponentPayload(
-                summary=self._build_placeholder(self.placeholder_error),
-            )
+            return None
 
-        title_text = summary_data.get("current", {}).get("condition", "Weather")
-        title = html.Div(
-            title_text,
-            className="text-m",
-            **{"data-component-name": self.name},
-        )
-
+        current = summary_data.get("current", {})
         return ComponentPayload(
-            summary=summary_children,
-            fullscreen_title=title,
-            fullscreen_content=content,
-            raw={
-                "summary": summary_data,
-                "detailed": detailed_data,
-            },
+            summary=summary,
+            detail=detail,
+            subtitle=f"{summary_data.get('location', '')} · {current.get('condition', '')}",
+            badge=badge,
+            raw={"summary": summary_data, "detailed": detailed_data},
         )
-
-    def _content_style(self) -> dict:
-        return {"color": COLORS["text"], "textAlign": "center"}

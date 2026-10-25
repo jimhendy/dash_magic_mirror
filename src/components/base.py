@@ -1,61 +1,52 @@
+import asyncio
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any
 
-from dash import Dash, Input, Output, State, dcc, html, no_update
+from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
 from dash.development.base_component import Component
 
 from utils.data_repository import ComponentPayload, get_repository
-from utils.styles import COLORS, SPACE, TEXT_STYLES, merge_styles
+from utils.ui import icon, placeholder
 
 _COMPONENT_COUNT = 0
 
 
-class PreloadedFullScreenMixin:
-    """Mixin providing preloaded full-screen store IDs and a helper to build them."""
-
-    def fullscreen_title_store_id(self) -> str:
-        return f"{self.component_id}-fullscreen-title-store"
-
-    def fullscreen_content_store_id(self) -> str:
-        return f"{self.component_id}-fullscreen-content-store"
-
-    def preload_fullscreen_stores(
-        self,
-        *,
-        title: Component | None = None,
-        content: Component | None = None,
-    ) -> list[Component]:  # to embed in summary layout
-        serialized_title = (
-            title.to_plotly_json() if isinstance(title, Component) else title
-        )
-        serialized_content = (
-            content.to_plotly_json() if isinstance(content, Component) else content
-        )
-
-        return [
-            dcc.Store(id=self.fullscreen_title_store_id(), data=serialized_title),
-            dcc.Store(id=self.fullscreen_content_store_id(), data=serialized_content),
-        ]
-
-
 class BaseComponent(ABC):
-    """Base class for all components in the Magic Mirror application.
-    Provides a common interface for rendering and updating components.
+    """Base class for every dashboard component.
+
+    A component renders two things:
+
+    - a **tile** on the dashboard grid (`tile_layout`), and
+    - optionally a full-screen **panel** with more detail (`panel_layout`).
+
+    Panels are mounted once, hidden, alongside the dashboard - opening one
+    is a pure client-side class toggle (`assets/dashboard.js`), not a Dash
+    callback. That's what makes a single tap reliably open a panel straight
+    away even on a slow tablet: there's nothing to round-trip or render at
+    tap time, and a background refresh replacing a tile's contents mid-tap
+    can't swallow the tap because the tap target (the tile frame) is never
+    re-rendered.
     """
+
+    title: str = ""
+    icon: str = "mdi:circle-outline"
+    # Optional accent for the tile's header icon (any CSS color).
+    accent: str | None = None
 
     def __init__(
         self,
         name: str,
         *,
         full_screen: bool = True,
-        **kwargs,
+        grid_area: str | None = None,
     ):
         global _COMPONENT_COUNT
         self.name = name
         self._id = _COMPONENT_COUNT
         _COMPONENT_COUNT += 1
         self.full_screen = full_screen
-        self.css_position = {**kwargs}
+        self.grid_area = grid_area or name
 
     @property
     def component_id(self) -> str:
@@ -70,101 +61,166 @@ class BaseComponent(ABC):
             dir.mkdir(parents=True, exist_ok=True)
         return dir
 
-    def summary_layout(self) -> Component:
-        # `minHeight: 0` + `overflow: hidden` is what actually lets a flex
-        # child shrink below its content's natural size instead of forcing
-        # the whole page to grow past the viewport - without it, flexbox's
-        # default min-height:auto means a tall component (e.g. a busy
-        # calendar day) can push the page into scrolling. `css_position`
-        # can still override either if a component genuinely needs to.
+    # ------------------------------------------------------------------
+    # Tile
+    # ------------------------------------------------------------------
+    def tile_layout(self) -> Component:
+        cid = self.component_id
+        head = html.Div(
+            [
+                html.Div(
+                    icon(self.icon, "tile__icon"),
+                    className="tile__icon-wrap",
+                    style={"--tile-accent": self.accent} if self.accent else None,
+                ),
+                html.Div(self.title, className="tile__title"),
+                html.Div(
+                    self._tile_badge(), id=f"{cid}-badge", className="tile__badge"
+                ),
+                icon("mdi:chevron-right", "tile__chevron")
+                if self.full_screen
+                else None,
+            ],
+            className="tile__head",
+        )
+        attrs: dict[str, Any] = {"data-open": self.name} if self.full_screen else {}
         return html.Div(
-            id=self.component_id,
-            children=self._summary_layout(),
-            style=merge_styles(
-                {"minHeight": 0, "overflow": "hidden"},
-                self.css_position,
-            ),
-            n_clicks=0,
+            [
+                head,
+                html.Div(
+                    self._summary_layout(), id=f"{cid}-summary", className="tile__body"
+                ),
+                *self._hidden_layout(),
+            ],
+            id=cid,
+            className=f"tile tile--{self.name}"
+            + (" is-tappable" if self.full_screen else ""),
+            style={"gridArea": self.grid_area},
+            **attrs,
         )
 
     @abstractmethod
-    def _summary_layout(self) -> Component:
-        """Returns the summary layout for the component."""
-        ...
+    def _summary_layout(self) -> Any:
+        """Initial tile body."""
 
+    def _tile_badge(self) -> Any:
+        """Initial tile header badge (optional)."""
+        return None
+
+    def _hidden_layout(self) -> list[Component]:
+        """Intervals / stores this component needs mounted with its tile."""
+        return []
+
+    # ------------------------------------------------------------------
+    # Panel
+    # ------------------------------------------------------------------
+    refreshable: bool = False
+
+    def panel_layout(self) -> Component:
+        cid = self.component_id
+        actions = []
+        if self.refreshable:
+            actions.append(
+                html.Button(
+                    icon("mdi:refresh", "ic"),
+                    id=f"{cid}-refresh",
+                    n_clicks=0,
+                    className="icon-btn",
+                    title="Refresh now",
+                ),
+            )
+        actions.append(
+            html.Div(
+                html.Div(className="timer__ring"),
+                className="timer",
+                title="Returns home automatically",
+                **{"data-timer": ""},
+            ),
+        )
+        return html.Section(
+            [
+                html.Header(
+                    [
+                        html.Button(
+                            [icon("mdi:chevron-left", "ic"), html.Span("Home")],
+                            className="back-btn",
+                            **{"data-close": ""},
+                        ),
+                        html.Div(
+                            [
+                                html.Div(
+                                    [
+                                        icon(self.icon, "panel__icon"),
+                                        html.H2(self.title, className="panel__title"),
+                                    ],
+                                    className="panel__title-row",
+                                ),
+                                html.Div(
+                                    self._panel_subtitle(),
+                                    id=f"{cid}-subtitle",
+                                    className="panel__subtitle",
+                                ),
+                            ],
+                            className="panel__titles",
+                        ),
+                        html.Div(actions, className="panel__actions"),
+                    ],
+                    className="panel__head",
+                ),
+                html.Div(
+                    self._detail_layout(),
+                    id=f"{cid}-detail",
+                    className="panel__body",
+                ),
+            ],
+            id=f"panel-{self.name}",
+            className=f"panel panel--{self.name}",
+            style={"--tile-accent": self.accent} if self.accent else None,
+            **{"data-panel": self.name},
+        )
+
+    def _detail_layout(self) -> Any:
+        return None
+
+    def _panel_subtitle(self) -> Any:
+        return None
+
+    # ------------------------------------------------------------------
+    # Callbacks
+    # ------------------------------------------------------------------
     def add_callbacks(self, app: Dash) -> None:
-        """Register this component's callbacks, plus the shared full-screen-modal
-        open/populate wiring every component with `full_screen=True` gets for free.
-        """
         self._add_callbacks(app)
-
-        if self.full_screen:
-            # Open the modal on click.
-            app.clientside_callback(
-                """
-                function(n_clicks, current_style) {
-                    if (!n_clicks || n_clicks === 0) {
-                        return window.dash_clientside.no_update;
-                    }
-                    return { ...current_style, display: "block" };
-                }
-                """,
-                Output("full-screen-modal", "style", allow_duplicate=True),
-                Input(self.component_id, "n_clicks"),
-                State("full-screen-modal", "style"),
-                prevent_initial_call=True,
-            )
-
-            # Populate the modal from this component's preloaded stores.
-            app.clientside_callback(
-                """
-                function(n_clicks, titleStore, contentStore) {
-                    if (!n_clicks || n_clicks === 0) {
-                        return [window.dash_clientside.no_update, window.dash_clientside.no_update];
-                    }
-                    if (!titleStore || !contentStore) { return ["Loading...", "Loading..."]; }
-                    return [titleStore, contentStore];
-                }
-                """,
-                Output("full-screen-modal-title", "children", allow_duplicate=True),
-                Output("full-screen-modal-content", "children", allow_duplicate=True),
-                Input(self.component_id, "n_clicks"),
-                State(f"{self.component_id}-fullscreen-title-store", "data"),
-                State(f"{self.component_id}-fullscreen-content-store", "data"),
-                prevent_initial_call=True,
-            )
 
     @abstractmethod
     def _add_callbacks(self, app: Dash) -> None:
-        """Adds callbacks to the component. This method should be implemented by subclasses
-        to define how the component interacts with the Dash app.
-
-        :param app: The Dash application instance.
-        """
-        ...
+        """Register this component's callbacks."""
 
 
-class DataDrivenComponent(PreloadedFullScreenMixin, BaseComponent, ABC):
+class DataDrivenComponent(BaseComponent, ABC):
     """Base for components backed by the shared `DataRepository`.
 
     Handles the boilerplate every fetch-driven component needs: registering
-    a background refresher (with warm sync fetch at startup so the first
+    a background refresher (with a warm sync fetch at startup so the first
     render isn't empty), reading the latest cached payload, the loading /
-    error placeholder, and the summary hydrate callback. Subclasses only
-    need to implement `_build_payload()` - the async fetch-and-render step -
-    and set `refresh_seconds`.
+    error placeholder, and one hydrate callback that pushes the latest
+    payload into the tile, the panel, and the panel subtitle/badge.
+    Subclasses only implement `_build_payload()` and set `refresh_seconds`.
+
+    The hydrate callback skips sending anything when the payload hasn't
+    changed since this browser last received it (tracked per-client in a
+    `dcc.Store`), so a slow tablet isn't made to diff identical component
+    trees every interval.
 
     This is also the seam a future standalone caching API would slot into:
     everything here talks to `DataRepository` by key, never to a specific
-    HTTP client or scraper directly, so swapping the repository's backing
-    implementation (in-process background loop -> remote HTTP fetch) would
-    not require touching any component or render code.
+    HTTP client or scraper directly.
     """
 
     refresh_seconds: float = 300
     jitter_seconds: float = 0
     placeholder_loading = "Loading..."
     placeholder_error = "Unavailable"
+    refreshable = True
 
     def __init__(self, name: str, **kwargs):
         super().__init__(name=name, **kwargs)
@@ -187,18 +243,9 @@ class DataDrivenComponent(PreloadedFullScreenMixin, BaseComponent, ABC):
     @abstractmethod
     async def _build_payload(self) -> ComponentPayload | None:
         """Fetch data and render it into a `ComponentPayload`."""
-        ...
 
     def _build_placeholder(self, message: str) -> html.Div:
-        return html.Div(
-            message,
-            style={
-                **TEXT_STYLES["secondary"],
-                "color": COLORS["text_muted"],
-                "textAlign": "center",
-                "padding": SPACE["lg"],
-            },
-        )
+        return placeholder(message)
 
     def _latest_payload(self) -> ComponentPayload | None:
         return (
@@ -206,61 +253,83 @@ class DataDrivenComponent(PreloadedFullScreenMixin, BaseComponent, ABC):
             or self._initial_payload
         )
 
-    def _content_style(self) -> dict:
-        """Style for the hydrated content wrapper div. Override for per-component tweaks."""
-        return {"width": "100%", "color": COLORS["text"]}
-
     def _summary_layout(self):
         payload = self._latest_payload()
-        summary_children = (
-            payload.summary
-            if payload and payload.summary is not None
-            else self._build_placeholder(self.placeholder_loading)
-        )
-        stores = self.preload_fullscreen_stores(
-            title=payload.fullscreen_title if payload else None,
-            content=payload.fullscreen_content if payload else None,
-        )
-        return html.Div(
-            [
-                dcc.Interval(
-                    id=f"{self.component_id}-interval",
-                    interval=int(self.refresh_seconds * 1000),
-                    n_intervals=0,
-                ),
-                *stores,
-                html.Div(
-                    id=f"{self.component_id}-content",
-                    children=summary_children,
-                    className="mm-fade-in",
-                    style=self._content_style(),
-                ),
-            ],
-        )
+        if payload and payload.summary is not None:
+            return payload.summary
+        return self._build_placeholder(self.placeholder_loading)
+
+    def _detail_layout(self):
+        payload = self._latest_payload()
+        if payload and payload.detail is not None:
+            return payload.detail
+        return self._build_placeholder(self.placeholder_loading)
+
+    def _panel_subtitle(self):
+        payload = self._latest_payload()
+        return payload.subtitle if payload else None
+
+    def _tile_badge(self):
+        payload = self._latest_payload()
+        return payload.badge if payload else None
+
+    def _hidden_layout(self) -> list[Component]:
+        payload = self._latest_payload()
+        return [
+            dcc.Interval(
+                id=f"{self.component_id}-interval",
+                interval=int(self.refresh_seconds * 1000),
+                n_intervals=0,
+            ),
+            dcc.Store(
+                id=f"{self.component_id}-stamp",
+                data=payload.updated_at.isoformat() if payload else None,
+            ),
+        ]
 
     def _add_callbacks(self, app: Dash) -> None:
         repo = self._repository
         data_key = self._data_key
+        cid = self.component_id
 
         @app.callback(
-            Output(f"{self.component_id}-content", "children"),
-            Output(self.fullscreen_title_store_id(), "data"),
-            Output(self.fullscreen_content_store_id(), "data"),
-            Input(f"{self.component_id}-interval", "n_intervals"),
-            prevent_initial_call=False,
+            Output(f"{cid}-summary", "children"),
+            Output(f"{cid}-detail", "children"),
+            Output(f"{cid}-subtitle", "children"),
+            Output(f"{cid}-badge", "children"),
+            Output(f"{cid}-stamp", "data"),
+            Input(f"{cid}-interval", "n_intervals"),
+            Input(f"{cid}-refresh", "n_clicks"),
+            State(f"{cid}-stamp", "data"),
+            prevent_initial_call=True,
         )
-        async def hydrate(_n):
+        async def hydrate(_n, refresh_clicks, stamp):
+            forced = ctx.triggered_id == f"{cid}-refresh" and refresh_clicks
+            if forced:
+                # Force-clear this component's file cache and refetch now.
+                # (Imported here: utils.file_cache imports this module.)
+                from utils.file_cache import clear_component_cache
+
+                clear_component_cache(data_key)
+                await asyncio.to_thread(repo.refresh_now_sync, data_key)
+
             payload = await repo.get_payload_async(data_key)
-            if payload is not None:
-                self._initial_payload = payload
-            else:
+            if payload is None:
                 payload = self._latest_payload()
+            else:
+                self._initial_payload = payload
 
             if payload is None:
-                return (
-                    self._build_placeholder(self.placeholder_error),
-                    no_update,
-                    no_update,
-                )
+                error = self._build_placeholder(self.placeholder_error)
+                return error, error, no_update, no_update, no_update
 
-            return payload.summary, payload.fullscreen_title, payload.fullscreen_content
+            new_stamp = payload.updated_at.isoformat()
+            if new_stamp == stamp and not forced:
+                return no_update, no_update, no_update, no_update, no_update
+            return (
+                payload.summary,
+                payload.detail,
+                payload.subtitle,
+                payload.badge,
+                new_stamp,
+            )

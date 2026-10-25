@@ -1,190 +1,2579 @@
-/* Design tokens mirroring src/utils/styles.py - keep the two in sync. */
+/* ==========================================================================
+   Home dashboard - styles
+   --------------------------------------------------------------------------
+   One stylesheet for the whole UI. Python renders semantic class names
+   (see src/utils/ui.py and each component's summary.py / full_screen.py);
+   all look-and-feel lives here so it can respond to the screen
+   (portrait/landscape) and stay out of the serialized component tree.
+
+   Sizing: everything is in rem, and the root font-size scales with the
+   viewport's shorter side, so the same layout reads well on any tablet.
+   Keep the colour tokens in sync with src/utils/styles.py.
+   ========================================================================== */
+
 :root {
-    --bg: #05070a;
-    --surface: rgba(255, 255, 255, 0.045);
-    --surface-raised: rgba(255, 255, 255, 0.075);
-    --border: rgba(255, 255, 255, 0.09);
-    --border-strong: rgba(255, 255, 255, 0.16);
-    --text: #f3f6f9;
-    --text-secondary: #a6b0bd;
-    --text-muted: #5e6773;
+    --bg: #0a0c10;
+    --bg-glow: radial-gradient(1200px 600px at 10% -10%, rgba(94, 234, 212, 0.07), transparent 60%),
+        radial-gradient(900px 500px at 110% 10%, rgba(122, 167, 255, 0.07), transparent 60%);
+    --surface: #13161d;
+    --surface-2: #1a1e27;
+    --surface-3: #232835;
+    --line: rgba(255, 255, 255, 0.06);
+    --line-strong: rgba(255, 255, 255, 0.12);
+    --text: #f2f4f7;
+    --text-2: #a0a8b6;
+    --text-3: #626b7a;
     --accent: #5eead4;
-    --accent-soft: rgba(94, 234, 212, 0.16);
-    --urgent: #ff6b6b;
-    --font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --blue: #7aa7ff;
+    --violet: #b69cff;
+    --gold: #f5c35b;
+    --orange: #ff9f5a;
+    --red: #ff6b6b;
+    --green: #4ade80;
+    --radius: 1.25rem;
+    --radius-sm: 0.75rem;
+    --gap: 0.7rem;
+    --pad: 0.95rem;
+    --markets-w: 16rem;
+    --font: 'Inter', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* The full-screen modal (#full-screen-modal, see core_layout.py) is a
-   plain div with an opaque background at z-index 9999. Mantine's own
-   z-index scale tops out at --mantine-z-index-popover: 300 - far below
-   that - so any Mantine popover opened from inside the modal (a Select's
-   option list, a DateInput's calendar) portals to <body> and renders
-   *behind* the modal's opaque background: fully present in the DOM,
-   completely invisible. `!important` guarantees this wins regardless of
-   whether Mantine's own runtime style tag lands before or after this
-   file in the cascade. */
-:root {
-    --mantine-z-index-popover: 10000 !important;
-    --mantine-z-index-modal: 10000 !important;
-    --mantine-z-index-overlay: 10000 !important;
-    --mantine-z-index-max: 10001 !important;
-}
-
+/* ---------------------------------------------------------------------- */
+/* Base                                                                    */
+/* ---------------------------------------------------------------------- */
 html {
+    /* 2% of the shorter viewport side: 16px on an 800x1280 tablet, scaling
+       up on larger/denser screens. */
+    font-size: clamp(13px, 2vmin, 26px);
+    /* ...but never so large that a squatter screen (e.g. 4:3) runs out of
+       height: 1.25% of the long side is the same 16px on 800x1280. */
+    font-size: clamp(12px, min(2vmin, 1.25vmax), 26px);
     background: var(--bg);
-    /* Every size in this app is in rem, deliberately, so a single root
-       font-size scales the whole UI - this is what actually makes "rem
-       instead of px" pay off across different screens/resolutions rather
-       than just being a unit swap. `vmin` (the smaller of viewport width
-       and height) scales sensibly regardless of portrait/landscape
-       orientation, clamped to a sane readable range. */
-    font-size: clamp(15px, 1.35vmin, 19px);
-    /* `vh`/`dvh` are handled inconsistently across mobile WebViews (seen:
-       fine in desktop Chrome, wrong in Fully Kiosk Browser on Android) -
-       `viewport-height.js` measures the real height in JS and pins it as
-       `--vh`, which wins once it runs. The `vh`/`dvh` chain below is only
-       the fallback for the brief instant before that script executes, and
-       for the rare browser where JS is somehow unavailable. */
-    height: 100vh;
-    height: 100dvh;
-    height: var(--vh, 100dvh);
+    height: 100%;
     overflow: hidden;
 }
 
 body {
-    height: 100vh;
-    height: 100dvh;
-    height: var(--vh, 100dvh);
-    width: 100vw;
     margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+    height: 100%;
     overflow: hidden;
-    line-height: 1;
+    background: var(--bg-glow), var(--bg);
     color: var(--text);
-    font-family: var(--font-family);
-    /* Fixed-width digits everywhere - any number that updates in place
-       (the clock, a countdown, an arrival time) shouldn't visibly shift
-       as its digits change. */
+    font-family: var(--font);
+    font-size: 1rem;
+    line-height: 1.35;
+    font-feature-settings: "cv11", "ss01";
     font-variant-numeric: tabular-nums;
-    background: linear-gradient(165deg, #060809 0%, #0b0f14 55%, #05070a 100%);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Kiosk display: no text selection / cursor / long-press affordances */
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
     -webkit-tap-highlight-color: transparent;
-    cursor: default;
+    -webkit-user-select: none;
+    user-select: none;
+    /* No double-tap-to-zoom delay, no pull-to-refresh. */
+    touch-action: manipulation;
+    overscroll-behavior: none;
 }
 
 *,
 *::before,
 *::after {
     box-sizing: border-box;
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    cursor: default;
 }
 
-*:focus {
-    outline: none;
+button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    touch-action: manipulation;
 }
 
-/* Genuinely editable fields (the Tasks form) need real pointer events and
-   a text cursor to be usable - only strip the kiosk long-press/selection
-   affordances here, not interactivity itself. */
 input,
-textarea,
-[contenteditable] {
-    -webkit-tap-highlight-color: transparent;
-    cursor: text;
+textarea {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+h2,
+h3 {
+    margin: 0;
+    font-weight: 600;
 }
 
 img {
     max-width: 100%;
 }
 
-/* The main summary strip - height set here (not as an inline style) so the
-   vh->dvh fallback above actually applies; an inline `style` attribute
-   would always win over this regardless, defeating the fallback. */
-#app-div {
-    height: 100vh;
-    height: 100dvh;
-    height: var(--vh, 100dvh);
+.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
 }
 
-/* ---------------------------------------------------------------------- */
-/* Typography utility classes                                             */
-/* ---------------------------------------------------------------------- */
-.text-vs { font-size: 1.0rem; }
-.text-s { font-size: 1.2rem; }
-.text-ms { font-size: 1.6rem; }
-.text-m { font-size: 2.4rem; }
-.text-ml { font-size: 3.0rem; }
-.text-l { font-size: 3.6rem; }
-.text-dimmed { color: var(--text-secondary); }
-
-.text-sm { font-size: 1.1rem; }
-.text-md { font-size: 1.3rem; }
-.text-lg { font-size: 1.5rem; }
-
-.gap-s { gap: 0.2rem; }
-.gap-m { gap: 0.4rem; }
-.gap-l { gap: 0.6rem; }
-
-.centered-content {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+.ic {
+    width: 1.25em;
+    height: 1.25em;
+    flex-shrink: 0;
 }
 
-.degrees {
-    margin-bottom: auto;
-    color: var(--text-secondary);
+#react-entry-point,
+#app-root {
+    height: 100%;
 }
 
-.top-aligned-text {
-    display: flex;
-    align-items: flex-start;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Fade-in for freshly hydrated content, cheap opacity/translate only     */
-/* ---------------------------------------------------------------------- */
-@keyframes mm-fade-in {
-    from { opacity: 0; transform: translateY(2px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.mm-fade-in {
-    animation: mm-fade-in 0.25s ease-out;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Scroll containers (full-screen views) - hide scrollbar, keep scroll    */
-/* ---------------------------------------------------------------------- */
-.hidden-scrollbar,
-.hourly-scroll {
-    scrollbar-width: none;
-}
-
-.hidden-scrollbar::-webkit-scrollbar,
-.hourly-scroll::-webkit-scrollbar {
+/* Dash's dev-tools / loading indicator are never wanted on the kiosk. */
+._dash-loading {
     display: none;
 }
 
-.hourly-item,
-.daily-item,
-.mm-list-item {
-    transition: background-color 0.15s ease, border-color 0.15s ease;
+/* ---------------------------------------------------------------------- */
+/* Dashboard grid                                                          */
+/* ---------------------------------------------------------------------- */
+.dashboard {
+    height: 100vh;
+    height: var(--vh, 100dvh);
+    display: grid;
+    gap: var(--gap);
+    padding: calc(var(--gap) + env(safe-area-inset-top, 0px)) var(--gap) var(--gap);
+    /* Portrait (the default): a tall single page, two columns wide. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr) minmax(0, 1.3fr);
+    grid-template-areas:
+        "header          header"
+        "weather         weather"
+        "tfl_arrivals    tfl_arrivals"
+        "google_calendar google_calendar"
+        "tasks           sports";
+    transition: transform 0.35s var(--ease), opacity 0.35s var(--ease);
 }
 
-.hourly-item:hover,
-.daily-item:hover,
-.mm-list-item:hover {
-    background-color: var(--surface-raised) !important;
+@media (orientation: landscape) {
+    .dashboard {
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr) minmax(0, 0.25fr) minmax(0, 0.8fr);
+        grid-template-areas:
+            "header  header          header"
+            "weather google_calendar tfl_arrivals"
+            "weather google_calendar sports"
+            "tasks   google_calendar sports";
+    }
+}
+
+/* Subtle recede while a panel is open (transform/opacity only: cheap). */
+.has-panel .dashboard {
+    transform: scale(0.97);
+    opacity: 0;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Tiles                                                                   */
+/* ---------------------------------------------------------------------- */
+.tile {
+    --tile-accent: var(--accent);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    padding: var(--pad);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)) , var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.8);
+    transition: transform 0.12s var(--ease), background-color 0.12s, border-color 0.12s;
+}
+
+.tile.is-tappable {
+    cursor: pointer;
+}
+
+.tile.is-pressed {
+    transform: scale(0.98);
+    background-color: var(--surface-2);
+    border-color: var(--line-strong);
+}
+
+.tile__head {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-bottom: 0.55rem;
+    min-height: 1.75rem;
+    flex-shrink: 0;
+}
+
+.tile__icon-wrap {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.55rem;
+    color: var(--tile-accent);
+    background: color-mix(in srgb, var(--tile-accent) 16%, transparent);
+    flex-shrink: 0;
+}
+
+/* Fallback for WebViews without color-mix(). */
+@supports not (background: color-mix(in srgb, red 50%, transparent)) {
+    .tile__icon-wrap {
+        background: rgba(255, 255, 255, 0.07);
+    }
+}
+
+.tile__icon {
+    width: 1.15rem;
+    height: 1.15rem;
+}
+
+.tile__title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-2);
+    white-space: nowrap;
+}
+
+.tile__badge {
+    margin-left: auto;
+    min-width: 0;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.tile__chevron {
+    width: 1.4rem;
+    height: 1.4rem;
+    color: var(--text-3);
+    flex-shrink: 0;
+    margin-right: -0.3rem;
+}
+
+.tile__badge:empty + .tile__chevron {
+    margin-left: auto;
+}
+
+.tile__body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    animation: fade-in 0.3s var(--ease);
+}
+
+/* Long lists fade out at the bottom rather than being hard-clipped. */
+.tile--google_calendar .tile__body,
+.tile--tasks .tile__body,
+.tile--sports .tile__body,
+.tile--tfl_arrivals .tile__body {
+    -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 1.5rem), transparent);
+    mask-image: linear-gradient(180deg, #000 calc(100% - 1.5rem), transparent);
+}
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Shared bits: badges, pills, empty states, placeholders                  */
+/* ---------------------------------------------------------------------- */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    max-width: 100%;
+    padding: 0.3rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-2);
+}
+
+.badge__icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+}
+
+.badge--good { background: rgba(74, 222, 128, 0.12); color: var(--green); }
+.badge--warn { background: rgba(245, 195, 91, 0.14); color: var(--gold); }
+.badge--bad { background: rgba(255, 107, 107, 0.14); color: var(--red); }
+.badge--info { background: rgba(122, 167, 255, 0.14); color: var(--blue); }
+
+.empty {
+    height: 100%;
+    min-height: 4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    color: var(--text-3);
+    font-size: 1rem;
+    text-align: center;
+    padding: 0.5rem;
+}
+
+.empty__icon {
+    width: 1.6rem;
+    height: 1.6rem;
+}
+
+.placeholder {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.25rem 0;
+}
+
+.skeleton {
+    height: 3.5rem;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 50%, var(--surface-2) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+}
+
+.placeholder__text {
+    color: var(--text-3);
+    font-size: 0.9rem;
+}
+
+@keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+}
+
+.more {
+    color: var(--text-3);
+    font-size: 0.85rem;
+    padding: 0.2rem 0 0 0.1rem;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Header / hero                                                           */
+/* ---------------------------------------------------------------------- */
+.hero {
+    display: grid;
+    /* Equal outer columns keep the clock exactly centred; the left one is
+       at least as wide as the markets card that sits over it. */
+    grid-template-columns: minmax(var(--markets-w), 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 1rem;
+    padding: 0.25rem 0.4rem 0.1rem;
+    min-width: 0;
+}
+
+.hero__center {
+    grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    min-width: 0;
+}
+
+.hero__clock {
+    display: flex;
+    align-items: baseline;
+}
+
+.hero .presence {
+    grid-column: 3;
+    justify-self: end;
+}
+
+.hero__time {
+    font-size: 5.6rem;
+    font-weight: 300;
+    letter-spacing: -0.04em;
+    line-height: 0.95;
+}
+
+/* The seconds sit in a fixed-width slot, so the centred clock (time and
+   seconds together) never shifts as the digits change. */
+.hero__seconds {
+    display: inline-block;
+    width: 2.2ch;
+    padding-left: 0.35rem;
+    box-sizing: content-box;
+    font-size: 1.5rem;
+    font-weight: 400;
+    color: var(--text-3);
+    text-align: left;
+}
+
+.hero__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    margin-top: 0.45rem;
+}
+
+.hero__greeting {
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+.hero__date {
+    font-size: 1.35rem;
+    font-weight: 500;
+    color: var(--text-2);
+}
+
+.presence {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+.person {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 0.9rem 0.4rem 0.4rem;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--text-3);
+}
+
+.person__avatar {
+    display: grid;
+    place-items: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 50%;
+    font-weight: 700;
+    font-size: 0.95rem;
+    background: var(--surface-3);
+    color: var(--text-2);
+    flex-shrink: 0;
+}
+
+.person__text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+.person__name {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.person__state {
+    font-size: 0.75rem;
+}
+
+.person.is-home {
+    color: var(--text);
+    border-color: rgba(94, 234, 212, 0.25);
+}
+
+.person.is-home .person__avatar {
+    background: var(--accent);
+    color: #04201c;
+}
+
+.person.is-home .person__state {
+    color: var(--accent);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Weather tile                                                            */
+/* ---------------------------------------------------------------------- */
+.wx-tile {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "now chart outlook";
+    align-items: center;
+    gap: 1.1rem;
+    height: 100%;
+}
+
+.wx-top,
+.wx-bottom {
+    display: contents;
+}
+
+.wx-now { grid-area: now; }
+.wxt-chart { grid-area: chart; }
+.wxt-outlook { grid-area: outlook; }
+
+/* Portrait: the 48h chart covers the coming hours; the hourly strip is
+   kept for landscape (and the panel). */
+@media (orientation: portrait) {
+    .wx-tile .wx-hours {
+        display: none;
+    }
+}
+
+.wx-top {
+    display: flex;
+    align-items: center;
+    gap: 1.1rem;
+}
+
+.wx-bottom {
+    display: flex;
+    gap: 1rem;
+    align-items: stretch;
+    min-height: 0;
+}
+
+.wxt-chart {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.wxt-chart__head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    font-size: 0.75rem;
+    color: var(--text-3);
+    white-space: nowrap;
+}
+
+.wxt-chart__title {
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.wxt-chart__rain {
+    color: var(--blue);
+    font-weight: 600;
+}
+
+.wxt-chart__range {
+    margin-left: auto;
+    color: var(--text-2);
+    font-weight: 600;
+}
+
+.wxt-chart__img {
+    display: block;
+    width: 100%;
+    height: 4.2rem;
+}
+
+.wxt-chart__days {
+    position: relative;
+    height: 1rem;
+    font-size: 0.72rem;
+    color: var(--text-2);
+}
+
+.wxt-chart__day {
+    position: absolute;
+    top: 0;
+    padding-left: 0.2rem;
+    white-space: nowrap;
+}
+
+.wxt-outlook {
+    width: 13rem;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.2rem;
+    padding-left: 1rem;
+    border-left: 1px solid var(--line);
+}
+
+.wxt-day {
+    display: grid;
+    grid-template-columns: 3.2rem 1.6rem 1fr auto;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+}
+
+.wxt-day__label {
+    font-weight: 600;
+    color: var(--text-2);
+}
+
+.wxt-day__icon {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+.wxt-day__rain {
+    display: flex;
+    align-items: center;
+    gap: 0.1rem;
+    font-size: 0.75rem;
+    color: var(--text-3);
+}
+
+.wxt-day__rain.is-wet {
+    color: var(--blue);
+    font-weight: 600;
+}
+
+.wxt-day__temps {
+    white-space: nowrap;
+    color: var(--text-3);
+}
+
+.wxt-day__temps strong {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.wx-now {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+.wx-now__icon {
+    width: 4.6rem;
+    height: 4.6rem;
+}
+
+.wx-now__text {
+    min-width: 0;
+}
+
+.wx-now__temp {
+    font-size: 3.6rem;
+    font-weight: 300;
+    letter-spacing: -0.03em;
+    line-height: 1;
+}
+
+.wx-now__cond {
+    font-size: 1.05rem;
+    color: var(--text);
+    margin-top: 0.2rem;
+    max-width: 11rem;
+}
+
+.wx-now__meta {
+    display: flex;
+    gap: 0.7rem;
+    font-size: 0.85rem;
+    color: var(--text-2);
+    margin-top: 0.2rem;
+    white-space: nowrap;
+}
+
+.wx-hours {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 0.35rem;
+}
+
+.wx-hour {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.55rem 0.2rem;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.wx-hour.is-now {
+    background: rgba(245, 195, 91, 0.1);
+}
+
+.wx-hour__time {
+    font-size: 0.8rem;
+    color: var(--text-2);
+    font-weight: 500;
+}
+
+.wx-hour.is-now .wx-hour__time {
+    color: var(--gold);
+    font-weight: 700;
+}
+
+.wx-hour__icon {
+    width: 1.8rem;
+    height: 1.8rem;
+}
+
+.wx-hour__temp {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.wx-hour__rain {
+    display: flex;
+    align-items: center;
+    gap: 0.1rem;
+    font-size: 0.75rem;
+    color: var(--text-3);
+}
+
+.wx-hour__rain.is-wet {
+    color: var(--blue);
+    font-weight: 600;
+}
+
+.wx-hour__drop {
+    width: 0.8rem;
+    height: 0.8rem;
+}
+
+/* Landscape: the weather tile is a narrow column. Regroup it as a grid:
+   now + 3-day outlook side by side, then the hourly strip, then the chart. */
+@media (orientation: landscape) {
+    .wx-tile {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "now     outlook"
+            "hours   hours"
+            "chart   chart";
+        align-content: space-between;
+        gap: 0.45rem 0.8rem;
+    }
+
+    .wx-top,
+    .wx-bottom {
+        display: contents;
+    }
+
+    .wx-now { grid-area: now; gap: 0.6rem; }
+    .wx-hours { grid-area: hours; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .wxt-chart { grid-area: chart; }
+
+    .wx-now__icon {
+        width: 3.2rem;
+        height: 3.2rem;
+    }
+
+    .wx-now__temp {
+        font-size: 2.8rem;
+    }
+
+    .wx-now__meta {
+        gap: 0.5rem;
+        font-size: 0.78rem;
+    }
+
+    .wx-hour:nth-child(n + 7) {
+        display: none;
+    }
+
+    .wx-hour {
+        padding: 0.3rem 0.15rem;
+        gap: 0.1rem;
+    }
+
+    .wx-hour__icon {
+        width: 1.5rem;
+        height: 1.5rem;
+    }
+
+    .wxt-chart__img {
+        height: 2.5rem;
+    }
+
+    .wxt-outlook {
+        grid-area: outlook;
+        flex: none;
+        justify-content: center;
+        padding-left: 0.8rem;
+    }
+
+    .wxt-day {
+        grid-template-columns: 2.7rem 1.3rem 2.6rem auto;
+        gap: 0.3rem;
+        font-size: 0.82rem;
+    }
+
+    .wxt-day__icon {
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Transport                                                               */
+/* ---------------------------------------------------------------------- */
+.line {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    min-width: 3.4rem;
+    max-width: 8.5rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 0.5rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+    flex-shrink: 0;
+}
+
+.line__icon {
+    width: 1rem;
+    height: 1rem;
+}
+
+.line__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.board {
+    display: flex;
+    flex-direction: column;
+}
+
+.board__row {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.6rem 0;
+    border-top: 1px solid var(--line);
+}
+
+.board__row:first-child {
+    border-top: 0;
+    padding-top: 0.1rem;
+}
+
+.board__row .line {
+    justify-self: start;
+}
+
+/* The tile renders up to 7 rows; portrait has room for 5. */
+@media (orientation: portrait) {
+    .board__row:nth-child(n + 6) {
+        display: none;
+    }
+}
+
+@media (orientation: landscape) {
+    .board__row {
+        grid-template-columns: 4.6rem minmax(0, 1fr) auto;
+        gap: 0.65rem;
+    }
+
+    .board .line__icon {
+        display: none;
+    }
+
+    .board .line {
+        min-width: 0;
+        max-width: 100%;
+        padding: 0.3rem 0.45rem;
+    }
+
+    .board__dest {
+        font-size: 1.05rem;
+    }
+
+    .board__times {
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0;
+    }
+
+    .board__next {
+        min-width: 0;
+    }
+
+    .board__later {
+        font-size: 0.75rem;
+        min-width: 0;
+    }
+}
+
+.board__text {
+    min-width: 0;
+}
+
+.board__origin {
+    font-size: 0.78rem;
+    color: var(--text-3);
+    margin-top: 0.05rem;
+}
+
+.board__dest {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 1.15rem;
+    font-weight: 500;
+    min-width: 0;
+}
+
+.board__via {
+    width: 1.1rem;
+    height: 1.1rem;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.board__times {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    white-space: nowrap;
+}
+
+.board__next {
+    font-size: 1.25rem;
+    font-weight: 700;
+    min-width: 4.2rem;
+    text-align: right;
+}
+
+.board__next.is-urgent {
+    color: var(--red);
+}
+
+.board__later {
+    font-size: 0.9rem;
+    color: var(--text-3);
+    min-width: 3.2rem;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Calendar tile                                                           */
+/* ---------------------------------------------------------------------- */
+.cal-tile {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+}
+
+.cal-col__head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.45rem;
+}
+
+.cal-col__label {
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+.cal-col__date {
+    font-size: 0.85rem;
+    color: var(--text-3);
+}
+
+.cal-col__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.cal-empty {
+    color: var(--text-3);
+    font-size: 0.95rem;
+    padding: 0.25rem 0;
+}
+
+.pill {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.7rem;
+    border-radius: 0.6rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    min-width: 0;
+}
+
+.pill__dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--ev);
+    flex-shrink: 0;
+}
+
+.pill__icon {
+    width: 1rem;
+    height: 1rem;
+    color: var(--gold);
+    flex-shrink: 0;
+}
+
+.pill__label {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--text-2);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.ev {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.3rem 0;
+    min-width: 0;
+}
+
+.ev__bar {
+    width: 0.25rem;
+    align-self: stretch;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.ev__time {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-2);
+    width: 3.1rem;
+    flex-shrink: 0;
+}
+
+.ev__title {
+    font-size: 1rem;
+    flex: 1;
+}
+
+.ev__now {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #04201c;
+    background: var(--accent);
+    border-radius: 999px;
+    padding: 0.1rem 0.45rem;
+    flex-shrink: 0;
+}
+
+.ev.is-past {
+    opacity: 0.4;
+}
+
+.ev.is-now .ev__time {
+    color: var(--accent);
+}
+
+/* Portrait: the calendar tile is full width - today, tomorrow and the
+   coming week sit side by side. (Landscape gives it a tall narrow column: stacked.) */
+@media (orientation: portrait) {
+    .cal-tile {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr);
+        gap: 1.1rem;
+    }
+
+    .cal-col + .cal-col {
+        border-left: 1px solid var(--line);
+        padding-left: 1.1rem;
+    }
+}
+
+.ev__when {
+    display: flex;
+    flex-direction: column;
+    width: 2.6rem;
+    flex-shrink: 0;
+    line-height: 1.1;
+}
+
+.ev__day {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-2);
+}
+
+.ev__sub {
+    font-size: 0.7rem;
+    color: var(--text-3);
+}
+
+.ev--upcoming .ev__title {
+    font-size: 0.92rem;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Tasks tile                                                              */
+/* ---------------------------------------------------------------------- */
+.task-minis {
+    display: flex;
+    flex-direction: column;
+}
+
+.task-mini {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--line);
+    min-width: 0;
+}
+
+.task-mini:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.task-mini__check {
+    width: 1.3rem;
+    height: 1.3rem;
+    color: var(--text-3);
+}
+
+.task-mini__text {
+    flex: 1;
+    min-width: 0;
+}
+
+.task-mini__title {
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.task-mini__person {
+    font-size: 0.8rem;
+    color: var(--text-3);
+}
+
+.task-mini__due {
+    font-size: 0.8rem;
+    color: var(--text-2);
+    white-space: nowrap;
+}
+
+.task-mini.is-overdue .task-mini__check,
+.task-mini.is-overdue .task-mini__due {
+    color: var(--red);
+    font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Sports tile                                                             */
+/* ---------------------------------------------------------------------- */
+.fxs {
+    display: flex;
+    flex-direction: column;
+}
+
+.fx {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.32rem 0;
+    border-top: 1px solid var(--line);
+    min-width: 0;
+}
+
+.fx:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.crest {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: rgba(245, 246, 248, 0.92);
+    padding: 0.25rem;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.crest img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.crest--icon {
+    background: var(--crest);
+}
+
+.crest__icon {
+    width: 1.3rem;
+    height: 1.3rem;
+    color: #0a0c10;
+}
+
+.fx__text {
+    flex: 1;
+    min-width: 0;
+}
+
+.fx__teams {
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.fx__comp {
+    font-size: 0.78rem;
+    color: var(--text-3);
+}
+
+.fx__right {
+    text-align: right;
+    max-width: 7.5rem;
+    min-width: 0;
+}
+
+.fx__when {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-2);
+    white-space: nowrap;
+}
+
+.fx__channel {
+    font-size: 0.75rem;
+    color: var(--text-3);
+}
+
+.fx.is-today .fx__when {
+    color: var(--accent);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Markets tile                                                            */
+/* ---------------------------------------------------------------------- */
+.mkts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.mkt {
+    display: grid;
+    grid-template-columns: 1.7rem minmax(0, 1fr) 3.6rem auto;
+    grid-template-areas:
+        "flag label spark change"
+        "flag price spark change";
+    align-items: center;
+    column-gap: 0.6rem;
+    padding: 0.35rem 0;
+    border-top: 1px solid var(--line);
+}
+
+.mkt:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.mkt__flag {
+    grid-area: flag;
+    width: 1.7rem;
+    height: 1.7rem;
+    color: var(--blue);
+}
+
+.mkt__label {
+    grid-area: label;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.mkt__price {
+    grid-area: price;
+    font-size: 0.78rem;
+    color: var(--text-3);
+}
+
+.mkt__spark {
+    grid-area: spark;
+    width: 100%;
+    height: 1.8rem;
+    display: block;
+}
+
+.mkt__change {
+    grid-area: change;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.45rem;
+    min-width: 4.6rem;
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* Markets is a slim card in the header's top-left corner: it shares the
+   full-width header area with the hero, whose centred clock and right-hand
+   presence column leave that corner free. */
+.dashboard > .tile--markets {
+    grid-area: header !important;
+    justify-self: start;
+    width: var(--markets-w);
+    padding-top: 0.75rem;
+    padding-bottom: 0.6rem;
+    z-index: 1;
+}
+
+.tile--markets .tile__head {
+    margin-bottom: 0.35rem;
+}
+
+.tile--markets .mkt {
+    grid-template-columns: 1.5rem minmax(0, 1fr) 2.4rem auto;
+    column-gap: 0.45rem;
+    padding: 0.2rem 0;
+}
+
+.tile--markets .mkt__flag {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+.tile--markets .mkt__change {
+    min-width: 0;
+    padding: 0.2rem 0.35rem;
+}
+
+/* Landscape: the header has width to spare but not height - one line per
+   index and no title bar, so the card is no taller than the clock. */
+@media (orientation: landscape) {
+    :root {
+        --markets-w: 21rem;
+    }
+
+    .dashboard > .tile--markets {
+        align-self: center;
+        padding: 0.55rem 0.8rem;
+    }
+
+    .tile--markets .tile__head {
+        display: none;
+    }
+
+    .tile--markets .mkt {
+        grid-template-columns: 1.4rem minmax(0, 1fr) auto 2.6rem auto;
+        grid-template-areas: "flag label price spark change";
+        padding: 0.25rem 0;
+    }
+
+    .tile--markets .mkt__flag {
+        width: 1.4rem;
+        height: 1.4rem;
+    }
+
+    .tile--markets .mkt__price {
+        font-size: 0.85rem;
+        color: var(--text-2);
+    }
+
+    .tile--markets .mkt__spark {
+        height: 1.4rem;
+    }
+    .hero__time {
+        font-size: 4.8rem;
+    }
+
+    .hero__meta {
+        margin-top: 0.2rem;
+    }
+}
+
+.is-up { color: var(--accent); }
+.is-down { color: var(--red); }
+
+.mkt__change.is-up { background: rgba(94, 234, 212, 0.12); }
+.mkt__change.is-down { background: rgba(255, 107, 107, 0.12); }
+
+/* ---------------------------------------------------------------------- */
+/* News (tile)                                                             */
+/* ---------------------------------------------------------------------- */
+.news-rotator {
+    position: relative;
+    min-height: 3.5rem;
+}
+
+.news {
+    display: none;
+    flex-direction: column;
+    gap: 0.25rem;
+    animation: fade-in 0.4s var(--ease);
+}
+
+.news.is-active {
+    display: flex;
+}
+
+.news__title {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.news__source {
+    font-size: 0.8rem;
+    color: var(--text-3);
+}
+
+/* ==========================================================================
+   Detail panels
+   ========================================================================== */
+.panels {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    pointer-events: none;
+}
+
+.panel {
+    --tile-accent: var(--accent);
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-glow), var(--bg);
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(2.5%);
+    transition: opacity 0.25s var(--ease), transform 0.3s var(--ease), visibility 0s linear 0.3s;
+}
+
+.panel.is-open {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+    transition: opacity 0.25s var(--ease), transform 0.3s var(--ease), visibility 0s;
+}
+
+.panel__head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem;
+    padding: calc(0.85rem + env(safe-area-inset-top, 0px)) var(--gap) 0.85rem;
+    border-bottom: 1px solid var(--line);
+    background: rgba(10, 12, 16, 0.6);
+    flex-shrink: 0;
+}
+
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    height: 3rem;
+    padding: 0 1.1rem 0 0.7rem;
+    border-radius: 999px;
+    background: var(--surface-2);
+    border: 1px solid var(--line-strong);
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.back-btn .ic {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+.back-btn:active,
+.icon-btn:active,
+.btn:active,
+.check-btn:active,
+.chip:active {
+    transform: scale(0.96);
+}
+
+.panel__titles {
+    min-width: 0;
+}
+
+.panel__title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.panel__icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--tile-accent);
+    flex-shrink: 0;
+}
+
+.panel__title {
+    font-size: 1.55rem;
+    letter-spacing: -0.01em;
+}
+
+.panel__subtitle {
+    font-size: 0.9rem;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 0.1rem;
+}
+
+.panel__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.icon-btn {
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 1px solid var(--line-strong);
+    color: var(--text-2);
+}
+
+.icon-btn .ic {
+    width: 1.4rem;
+    height: 1.4rem;
+}
+
+.icon-btn--muted {
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-3);
+}
+
+/* Auto-return countdown: a ring that drains, seconds in the middle. */
+.timer {
+    --progress: 1;
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+}
+
+.timer__ring {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: 50%;
+    background: conic-gradient(var(--tile-accent) calc(var(--progress) * 360deg), var(--surface-3) 0);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+    transition: background 0.3s linear;
+}
+
+.timer::after {
+    content: attr(data-seconds);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-2);
+}
+
+.panel__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+}
+
+.panel__body::-webkit-scrollbar {
+    display: none;
+}
+
+.detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    padding: var(--gap) var(--gap) calc(var(--gap) * 2);
+    max-width: 90rem;
+    margin: 0 auto;
+}
+
+.card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: var(--pad);
+}
+
+.section__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.8rem;
+}
+
+.section__title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-2);
+    margin-bottom: 0.8rem;
+}
+
+.section__head .section__title {
+    margin-bottom: 0;
+}
+
+.hscroll {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 0.2rem;
+}
+
+.hscroll::-webkit-scrollbar {
+    display: none;
+}
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+}
+
+.stat-grid--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.stat {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.7rem 0.8rem;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.03);
+    min-width: 0;
+}
+
+.stat__icon-wrap {
+    display: grid;
+    place-items: center;
+}
+
+.stat__icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--tile-accent);
+}
+
+.stat__label {
+    font-size: 0.78rem;
+    color: var(--text-3);
+    font-weight: 500;
+}
+
+.stat__value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.chip {
+    height: 2.75rem;
+    padding: 0 1.1rem;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    color: var(--text-2);
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.chip.is-active {
+    background: var(--text);
+    color: var(--bg);
+    border-color: var(--text);
+}
+
+.is-filtered-out {
+    display: none !important;
+}
+
+.range {
+    position: relative;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: var(--surface-3);
+}
+
+.range__fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--blue), var(--gold));
+}
+
+.range__marker {
+    position: absolute;
+    top: 50%;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background: var(--text);
+    border: 3px solid var(--bg);
+    transform: translate(-50%, -50%);
+}
+
+.range--wide {
+    margin: 0.6rem 0 0.4rem;
+    background: linear-gradient(90deg, rgba(255, 107, 107, 0.4), rgba(94, 234, 212, 0.4));
+}
+
+/* ---------------------------------------------------------------------- */
+/* Weather panel                                                           */
+/* ---------------------------------------------------------------------- */
+.wx-detail__top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--gap);
+}
+
+@media (min-aspect-ratio: 1/1) {
+    .wx-detail__top {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    }
+}
+
+.wx-big {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.wx-big__icon {
+    width: 7rem;
+    height: 7rem;
+}
+
+.wx-big__temp {
+    font-size: 5rem;
+    font-weight: 300;
+    line-height: 1;
+    letter-spacing: -0.04em;
+}
+
+.wx-big__cond {
+    font-size: 1.35rem;
+    font-weight: 500;
+    margin-top: 0.3rem;
+}
+
+.wx-big__feels {
+    color: var(--text-2);
+    margin-top: 0.15rem;
+}
+
+.wx-scroll .wx-hour {
+    min-width: 4.4rem;
+    flex-shrink: 0;
+}
+
+.wx-chart {
+    height: 15rem;
+    margin-top: 0.8rem;
+}
+
+.wx-chart__graph {
+    height: 100%;
+    width: 100%;
+}
+
+.wx-days {
+    display: flex;
+    flex-direction: column;
+}
+
+.wx-day {
+    display: grid;
+    grid-template-columns: 7rem 2.2rem minmax(0, 1fr) 3.6rem 2.6rem minmax(5rem, 9rem) 2.6rem;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--line);
+}
+
+.wx-day:first-child {
+    border-top: 0;
+    padding-top: 0.1rem;
+}
+
+.wx-day__name {
+    font-weight: 600;
+    font-size: 1.05rem;
+}
+
+.wx-day__icon {
+    width: 2rem;
+    height: 2rem;
+}
+
+.wx-day__cond {
+    color: var(--text-2);
+}
+
+.wx-day__rain {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    font-size: 0.9rem;
+    color: var(--text-3);
+}
+
+.wx-day__rain.is-wet {
+    color: var(--blue);
+    font-weight: 600;
+}
+
+.wx-day__low {
+    color: var(--text-2);
+    text-align: right;
+}
+
+.wx-day__high {
+    font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Transport panel                                                         */
+/* ---------------------------------------------------------------------- */
+.stop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+    gap: var(--gap);
+    align-items: start;
+}
+
+.stop__head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+}
+
+.stop__icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--tile-accent);
+}
+
+.stop__name {
+    font-size: 1.15rem;
+    font-weight: 600;
+    flex: 1;
+}
+
+.stop__count {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    background: var(--surface-2);
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+}
+
+.deps {
+    display: flex;
+    flex-direction: column;
+}
+
+.dep {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.65rem 0;
+    border-top: 1px solid var(--line);
+}
+
+.dep .line {
+    min-width: 4rem;
+}
+
+.dep__text {
+    flex: 1;
+    min-width: 0;
+}
+
+.dep__dest {
+    font-size: 1.05rem;
+    font-weight: 500;
+}
+
+.dep__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.8rem;
+    color: var(--text-3);
+}
+
+.dep__via {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    color: var(--accent);
+}
+
+.dep__mins {
+    font-size: 1.15rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.dep__mins.is-urgent {
+    color: var(--red);
+}
+
+.statuses {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 0.6rem;
+}
+
+.status {
+    padding: 0.75rem 0.85rem;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.status__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+}
+
+.status__line {
+    font-weight: 600;
+}
+
+.status__reason {
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--text-2);
+    line-height: 1.4;
+}
+
+.disruptions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.disruption {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.disruption__icon {
+    width: 1.4rem;
+    height: 1.4rem;
+    color: var(--gold);
+    flex-shrink: 0;
+}
+
+.disruption__stop {
+    font-weight: 600;
+}
+
+.disruption__text {
+    font-size: 0.9rem;
+    color: var(--text-2);
+    line-height: 1.45;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Agenda (calendar + sports panels)                                       */
+/* ---------------------------------------------------------------------- */
+.agenda {
+    column-width: 24rem;
+    column-gap: var(--gap);
+}
+
+.agenda-day {
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    display: inline-block;
+    width: 100%;
+    margin-bottom: var(--gap);
+}
+
+.agenda-day__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+}
+
+.agenda-day__title {
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.agenda-day__head.is-today .agenda-day__title {
+    color: var(--accent);
+}
+
+.agenda-day__sub {
+    font-size: 0.85rem;
+    color: var(--text-3);
+}
+
+.agenda-ev {
+    display: flex;
+    align-items: stretch;
+    gap: 0.8rem;
+    padding: 0.6rem 0;
+    border-top: 1px solid var(--line);
+}
+
+.agenda-ev__time {
+    width: 3.4rem;
+    flex-shrink: 0;
+}
+
+.agenda-ev__start {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.agenda-ev__end {
+    font-size: 0.8rem;
+    color: var(--text-3);
+}
+
+.agenda-ev__bar {
+    width: 0.25rem;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.agenda-ev__text {
+    min-width: 0;
+    flex: 1;
+}
+
+.agenda-ev__title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.agenda-ev__title {
+    font-size: 1.05rem;
+    font-weight: 500;
+}
+
+.agenda-ev__icon {
+    width: 1.1rem;
+    height: 1.1rem;
+    color: var(--gold);
+    flex-shrink: 0;
+}
+
+.agenda-ev__meta {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    margin-top: 0.1rem;
+}
+
+.agenda-ev.is-past {
+    opacity: 0.45;
+}
+
+.agenda-ev.is-now .agenda-ev__start {
+    color: var(--accent);
+}
+
+.fx-rows {
+    display: flex;
+    flex-direction: column;
+}
+
+.fx-row {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.65rem 0;
+    border-top: 1px solid var(--line);
+}
+
+.fx-row__text {
+    flex: 1;
+    min-width: 0;
+}
+
+.fx-row__teams {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.fx-row__v {
+    color: var(--text-3);
+    font-weight: 400;
+    font-size: 0.85rem;
+}
+
+.fx-row__comp {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    margin-top: 0.1rem;
+}
+
+.fx-row__right {
+    text-align: right;
+}
+
+.fx-row__time {
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+.fx-row__channel {
+    display: inline-block;
+    margin-top: 0.2rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-2);
+    background: var(--surface-2);
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.4rem;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Markets panel                                                           */
+/* ---------------------------------------------------------------------- */
+.mkt-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--gap);
+}
+
+@media (orientation: landscape) {
+    .mkt-grid {
+        grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    }
+}
+
+.mkt-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.mkt-card__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.mkt-card__flag {
+    width: 1.4rem;
+    height: 1.4rem;
+    color: var(--blue);
+}
+
+.mkt-card__label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-2);
+}
+
+.mkt-card__price {
+    font-size: 2.1rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+.mkt-card__day {
+    text-align: right;
+}
+
+.mkt__change--lg {
+    font-size: 1rem;
+    padding: 0.35rem 0.7rem;
+}
+
+.mkt-card__caption {
+    font-size: 0.75rem;
+    color: var(--text-3);
+    margin-top: 0.25rem;
+}
+
+.mkt-card__chart {
+    display: block;
+    width: 100%;
+    height: 9rem;
+}
+
+.mkt-card__axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-3);
+    margin-top: 0.3rem;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Tasks panel                                                             */
+/* ---------------------------------------------------------------------- */
+.tasks-detail {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+}
+
+@media (min-aspect-ratio: 1/1) {
+    .tasks-detail {
+        grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    }
+}
+
+.tasks-list-col,
+.tasks-form-col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    min-width: 0;
+}
+
+.tasks-list-col > .section__title {
+    margin: 0.2rem 0 -0.2rem 0.2rem;
+}
+
+.task-groups {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+}
+
+.task-group__head {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-bottom: 0.4rem;
+}
+
+.task-group__name {
+    font-weight: 700;
+    font-size: 1.1rem;
+    flex: 1;
+}
+
+.task-group__count {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    background: var(--surface-2);
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+}
+
+.task-row {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.65rem 0;
+    border-top: 1px solid var(--line);
+}
+
+.check-btn {
+    display: grid;
+    place-items: center;
+    width: 2.9rem;
+    height: 2.9rem;
+    border-radius: 50%;
+    border: 2px solid var(--line-strong);
+    color: transparent;
+    flex-shrink: 0;
+    transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.check-btn .ic {
+    width: 1.35rem;
+    height: 1.35rem;
+}
+
+.check-btn:active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #04201c;
+}
+
+.task-row__text {
+    flex: 1;
+    min-width: 0;
+}
+
+.task-row__title {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.task-row__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.85rem;
+    color: var(--text-2);
+    margin-top: 0.1rem;
+}
+
+.task-row__repeat {
+    width: 0.95rem;
+    height: 0.95rem;
+}
+
+.task-row.is-overdue .task-row__meta {
+    color: var(--red);
+    font-weight: 600;
+}
+
+.task-row.is-overdue .check-btn {
+    border-color: rgba(255, 107, 107, 0.5);
+}
+
+.task-row__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.task-row__confirm-text {
+    font-size: 0.85rem;
+    color: var(--text-2);
+}
+
+.task-row.is-confirming {
+    background: rgba(255, 107, 107, 0.06);
+    border-radius: var(--radius-sm);
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.form > .section__title {
+    margin-bottom: 0;
+}
+
+.field-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-3);
+    margin-bottom: -0.35rem;
+}
+
+.inline-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.6rem;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    height: 3.1rem;
+    padding: 0 1.25rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 1rem;
+    white-space: nowrap;
+}
+
+.btn--primary {
+    background: var(--accent);
+    color: #04201c;
+    margin-top: 0.3rem;
+}
+
+.btn--secondary {
+    background: var(--surface-3);
+    color: var(--text);
+}
+
+.btn--danger {
+    background: var(--red);
+    color: #2a0505;
+}
+
+.btn--ghost {
+    background: transparent;
+    color: var(--text-2);
+    border: 1px solid var(--line-strong);
+}
+
+.btn--sm {
+    height: 2.5rem;
+    padding: 0 0.9rem;
+    font-size: 0.9rem;
+}
+
+.toast-slot:empty {
+    display: none;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.8rem 1rem;
+    border-radius: var(--radius-sm);
+    background: rgba(94, 234, 212, 0.12);
+    color: var(--accent);
+    font-weight: 600;
+    animation: toast 4.5s var(--ease) forwards;
+}
+
+.toast.is-error {
+    background: rgba(255, 107, 107, 0.12);
+    color: var(--red);
+}
+
+@keyframes toast {
+    0% { opacity: 0; transform: translateY(-0.4rem); }
+    6% { opacity: 1; transform: none; }
+    85% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* Mantine inputs, tuned to the panel's surfaces. */
+.tasks-form-col .mantine-Input-input,
+.tasks-form-col .mantine-TextInput-input,
+.tasks-form-col .mantine-DatePickerInput-input {
+    background: var(--surface-2);
+    border-color: var(--line-strong);
+}
+
+.tasks-form-col .mantine-SegmentedControl-root {
+    background: var(--surface-2);
+}
+
+/* News panel */
+.news-rows {
+    display: flex;
+    flex-direction: column;
+}
+
+.news-row {
+    padding: 0.8rem 0;
+    border-top: 1px solid var(--line);
+}
+
+.news-row:first-child {
+    border-top: 0;
+}
+
+.news-row__title {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.news-row__source {
+    font-size: 0.8rem;
+    color: var(--text-3);
+    margin-top: 0.2rem;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Small portrait screens: tighten the hero and tile chrome a little.      */
+/* ---------------------------------------------------------------------- */
+@media (orientation: portrait) {
+    .hero {
+        padding: 0 0.2rem;
+        gap: 0.6rem;
+    }
+
+    .hero__seconds {
+        font-size: 1.3rem;
+    }
+
+    .hero__time {
+        font-size: 4.3rem;
+    }
+
+    .hero__date {
+        font-size: 1.15rem;
+    }
+
+    .hero__meta {
+        margin-top: 0.3rem;
+    }
+
+    .wx-hour {
+        padding: 0.45rem 0.2rem;
+        gap: 0.2rem;
+    }
+
+    .wx-now__icon {
+        width: 4rem;
+        height: 4rem;
+    }
+
+    .board__row {
+        padding: 0.4rem 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation: none !important;
+        transition: none !important;
+    }
 }

@@ -1,397 +1,148 @@
-"""Full screen view rendering for Google Calendar component."""
+"""Full-screen agenda for the Google Calendar component."""
 
 import datetime
-from calendar import day_name
 
 from dash import html
 
-from utils.calendar import (
-    get_contrasting_text_color,
-    get_event_color_by_event,
-)
-from utils.dates import local_today
-from utils.models import FullScreenResult
-from utils.styles import COLORS, RADIUS, kicker_style
+from utils.dates import local_now
+from utils.ui import empty_state, icon
 
 from .data import CalendarEvent
-from .utils import (
-    create_event_spans,
-    create_event_tooltip,
-    generate_calendar_grid_weeks,
-    get_calendar_title_for_weeks,
-    prepare_events_for_rendering,
-)
+from .summary import event_sort_key, is_birthday
+
+AGENDA_DAYS = 35
 
 
-def render_calendar_fullscreen(events: list[CalendarEvent]) -> FullScreenResult:
-    """Render the full-screen calendar view showing 4 weeks in a grid.
-
-    Args:
-        events: List of processed calendar events
-
-    Returns:
-        FullScreenResult containing the full-screen calendar layout
-
-    """
-    # Prepare events with consistent color assignment and sorting
-    sorted_events = prepare_events_for_rendering(events)
-
-    today = local_today()
-
-    # Start from the beginning of the current week
-    start_of_week = today - datetime.timedelta(days=today.weekday())
-
-    # Generate 4 weeks of calendar grid
-    calendar_grid = generate_calendar_grid_weeks(start_of_week, 4, sorted_events)
-    calendar_title = get_calendar_title_for_weeks(calendar_grid)
-
-    # Create event spans for multi-day event rendering
-    event_spans = create_event_spans(calendar_grid)
-
-    return FullScreenResult(
-        content=_render_calendar_grid(calendar_grid, event_spans),
-        title=calendar_title,
-    )
+def _day_heading(date: datetime.date, today: datetime.date) -> tuple[str, str]:
+    delta = (date - today).days
+    if delta == 0:
+        return "Today", f"{date:%A} {date.day} {date:%B}"
+    if delta == 1:
+        return "Tomorrow", f"{date:%A} {date.day} {date:%B}"
+    if delta < 7:
+        return date.strftime("%A"), f"{date.day} {date:%B}"
+    return f"{date:%a} {date.day} {date:%b}", f"in {delta} days"
 
 
-def _render_calendar_grid(
-    calendar_grid: list[list[dict]],
-    event_spans: list[dict],
+def _range_label(event: CalendarEvent) -> str:
+    start, end = event.start_datetime, event.end_datetime
+    if event.is_all_day:
+        if start.date() == end.date():
+            return "All day"
+        return f"{start:%a} {start.day} {start:%b} – {end:%a} {end.day} {end:%b}"
+    if start.date() == end.date():
+        return f"{start:%H:%M} – {end:%H:%M}"
+    return f"{start:%a %H:%M} – {end:%a %H:%M}"
+
+
+def _duration(event: CalendarEvent) -> str:
+    if event.is_all_day:
+        days = (event.end_datetime.date() - event.start_datetime.date()).days + 1
+        return f"{days} days" if days > 1 else ""
+    minutes = int((event.end_datetime - event.start_datetime).total_seconds() // 60)
+    if minutes < 60:
+        return f"{minutes} min"
+    hours, rem = divmod(minutes, 60)
+    return f"{hours} h {rem} min" if rem else f"{hours} h"
+
+
+def render_calendar_fullscreen(
+    events: list[CalendarEvent],
+    colors: dict[str, str],
 ) -> html.Div:
-    """Render the calendar grid with weeks and days.
-
-    Args:
-        calendar_grid: Calendar grid from generate_calendar_grid_weeks
-        event_spans: Event spans from create_event_spans
-
-    Returns:
-        html.Div containing the calendar grid
-
+    """Day-by-day agenda for the coming weeks. A multi-day event is listed
+    once, on the first day it's visible (today, if it started earlier),
+    with its full date range - rather than repeated on every day it spans.
     """
-    return html.Div(
-        style={
-            "flex": "1",
-            "display": "flex",
-            "flexDirection": "column",
-            "border": f"1px solid {COLORS['hairline']}",
-            "borderRadius": RADIUS["md"],
-            "backgroundColor": COLORS["surface"],
-            "height": "100%",
-            "position": "relative",
-        },
-        children=[
-            # Days of week header
-            _render_days_header(),
-            # Calendar weeks
+    now = local_now()
+    today = now.date()
+    last_day = today + datetime.timedelta(days=AGENDA_DAYS - 1)
+
+    by_day: dict[datetime.date, list[CalendarEvent]] = {}
+    for event in events:
+        if event.end_datetime.date() < today or event.start_datetime.date() > last_day:
+            continue
+        if (
+            not event.is_all_day
+            and event.end_datetime <= now
+            and event.start_datetime.date() < today
+        ):
+            continue
+        first_visible = max(event.start_datetime.date(), today)
+        by_day.setdefault(first_visible, []).append(event)
+
+    if not by_day:
+        return html.Div(
+            empty_state("Nothing in the calendar", "mdi:calendar-blank"),
+            className="detail",
+        )
+
+    days = []
+    for date in sorted(by_day):
+        heading, sub = _day_heading(date, today)
+        rows = [
+            _agenda_row(e, colors.get(e.calendar_id, ""), now)
+            for e in sorted(by_day[date], key=event_sort_key)
+        ]
+        days.append(
             html.Div(
-                style={
-                    "flex": "1",
-                    "display": "flex",
-                    "flexDirection": "column",
-                    "position": "relative",
-                },
-                children=[
-                    _render_calendar_week(week, week_idx)
-                    for week_idx, week in enumerate(calendar_grid)
-                ]
-                + [
-                    # Render event spans as overlays
-                    _render_event_spans(event_spans),
+                [
+                    html.Div(
+                        [
+                            html.Span(heading, className="agenda-day__title"),
+                            html.Span(sub, className="agenda-day__sub"),
+                        ],
+                        className="agenda-day__head"
+                        + (" is-today" if date == today else ""),
+                    ),
+                    html.Div(rows, className="agenda-day__events"),
                 ],
-            ),
-        ],
-    )
-
-
-def _render_days_header() -> html.Div:
-    """Render the days of week header row.
-
-    Returns:
-        html.Div containing the days header
-
-    """
-    return html.Div(
-        style={
-            "display": "grid",
-            "gridTemplateColumns": "repeat(7, 1fr)",
-            "borderBottom": f"1px solid {COLORS['hairline']}",
-            "backgroundColor": COLORS["surface_raised"],
-        },
-        children=[
-            html.Div(
-                day_name[i][:3],  # Mon, Tue, Wed, etc.
-                style=kicker_style(padding="0.75rem", textAlign="center"),
-            )
-            for i in range(7)  # Monday to Sunday
-        ],
-    )
-
-
-def _render_calendar_week(week: list[dict], week_idx: int) -> html.Div:
-    """Render a single week row in the calendar.
-
-    Args:
-        week: Week data from calendar grid
-        week_idx: Index of the week in the grid
-
-    Returns:
-        html.Div containing the week row
-
-    """
-    return html.Div(
-        style={
-            "display": "grid",
-            "gridTemplateColumns": "repeat(7, 1fr)",
-            "borderBottom": f"1px solid {COLORS['hairline']}",
-            "height": "24%",
-        },
-        children=[_render_calendar_day(day_info) for day_info in week],
-    )
-
-
-def _render_calendar_day(day_info: dict) -> html.Div:
-    """Render a single day cell in the calendar.
-
-    Args:
-        day_info: Day information from calendar grid
-
-    Returns:
-        html.Div containing the day cell
-
-    """
-    date = day_info["date"]
-    is_today = day_info["is_today"]
-    is_past = day_info["is_past"]
-
-    # Check if it's a weekend (Saturday = 5, Sunday = 6)
-    is_weekend = date.weekday() >= 5
-
-    # Check if it's the first day of the month
-    is_first_of_month = date.day == 1
-
-    # Day cell background styling for weekends
-    cell_style = {
-        "padding": "0.5rem",
-        "borderRight": f"1px solid {COLORS['hairline']}",
-        "display": "flex",
-        "flexDirection": "column",
-        "position": "relative",
-    }
-
-    # Add subtle background for weekends
-    if is_weekend:
-        cell_style["backgroundColor"] = COLORS["surface_raised"]
-
-    # Day number styling
-    day_number_style = {
-        "fontSize": "1rem",  # Fixed readable size for day numbers
-        "fontWeight": "600" if (is_today or is_first_of_month) else "400",
-        "color": COLORS["text"] if not is_past else COLORS["text_muted"],
-        "marginBottom": "0.375rem",
-    }
-
-    # Current day styling (most prominent, uses the shared "now/today" accent)
-    if is_today:
-        day_number_style.update(
-            {
-                "backgroundColor": COLORS["accent"],
-                "color": COLORS["bg"],
-                "borderRadius": "50%",
-                "width": "1.5rem",
-                "height": "1.5rem",
-                "display": "flex",
-                "alignItems": "center",
-                "justifyContent": "center",
-            },
-        )
-    # First of month styling (less prominent than current day)
-    elif is_first_of_month:
-        day_number_style.update(
-            {
-                "border": f"1px solid {COLORS['hairline_strong']}",
-                "borderRadius": "50%",
-                "width": "1.375rem",
-                "height": "1.375rem",
-                "display": "flex",
-                "alignItems": "center",
-                "justifyContent": "center",
-                "backgroundColor": COLORS["surface"],
-            },
-        )
-
-    return html.Div(
-        style=cell_style,
-        children=[
-            # Day number
-            html.Div(
-                str(date.day),
-                style=day_number_style,
-            ),
-        ],
-    )
-
-
-def _render_event_spans(event_spans: list[dict]) -> html.Div:
-    """Render event spans as overlays on the calendar grid.
-
-    Args:
-        event_spans: List of event span dictionaries
-
-    Returns:
-        html.Div containing all event span overlays
-
-    """
-    return html.Div(
-        style={
-            "position": "absolute",
-            "top": "0",
-            "left": "0",
-            "right": "0",
-            "bottom": "0",
-            "pointerEvents": "none",
-        },
-        children=[_render_single_event_span(span) for span in event_spans],
-    )
-
-
-def _render_single_event_span(event_span: dict) -> html.Div:
-    """Render a single event span overlay.
-
-    Args:
-        event_span: Event span dictionary with positioning info
-
-    Returns:
-        html.Div containing the event span
-
-    """
-    event = event_span["event"]
-    start_week = event_span["start_week"]
-    start_day = event_span["start_day"]
-    end_week = event_span["end_week"]
-    end_day = event_span["end_day"]
-    track = event_span.get("track", 0)  # Vertical position within week
-
-    # Calculate positioning - improved calculations
-    header_height_rem = 3.75  # Account for header height
-    week_height_percent = 24  # Each week is 24% of available height
-    day_width_percent = 100 / 7  # Each day is 1/7 of width
-
-    # Event color based on event ID for better distinction
-    background_color = get_event_color_by_event(event.id)
-
-    # Calculate contrasting text color
-    text_color = get_contrasting_text_color(background_color)
-
-    # Create tooltip with event details
-    tooltip_text = create_event_tooltip(event)
-
-    # Calculate event height and font size based on input font size
-    event_height_rem = 1.375
-    event_font_size = "0.75rem"
-    event_margin_rem = 0.25  # Space between stacked events
-    base_offset_rem = 0.0625  # distance from top of day cell to first event
-    track_spacing_rem = event_height_rem + event_margin_rem
-
-    # For multi-week events, we need to create multiple spans
-    event_segments = []
-
-    def _top_position(week_index: int) -> str:
-        offset_rem = base_offset_rem + (track - 1) * track_spacing_rem
-        return f"calc({header_height_rem}rem + {week_height_percent}% * {week_index} + {offset_rem}rem)"
-
-    if start_week == end_week:
-        # Same week - single span
-        # Add offset for curved ends
-        left_offset = 0.25 if start_day > 0 else 0  # Offset from left edge
-        right_offset = 0.25 if end_day < 6 else 0  # Offset from right edge
-
-        left_pos = f"calc({day_width_percent * start_day}% + {left_offset}rem)"
-        width = f"calc({day_width_percent * (end_day - start_day + 1)}% - {left_offset + right_offset}rem)"
-        top_pos = _top_position(start_week)
-
-        event_segments.append(
-            html.Div(
-                event.title,
-                title=tooltip_text,
-                style={
-                    "position": "absolute",
-                    "left": left_pos,
-                    "width": width,
-                    "top": top_pos,
-                    "height": f"{event_height_rem}rem",
-                    "backgroundColor": background_color,
-                    "borderRadius": "0.25rem",
-                    "padding": "0.2rem 0.5rem",
-                    "fontSize": event_font_size,
-                    "fontWeight": "600",
-                    "lineHeight": f"{event_height_rem - 0.375}rem",
-                    "color": text_color,
-                    "overflow": "hidden",
-                    "textOverflow": "ellipsis",
-                    "whiteSpace": "nowrap",
-                    "pointerEvents": "auto",
-                    "cursor": "default",
-                    "zIndex": f"{10 + track}",
-                    "boxShadow": "0 1px 3px rgba(0, 0, 0, 0.3)",
-                },
+                className="agenda-day card",
             ),
         )
-    else:
-        # Multi-week event - create segments for each week
-        for week in range(start_week, end_week + 1):
-            if week == start_week:
-                # First week segment - offset from left if not starting at beginning
-                left_offset = 0.25 if start_day > 0 else 0
-                left_pos = f"calc({day_width_percent * start_day}% + {left_offset}rem)"
-                width = (
-                    f"calc({day_width_percent * (7 - start_day)}% - {left_offset}rem)"
-                )
-                show_title = True  # Always show title on first week
-                border_radius = "0.25rem 0 0 0.25rem"
-            elif week == end_week:
-                # Last week segment - offset from right if not ending at end
-                right_offset = 0.25 if end_day < 6 else 0
-                left_pos = "0%"
-                width = (
-                    f"calc({day_width_percent * (end_day + 1)}% - {right_offset}rem)"
-                )
-                show_title = True  # Show title on new row (last week)
-                border_radius = "0 0.25rem 0.25rem 0"
-            else:
-                # Middle week segment
-                left_pos = "0%"
-                width = "100%"
-                show_title = True  # Show title on new row (middle weeks)
-                border_radius = "0"
+    return html.Div(html.Div(days, className="agenda"), className="detail")
 
-            top_pos = _top_position(week)
 
-            event_segments.append(
-                html.Div(
-                    event.title if show_title else "",
-                    title=tooltip_text,
-                    style={
-                        "position": "absolute",
-                        "left": left_pos,
-                        "width": width,
-                        "top": top_pos,
-                        "height": f"{event_height_rem}rem",
-                        "backgroundColor": background_color,
-                        "borderRadius": border_radius,
-                        "padding": "0.2rem 0.5rem",
-                        "fontSize": event_font_size,
-                        "fontWeight": "600",
-                        "lineHeight": f"{event_height_rem - 0.375}rem",
-                        "color": text_color,
-                        "overflow": "hidden",
-                        "textOverflow": "ellipsis",
-                        "whiteSpace": "nowrap",
-                        "pointerEvents": "auto",
-                        "cursor": "default",
-                        "zIndex": f"{10 + track}",
-                        "boxShadow": "0 1px 3px rgba(0, 0, 0, 0.3)",
-                    },
-                ),
-            )
-
-    return html.Div(children=event_segments)
+def _agenda_row(event: CalendarEvent, color: str, now: datetime.datetime) -> html.Div:
+    past = not event.is_all_day and event.end_datetime <= now
+    ongoing = not event.is_all_day and event.start_datetime <= now < event.end_datetime
+    time_col = (
+        [html.Div("All day", className="agenda-ev__start")]
+        if event.is_all_day
+        else [
+            html.Div(f"{event.start_datetime:%H:%M}", className="agenda-ev__start"),
+            html.Div(f"{event.end_datetime:%H:%M}", className="agenda-ev__end"),
+        ]
+    )
+    meta = [
+        m
+        for m in (_range_label(event) if event.is_multi_day else "", _duration(event))
+        if m
+    ]
+    return html.Div(
+        [
+            html.Div(time_col, className="agenda-ev__time"),
+            html.Span(className="agenda-ev__bar", style={"background": color}),
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            icon("mdi:cake-variant", "agenda-ev__icon")
+                            if is_birthday(event)
+                            else None,
+                            html.Span(event.title, className="agenda-ev__title"),
+                            html.Span("Now", className="ev__now") if ongoing else None,
+                        ],
+                        className="agenda-ev__title-row",
+                    ),
+                    html.Div(" · ".join(meta), className="agenda-ev__meta")
+                    if meta
+                    else None,
+                ],
+                className="agenda-ev__text",
+            ),
+        ],
+        className="agenda-ev"
+        + (" is-past" if past else "")
+        + (" is-now" if ongoing else ""),
+    )

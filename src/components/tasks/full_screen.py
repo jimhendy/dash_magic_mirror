@@ -6,14 +6,7 @@ import dash_mantine_components as dmc
 from dash import html
 
 from utils.dates import local_today
-from utils.styles import (
-    COLORS,
-    FONT_SIZES,
-    SPACE,
-    WEIGHT,
-    kicker_style,
-    row_style,
-)
+from utils.ui import empty_state, icon
 
 from .data import (
     TaskGroup,
@@ -24,350 +17,267 @@ from .data import (
     recurrence_label,
 )
 
-# The full-screen modal (#full-screen-modal, see core_layout.py) is a plain
-# div at z-index 9999. Mantine resolves a Select/DateInput popover's
-# z-index to a literal inline style at render time (not a CSS var), so a
-# global CSS override can't reach it - it has to be set per-component here,
-# above the modal's own z-index, or the popover opens invisibly behind it.
-_POPOVER_PROPS = {"zIndex": 10_000}
 
-
-def render_tasks_fullscreen(
-    snapshot: TaskSnapshot,
-    component_id: str,
-    feedback: dict[str, str] | None = None,
-    *,
-    pending_delete_id: str | None = None,
-) -> html.Div:
-    people_options = [
+def people_options(snapshot: TaskSnapshot) -> list[dict[str, str]]:
+    return [
         {"value": person.id, "label": person.name}
         for person in sorted(snapshot.people, key=lambda item: item.name.casefold())
     ]
-    groups = grouped_open_tasks(snapshot)
 
+
+def render_tasks_panel(snapshot: TaskSnapshot, component_id: str) -> html.Div:
+    """Static shell of the Tasks panel: the open-task list (refreshed by
+    callbacks via `{component_id}-list`) next to the add-task/add-person
+    forms. The forms are rendered once with the page and never replaced,
+    so a background refresh can't wipe what someone is halfway through
+    typing.
+    """
+    options = people_options(snapshot)
     return html.Div(
         [
-            _feedback_row(feedback),
-            _people_section(component_id),
-            _task_form_section(component_id, people_options),
-            _task_list_section(groups, component_id, pending_delete_id),
+            html.Div(
+                [
+                    html.H3("Open tasks", className="section__title"),
+                    html.Div(
+                        render_task_list(snapshot, component_id, None),
+                        id=f"{component_id}-list",
+                    ),
+                ],
+                className="tasks-list-col",
+            ),
+            html.Div(
+                [
+                    html.Div(id=f"{component_id}-feedback", className="toast-slot"),
+                    _task_form(component_id, options),
+                    _person_form(component_id),
+                ],
+                className="tasks-form-col",
+            ),
         ],
-        style={
-            "display": "flex",
-            "flexDirection": "column",
-            "gap": SPACE["xl"],
-            "padding": SPACE["xl"],
-        },
+        className="detail tasks-detail",
     )
 
 
-def _feedback_row(feedback: dict[str, str] | None) -> html.Div | None:
+def render_feedback(feedback: dict[str, str] | None, key: str) -> html.Div | None:
     if not feedback or not feedback.get("message"):
         return None
-
     is_error = feedback.get("tone") == "error"
-    accent_color = COLORS["urgent"] if is_error else COLORS["accent"]
     return html.Div(
-        feedback["message"],
-        style={
-            "borderLeft": f"2px solid {accent_color}",
-            "paddingLeft": SPACE["md"],
-            "color": COLORS["text"],
-            "fontSize": FONT_SIZES["meta"],
-        },
+        [
+            icon(
+                "mdi:alert-circle-outline" if is_error else "mdi:check-circle-outline",
+                "ic",
+            ),
+            feedback["message"],
+        ],
+        className="toast" + (" is-error" if is_error else ""),
+        key=key,
     )
 
 
-def _people_section(component_id: str) -> html.Div:
+def _task_form(component_id: str, options: list[dict[str, str]]) -> html.Div:
     return html.Div(
         [
-            html.Div("People", style=kicker_style()),
+            html.H3("New task", className="section__title"),
+            dmc.TextInput(
+                id=f"{component_id}-task-title",
+                placeholder="What needs doing?",
+                size="lg",
+            ),
+            html.Div("Who", className="field-label"),
+            dmc.SegmentedControl(
+                id=f"{component_id}-task-person",
+                data=cast("Any", options),
+                value=options[0]["value"] if options else None,
+                fullWidth=True,
+                size="md",
+                color="teal",
+            ),
+            html.Div("When", className="field-label"),
+            dmc.DatePickerInput(
+                id=f"{component_id}-task-due-on",
+                value=local_today().isoformat(),
+                valueFormat="ddd D MMM YYYY",
+                dropdownType="modal",
+                firstDayOfWeek=1,
+                size="lg",
+                leftSection=icon("mdi:calendar", "ic"),
+            ),
+            html.Div("Repeat", className="field-label"),
+            dmc.SegmentedControl(
+                id=f"{component_id}-task-recurrence",
+                data=cast(
+                    "Any",
+                    [
+                        {"value": v.value, "label": recurrence_label(v)}
+                        for v in TaskRecurrence
+                    ],
+                ),
+                value=TaskRecurrence.ONCE.value,
+                fullWidth=True,
+                size="md",
+                color="teal",
+            ),
+            html.Button(
+                [icon("mdi:plus", "ic"), "Add task"],
+                id=f"{component_id}-add-task",
+                n_clicks=0,
+                className="btn btn--primary",
+            ),
+        ],
+        className="card form",
+    )
+
+
+def _person_form(component_id: str) -> html.Div:
+    return html.Div(
+        [
+            html.H3("Add a person", className="section__title"),
             html.Div(
                 [
                     dmc.TextInput(
                         id=f"{component_id}-person-name",
-                        placeholder="Add a person",
-                        size="md",
+                        placeholder="Name",
+                        size="lg",
                     ),
-                    dmc.Button(
-                        "Add person",
+                    html.Button(
+                        [icon("mdi:account-plus-outline", "ic"), "Add"],
                         id=f"{component_id}-add-person",
-                        color="teal",
-                        variant="light",
-                        size="md",
+                        n_clicks=0,
+                        className="btn btn--secondary",
                     ),
                 ],
-                style={
-                    "display": "grid",
-                    "gridTemplateColumns": "1fr auto",
-                    "gap": SPACE["md"],
-                    "alignItems": "center",
-                },
+                className="inline-form",
             ),
         ],
-        style={"display": "flex", "flexDirection": "column", "gap": SPACE["md"]},
+        className="card form",
     )
 
 
-def _task_form_section(
-    component_id: str,
-    people_options: list[dict[str, str]],
-) -> html.Div:
-    no_people = not people_options
-    form_children = [
-        dmc.TextInput(
-            id=f"{component_id}-task-title",
-            placeholder="Task title",
-            disabled=no_people,
-            size="md",
-        ),
-        html.Div(
-            [
-                dmc.Select(
-                    id=f"{component_id}-task-person",
-                    data=cast("Any", people_options),
-                    placeholder="Assign to",
-                    clearable=False,
-                    disabled=no_people,
-                    size="md",
-                    comboboxProps=cast("Any", _POPOVER_PROPS),
-                ),
-                dmc.DateInput(
-                    id=f"{component_id}-task-due-on",
-                    value=local_today().isoformat(),
-                    valueFormat="D MMM YYYY",
-                    clearable=False,
-                    disabled=no_people,
-                    size="md",
-                    popoverProps=cast("Any", _POPOVER_PROPS),
-                ),
-                dmc.Select(
-                    id=f"{component_id}-task-recurrence",
-                    data=cast(
-                        "Any",
-                        [
-                            {"value": value.value, "label": recurrence_label(value)}
-                            for value in TaskRecurrence
-                        ],
-                    ),
-                    value=TaskRecurrence.ONCE.value,
-                    clearable=False,
-                    disabled=no_people,
-                    size="md",
-                    comboboxProps=cast("Any", _POPOVER_PROPS),
-                ),
-            ],
-            style={
-                "display": "grid",
-                "gridTemplateColumns": "1.3fr 0.9fr 0.9fr",
-                "gap": SPACE["md"],
-            },
-        ),
-        dmc.Button(
-            "Add task",
-            id=f"{component_id}-add-task",
-            color="teal",
-            variant="light",
-            size="md",
-            disabled=no_people,
-            style={"alignSelf": "flex-start"},
-        ),
-    ]
-    if no_people:
-        form_children.append(
-            html.Div(
-                "Add a person first, then assign them tasks.",
-                style={"color": COLORS["text_muted"], "fontSize": FONT_SIZES["meta"]},
-            ),
-        )
-
-    return html.Div(
-        [html.Div("Tasks", style=kicker_style()), *form_children],
-        style={"display": "flex", "flexDirection": "column", "gap": SPACE["md"]},
-    )
-
-
-def _task_list_section(
-    groups: list[TaskGroup],
+def render_task_list(
+    snapshot: TaskSnapshot,
     component_id: str,
     pending_delete_id: str | None,
 ) -> html.Div:
-    has_tasks = any(group.tasks for group in groups)
-    body = (
-        [
-            html.Div(
-                "No open tasks yet.",
-                style={"color": COLORS["text_muted"], "fontSize": FONT_SIZES["meta"]},
-            ),
-        ]
-        if not has_tasks
-        else [_task_group(group, component_id, pending_delete_id) for group in groups]
-    )
-
+    groups = grouped_open_tasks(snapshot)
+    if not snapshot.people:
+        return empty_state(
+            "Add a person first, then give them tasks", "mdi:account-plus-outline"
+        )
+    if not any(group.tasks for group in groups):
+        return empty_state("No open tasks – all caught up", "mdi:check-all")
     return html.Div(
-        [html.Div("Open tasks", style=kicker_style()), *body],
-        style={"display": "flex", "flexDirection": "column", "gap": SPACE["lg"]},
+        [
+            _task_group(group, component_id, pending_delete_id)
+            for group in groups
+            if group.tasks
+        ],
+        className="task-groups",
     )
 
 
 def _task_group(
-    group: TaskGroup,
-    component_id: str,
-    pending_delete_id: str | None,
+    group: TaskGroup, component_id: str, pending_delete_id: str | None
 ) -> html.Div:
-    header = group.person.name
-    if group.overdue_count:
-        header = f"{header} · {group.overdue_count} overdue"
-
     return html.Div(
         [
             html.Div(
-                header,
-                style=kicker_style(color=COLORS["text_secondary"]),
-            ),
-            html.Div(
                 [
-                    _task_row(
-                        task,
-                        component_id,
-                        index == len(group.tasks) - 1,
-                        pending_delete_id,
+                    html.Span(
+                        group.person.name[:1].upper(), className="person__avatar"
+                    ),
+                    html.Span(group.person.name, className="task-group__name"),
+                    html.Span(
+                        f"{group.overdue_count} overdue", className="badge badge--bad"
                     )
-                    for index, task in enumerate(group.tasks)
-                ]
-                or [
-                    html.Div(
-                        "No open tasks.",
-                        style={
-                            "color": COLORS["text_muted"],
-                            "fontSize": FONT_SIZES["meta"],
-                        },
+                    if group.overdue_count
+                    else html.Span(
+                        f"{len(group.tasks)}", className="task-group__count"
                     ),
                 ],
-                style={"display": "flex", "flexDirection": "column"},
+                className="task-group__head",
             ),
-        ],
-        style={"display": "flex", "flexDirection": "column", "gap": SPACE["sm"]},
-    )
-
-
-def _task_row(
-    task,
-    component_id: str,
-    is_last: bool,
-    pending_delete_id: str | None = None,
-) -> html.Div:
-    overdue = task.due_on < local_today()
-    recurrence_text = recurrence_label(task.recurrence)
-    awaiting_confirm = pending_delete_id == task.id
-    return html.Div(
-        [
             html.Div(
                 [
-                    html.Div(
-                        task.title,
-                        style={
-                            "fontSize": FONT_SIZES["primary"],
-                            "fontWeight": WEIGHT["regular"],
-                            "color": COLORS["text"],
-                        },
-                    ),
-                    html.Div(
-                        f"{due_label(task)} · {recurrence_text}",
-                        style={
-                            "fontSize": FONT_SIZES["small"],
-                            "color": COLORS["urgent"]
-                            if overdue
-                            else COLORS["text_secondary"],
-                            "marginTop": SPACE["xs"],
-                        },
-                    ),
+                    _task_row(task, component_id, pending_delete_id == task.id)
+                    for task in group.tasks
                 ],
-                style={"minWidth": 0, "flex": 1},
+                className="task-rows",
             ),
-            _task_row_actions(task, component_id, awaiting_confirm=awaiting_confirm),
         ],
-        style=row_style(
-            divider=not is_last,
-            accent=overdue or awaiting_confirm,
-            display="flex",
-            alignItems="center",
-            justifyContent="space-between",
-            gap=SPACE["lg"],
-        ),
+        className="card task-group",
     )
 
 
-def _task_row_actions(
-    task,
+def _action(
     component_id: str,
-    *,
-    awaiting_confirm: bool,
-) -> html.Div:
-    """The right-hand controls for a task row. Removing a task is a two-tap
-    action - "Remove" only arms it, then a distinct "Confirm" commits -
-    since deleting a recurring task is the one irreversible thing here.
+    action: str,
+    task_id: str,
+    children,
+    class_name: str,
+    title: str = "",
+):
+    return html.Button(
+        children,
+        id={"type": f"{component_id}-act", "action": action, "task_id": task_id},
+        n_clicks=0,
+        className=class_name,
+        title=title,
+    )
 
-    Every button (Done / Remove / Confirm / Cancel) is rendered for every
-    row on every render, with the pair not relevant to the current state
-    just hidden. They're the `Input`s of one pattern-matching callback, and
-    a pattern `Input` that matches *zero* live components on a given render
-    desynchronises that callback's argument list (Dash raises an
-    IndexError building the call) - so the Confirm/Cancel controls must
-    stay mounted even while no row is armed.
-    """
-    hide = {"display": "none"}
+
+def _task_row(task, component_id: str, awaiting_confirm: bool) -> html.Div:
+    overdue = task.due_on < local_today()
+    if awaiting_confirm:
+        actions = [
+            html.Span("Remove for good?", className="task-row__confirm-text"),
+            _action(
+                component_id, "confirm", task.id, "Remove", "btn btn--danger btn--sm"
+            ),
+            _action(component_id, "cancel", task.id, "Keep", "btn btn--ghost btn--sm"),
+        ]
+    else:
+        actions = [
+            _action(
+                component_id,
+                "arm",
+                task.id,
+                icon("mdi:trash-can-outline", "ic"),
+                "icon-btn icon-btn--muted",
+                "Remove task",
+            ),
+        ]
+    meta = [due_label(task)]
+    if task.is_recurring:
+        meta.append(recurrence_label(task.recurrence))
     return html.Div(
         [
-            dmc.Button(
-                "Done",
-                id={"type": f"{component_id}-complete-task", "task_id": task.id},
-                n_clicks=0,
-                color="teal",
-                variant="subtle",
-                size="xs",
-                style=hide if awaiting_confirm else None,
+            _action(
+                component_id,
+                "complete",
+                task.id,
+                icon("mdi:check-bold", "ic"),
+                "check-btn",
+                "Mark done",
             ),
-            dmc.Button(
-                "Remove",
-                id={"type": f"{component_id}-delete-task", "task_id": task.id},
-                n_clicks=0,
-                color="red",
-                variant="subtle",
-                size="xs",
-                style=hide if awaiting_confirm else None,
+            html.Div(
+                [
+                    html.Div(task.title, className="task-row__title"),
+                    html.Div(
+                        [
+                            icon("mdi:repeat", "task-row__repeat")
+                            if task.is_recurring
+                            else None,
+                            " · ".join(meta),
+                        ],
+                        className="task-row__meta",
+                    ),
+                ],
+                className="task-row__text",
             ),
-            html.Span(
-                "Remove?",
-                style={
-                    "fontSize": FONT_SIZES["small"],
-                    "color": COLORS["text_secondary"],
-                    **({} if awaiting_confirm else hide),
-                },
-            ),
-            dmc.Button(
-                "Confirm",
-                id={"type": f"{component_id}-confirm-delete", "task_id": task.id},
-                n_clicks=0,
-                color="red",
-                variant="filled",
-                size="xs",
-                style=None if awaiting_confirm else hide,
-            ),
-            dmc.Button(
-                "Cancel",
-                id={"type": f"{component_id}-cancel-delete", "task_id": task.id},
-                n_clicks=0,
-                color="gray",
-                variant="subtle",
-                size="xs",
-                style=None if awaiting_confirm else hide,
-            ),
+            html.Div(actions, className="task-row__actions"),
         ],
-        style={
-            "display": "flex",
-            "alignItems": "center",
-            "gap": SPACE["xs"],
-            "flexShrink": 0,
-        },
+        className="task-row"
+        + (" is-overdue" if overdue else "")
+        + (" is-confirming" if awaiting_confirm else ""),
     )

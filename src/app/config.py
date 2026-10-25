@@ -11,7 +11,6 @@ from components.sports import Sports
 from components.tasks import Tasks
 from components.tfl_arrivals import TFLArrivals
 from components.weather import Weather
-from utils.styles import SPACE
 
 env_path = Path(__file__).parents[2] / ".env"
 load_dotenv(env_path)
@@ -64,14 +63,10 @@ TFL_LINE_STATUS_IDS = [
 
 # Component instances.
 #
-# The order here is the top-to-bottom order of the main vertical strip
-# (see `core_callbacks.refresh_all_components` -> `app-div`), except for
-# Markets: it's pinned into the top-left corner via `position: fixed`
-# (the `css_position` kwargs below land on its wrapper div, see
-# `BaseComponent.summary_layout`), so it's lifted out of the flow and its
-# position in this list doesn't matter. The header keeps its top-left grid
-# column empty to leave room for it (and pins presence into the top-right
-# column to mirror it).
+# Where each one sits is decided by its `grid_area` (defaults to the
+# component's name) and the portrait/landscape `grid-template-areas` in
+# assets/main.css - not by the order here. The order only decides the
+# order of the detail panels in the DOM.
 COMPONENTS = [
     Header(
         people=people,
@@ -84,26 +79,20 @@ COMPONENTS = [
         postcode=os.environ.get("WEATHER_POSTCODE", "SW1A 1AA"),
         api_key=os.environ.get("WEATHER_API_KEY", ""),
     ),
-    GoogleCalendar(
-        calendar_ids=[
-            os.environ[calendar_id]
-            for calendar_id in os.environ
-            if calendar_id.startswith("GOOGLE_CALENDAR_ID_")
-        ],
-    ),
-    Tasks(),
-    Sports(),
     TFLArrivals(
         all_stop_ids=TFL_ALL_STOP_IDS,
         transfer_station_id=TFL_TRANSFER_STATION_ID,
         summary_ignore_destination=TFL_SUMMARY_IGNORE_DESTINATION,
         line_status_ids=TFL_LINE_STATUS_IDS,
     ),
-    Markets(
-        position="fixed",
-        top=SPACE["lg"],
-        left=SPACE["xl"],
-        width="auto",
-        zIndex=50,
+    GoogleCalendar(
+        calendar_ids=[
+            os.environ[calendar_id]
+            for calendar_id in sorted(os.environ)
+            if calendar_id.startswith("GOOGLE_CALENDAR_ID_")
+        ],
     ),
+    Tasks(),
+    Sports(),
+    Markets(),
 ]

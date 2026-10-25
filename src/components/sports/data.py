@@ -357,7 +357,14 @@ def extract_fixtures_from_html(html: str, sport: Sport) -> list[dict[str, Any]]:
         else:
             parsed_date, time_str = None, ""
 
-        competition = _extract_competition(fixture_text)
+        # Prefer the dedicated cell; the text heuristic is only a fallback
+        # (it picks up the last channel name on current markup).
+        competition_cell = row.find("td", class_="competition-name")
+        competition = (
+            competition_cell.get_text(" ", strip=True)
+            if competition_cell
+            else _extract_competition(fixture_text)
+        )
 
         # Extract match id for dedupe
         match_id = _extract_match_id_from_row(row)

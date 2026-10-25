@@ -8,7 +8,7 @@ from loguru import logger
 
 from components.base import BaseComponent
 from utils.data_repository import ComponentPayload, get_repository
-from utils.styles import COLORS, WEIGHT, hero_style, kicker_style
+from utils.dates import local_now
 
 from .constants import (
     DEFAULT_ARP_TIMEOUT,
@@ -88,146 +88,86 @@ class Header(BaseComponent):
         # is just a marker so the repository has something to store.
         return ComponentPayload(summary=None)
 
-    def _summary_layout(self):
+    def tile_layout(self):
+        # The header is a borderless hero strip rather than a card, and has
+        # no detail panel. The clock/date text is filled in and ticked by
+        # assets/dashboard.js (plain DOM updates once a second) - the
+        # server-rendered values below are only there so the very first
+        # paint isn't blank.
+        now = local_now()
         return html.Div(
             [
+                html.Div(
+                    [
+                        html.Div(
+                            [
+                                html.Span(
+                                    now.strftime("%H:%M"),
+                                    className="hero__time",
+                                    **{"data-clock": "time"},
+                                ),
+                                html.Span(
+                                    now.strftime("%S"),
+                                    className="hero__seconds",
+                                    **{"data-clock": "seconds"},
+                                ),
+                            ],
+                            className="hero__clock",
+                        ),
+                        html.Div(
+                            [
+                                html.Span(
+                                    _greeting(now.hour),
+                                    className="hero__greeting",
+                                    **{"data-clock": "greeting"},
+                                ),
+                                html.Span(
+                                    f"{now:%A} {now.day} {now:%B}",
+                                    className="hero__date",
+                                    **{"data-clock": "date"},
+                                ),
+                            ],
+                            className="hero__meta",
+                        ),
+                    ],
+                    className="hero__center",
+                ),
+                html.Div(
+                    render_presence_badges(self.people),
+                    id=f"{self.component_id}-people",
+                    className="presence",
+                ),
                 dcc.Interval(
                     id=f"{self.component_id}-presence-poll",
                     interval=self.PRESENCE_POLL_INTERVAL_MS,
                     n_intervals=0,
                 ),
-                # Top row: presence on the right, date centered above the
-                # clock. A symmetric 3-column grid (empty mirror column /
-                # date / presence) keeps the date genuinely centered over
-                # the hour:minute digits below regardless of how wide the
-                # presence badges render - plain flow, no absolute
-                # positioning or magic offsets. The left column is left
-                # empty on purpose: the markets widget is pinned into that
-                # corner separately (see app/config.py).
-                html.Div(
-                    [
-                        html.Div(),  # left mirror column (markets pinned here)
-                        html.Div(
-                            [
-                                html.Span(
-                                    id=f"{self.component_id}-date-weekday",
-                                    style=kicker_style(),
-                                ),
-                                # The day-of-month is the one number in the
-                                # date someone actually needs at a glance
-                                # (which day is it) - bigger and bright
-                                # rather than lost at the same weight as
-                                # the weekday/month text either side of it.
-                                html.Span(
-                                    id=f"{self.component_id}-date-day",
-                                    style={
-                                        "fontSize": "1.5rem",
-                                        "fontWeight": WEIGHT["bold"],
-                                        "color": COLORS["text"],
-                                        "fontVariantNumeric": "tabular-nums",
-                                    },
-                                ),
-                                html.Span(
-                                    id=f"{self.component_id}-date-month",
-                                    style=kicker_style(),
-                                ),
-                            ],
-                            style={
-                                "display": "flex",
-                                "alignItems": "baseline",
-                                "justifyContent": "center",
-                                "gap": "0.4rem",
-                            },
-                        ),
-                        html.Div(
-                            render_presence_badges(self.people),
-                            id=f"{self.component_id}-people",
-                            style={
-                                "display": "flex",
-                                "flexDirection": "column",
-                                "alignItems": "flex-end",
-                                "gap": "0.35rem",
-                            },
-                        ),
-                    ],
-                    style={
-                        "display": "grid",
-                        "gridTemplateColumns": "1fr auto 1fr",
-                        "alignItems": "center",
-                        "width": "100%",
-                    },
-                ),
-                # Clock: a symmetric 3-column grid (spacer / hour:minute /
-                # seconds+spacer) keeps hour:minute genuinely pinned to
-                # center regardless of how wide the seconds text renders -
-                # centering hour:minute and seconds together as one flex
-                # group (the previous approach) shifts the whole group,
-                # and with it the hour:minute digits, every time the
-                # seconds' rendered width changes.
-                html.Div(
-                    [
-                        html.Div(),  # left spacer, mirrors the right column
-                        html.Span(
-                            id=f"{self.component_id}-hour-minute",
-                            style=hero_style(),
-                        ),
-                        html.Span(
-                            id=f"{self.component_id}-seconds",
-                            style={
-                                "fontSize": "1.6rem",
-                                "fontWeight": "400",
-                                "color": COLORS["text_muted"],
-                                "marginLeft": "0.6rem",
-                                "fontVariantNumeric": "tabular-nums",
-                                "justifySelf": "start",
-                                "alignSelf": "baseline",
-                            },
-                        ),
-                    ],
-                    style={
-                        "display": "grid",
-                        "gridTemplateColumns": "1fr auto 1fr",
-                        "alignItems": "baseline",
-                        "width": "100%",
-                    },
-                ),
             ],
-            style={
-                "display": "flex",
-                "flexDirection": "column",
-                "gap": "0.4rem",
-                "width": "100%",
-            },
+            id=self.component_id,
+            className="hero",
+            style={"gridArea": self.grid_area},
         )
+
+    def _summary_layout(self):  # pragma: no cover - tile_layout is overridden
+        return None
 
     def _add_callbacks(self, app):  # type: ignore[override]
-        app.clientside_callback(
-            """
-            function(n_intervals) {
-                const now = new Date();
-                const weekday = now.toLocaleDateString('en-UK', { weekday: 'long' });
-                const day = now.getDate().toString();
-                const month = now.toLocaleDateString('en-UK', { month: 'long' });
-                const hours = now.getHours().toString();
-                const minutes = now.getMinutes().toString().padStart(2, '0');
-                const hourMinute = `${hours}:${minutes}`;
-                const seconds = now.getSeconds().toString().padStart(2, '0');
-                return [weekday, day, month, hourMinute, seconds];
-            }
-            """,
-            Output(f"{self.component_id}-date-weekday", "children"),
-            Output(f"{self.component_id}-date-day", "children"),
-            Output(f"{self.component_id}-date-month", "children"),
-            Output(f"{self.component_id}-hour-minute", "children"),
-            Output(f"{self.component_id}-seconds", "children"),
-            Input("one-second-timer", "n_intervals"),
-        )
-
         @app.callback(
             Output(f"{self.component_id}-people", "children"),
             Input(f"{self.component_id}-presence-poll", "n_intervals"),
+            prevent_initial_call=True,
         )
         def _render_presence(_n):
             # Purely a re-render of the latest background-scanned state;
             # does not itself trigger any ping/ARP network activity.
             return render_presence_badges(self.people)
+
+
+def _greeting(hour: int) -> str:
+    if hour < 5:
+        return "Good night"
+    if hour < 12:
+        return "Good morning"
+    if hour < 18:
+        return "Good afternoon"
+    return "Good evening"

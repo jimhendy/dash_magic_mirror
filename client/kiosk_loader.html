@@ -2,6 +2,9 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<!-- Without this the tablet lays the page out at desktop width and waits on
+     every tap to see if it is a double-tap zoom. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Kiosk Loader</title>
 <style>
   html, body {
@@ -9,13 +12,16 @@
     padding: 0;
     height: 100%;
     width: 100%;
-    background: #000;
+    background: #0A0C10;
+    overflow: hidden;
+    touch-action: manipulation;
   }
   iframe {
     border: none;
     width: 100vw;
     height: 100vh;
     display: block;
+    touch-action: manipulation;
   }
 </style>
 <script>
@@ -26,7 +32,15 @@ function loadSite() {
   document.getElementById('frame').src = url;
 }
 
+// Give the dashboard focus as soon as it loads, so the first tap goes to
+// the tile instead of being spent focusing the iframe.
+function focusFrame() {
+  const frame = document.getElementById('frame');
+  try { frame.contentWindow.focus(); } catch (e) { frame.focus(); }
+}
+
 window.onload = () => {
+  document.getElementById('frame').addEventListener('load', focusFrame);
   loadSite();
   setInterval(loadSite, reloadIntervalMs);
 };
