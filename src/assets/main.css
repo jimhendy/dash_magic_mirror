@@ -154,13 +154,13 @@ img {
 @media (orientation: landscape) {
     .dashboard {
         grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1fr);
-        /* Weather takes the height it needs; sport fills the rest of
-           its column. Transport gets the full height for its board. */
+        /* Weather takes the height it needs with transport below it;
+           sport gets the full height of the right-hand column. */
         grid-template-rows: auto auto minmax(0, 1fr);
         grid-template-areas:
-            "header  header          header"
-            "weather google_calendar tfl_arrivals"
-            "sports  google_calendar tfl_arrivals";
+            "header       header          header"
+            "weather      google_calendar sports"
+            "tfl_arrivals google_calendar sports";
     }
 }
 
@@ -888,7 +888,7 @@ img {
 
 .board__row {
     display: grid;
-    grid-template-columns: 4.4rem minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 0.85rem;
     padding: 0.42rem 0;
@@ -900,31 +900,7 @@ img {
     padding-top: 0.1rem;
 }
 
-.board__clock {
-    font-size: 1.3rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--text-2);
-}
-
-.board__swatch {
-    width: 0.55rem;
-    height: 0.55rem;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-/* The tile renders up to 6 trains; portrait has room for 4. */
 @media (orientation: portrait) {
-    .board__row:nth-of-type(n + 5) {
-        display: none;
-    }
-
-    /* A status banner takes the room of a row. */
-    .board-alert ~ .board__row:nth-of-type(n + 4) {
-        display: none;
-    }
-
     /* Portrait: one line - status, then as much of the reason as fits. */
     .board-alert {
         align-items: center;
@@ -949,11 +925,6 @@ img {
         text-overflow: ellipsis;
         margin-top: 0;
     }
-
-    /* ...and sport gives up a row so the calendar keeps its height. */
-    .dashboard:has(.board-alert) .tile--sports .fx:nth-child(n + 3) {
-        display: none;
-    }
 }
 
 @media (orientation: landscape) {
@@ -972,13 +943,20 @@ img {
 }
 
 .board__origin {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
     font-size: 0.78rem;
     color: var(--text-3);
     margin-top: 0.05rem;
-    min-width: 0;
+}
+
+.board__times {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.board__later {
+    font-size: 0.82rem;
+    color: var(--text-3);
+    margin-top: 0.05rem;
 }
 
 .board__dest {

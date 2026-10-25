@@ -2,14 +2,12 @@ import re
 
 from dash import html
 
-from utils.dates import get_app_timezone
 from utils.styles import COLORS, contrast_text
 from utils.ui import badge, empty_state, icon
 
 from .constants import MAX_ARRIVAL_WINDOW_MINUTES
 
-TILE_ROWS = 6
-PORTRAIT_ROWS = 4  # keep in sync with .board__row:nth-of-type in main.css
+TIMES_PER_ROW = 2
 
 
 def line_badge(arrival: dict, *, compact: bool = False) -> html.Span:
@@ -48,17 +46,17 @@ def render_tfl_summary(
     line_status: dict | None = None,
 ) -> html.Div:
     """The homepage board: just the lines the household cares about
-    (`TFL_LINE_STATUS`; every line if none are set), one row per train,
-    with a banner above for any of those lines that is disrupted. Buses
-    and everything else are on the detail panel.
+    (`TFL_LINE_STATUS`; every line if none are set), one row per
+    destination with its next two trains, and a banner above for any of
+    those lines that is disrupted. Buses and everything else are on the
+    detail panel.
     """
     priority = priority_line_ids or []
     alerts = [_status_alert(s) for s in disrupted_lines(line_status or {}, priority)]
-    trains = sorted(
-        (a for a in arrivals if not priority or a.get("line_id") in priority),
-        key=lambda a: a["minutes"],
-    )[:TILE_ROWS]
-    if not trains:
+    groups = group_departures(
+        [a for a in arrivals if not priority or a.get("line_id") in priority]
+    )
+    if not groups:
         return html.Div(
             [
                 *alerts,
@@ -69,7 +67,19 @@ def render_tfl_summary(
             ],
             className="board",
         )
-    return html.Div([*alerts, *(_row(t) for t in trains)], className="board")
+    return html.Div([*alerts, *(_row(g) for g in groups)], className="board")
+
+
+def group_departures(arrivals: list[dict]) -> list[dict]:
+    """One entry per (line, destination) with its minute countdowns,
+    soonest first.
+    """
+    groups: dict[tuple[str, str], dict] = {}
+    for arrival in sorted(arrivals, key=lambda a: a["minutes"]):
+        key = (arrival.get("line_id", ""), arrival.get("destination", ""))
+        group = groups.setdefault(key, {"first": arrival, "minutes": []})
+        group["minutes"].append(arrival["minutes"])
+    return sorted(groups.values(), key=lambda g: g["minutes"][0])
 
 
 def _status_alert(status: dict) -> html.Div:
@@ -102,45 +112,38 @@ def _status_alert(status: dict) -> html.Div:
     )
 
 
-def _row(train: dict) -> html.Div:
-    """Clock time | destination, line and stop | countdown."""
-    when = train.get("arrival_time")
-    clock = (
-        when.astimezone(get_app_timezone()).strftime("%H:%M")
-        if hasattr(when, "astimezone")
-        else ""
-    )
-    meta = " · ".join(
-        part for part in (train.get("line_name"), train.get("station_name")) if part
-    )
-    minutes = train["minutes"]
+def _row(group: dict) -> html.Div:
+    """Line | destination and stop | the next two trains' countdowns."""
+    first = group["first"]
+    soonest, *later = group["minutes"][:TIMES_PER_ROW]
     return html.Div(
         [
-            html.Div(clock, className="board__clock"),
+            line_badge(first),
             html.Div(
                 [
                     html.Div(
-                        train.get("destination", ""), className="board__dest truncate"
+                        first.get("destination", ""), className="board__dest truncate"
                     ),
                     html.Div(
-                        [
-                            html.Span(
-                                className="board__swatch",
-                                style={
-                                    "background": train.get("line_color")
-                                    or COLORS["accent"]
-                                },
-                            ),
-                            html.Span(meta, className="truncate"),
-                        ],
-                        className="board__origin",
+                        f"from {first['station_name']}"
+                        if first.get("station_name")
+                        else "",
+                        className="board__origin truncate",
                     ),
                 ],
                 className="board__text",
             ),
             html.Div(
-                format_minutes(minutes),
-                className="board__next" + (" is-urgent" if minutes < 2 else ""),
+                [
+                    html.Div(
+                        format_minutes(soonest),
+                        className="board__next" + (" is-urgent" if soonest < 2 else ""),
+                    ),
+                    html.Div(f"then {later[0]} min", className="board__later")
+                    if later
+                    else None,
+                ],
+                className="board__times",
             ),
         ],
         className="board__row",

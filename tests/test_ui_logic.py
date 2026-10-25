@@ -17,15 +17,20 @@ def _arrival(line_id, destination, minutes, *, mode="bus"):
     }
 
 
-def test_homepage_board_shows_only_priority_line_one_row_per_train():
+def test_homepage_board_one_row_per_destination_with_next_two_trains():
     arrivals = [_arrival("275", "Barkingside", n) for n in (1, 6)]
     arrivals += [
-        _arrival("weaver", "Liverpool Street", n, mode="overground") for n in (19, 4)
+        _arrival("weaver", "Liverpool Street", n, mode="overground")
+        for n in (19, 4, 34)
     ]
+    arrivals.append(_arrival("weaver", "Chingford", 9, mode="overground"))
 
     board = render_tfl_summary(arrivals, priority_line_ids=["weaver"])
-    minutes = [row.children[2].children for row in board.children]
-    assert minutes == ["4 min", "19 min"]
+    times = [
+        [t.children for t in row.children[2].children if t is not None]
+        for row in board.children
+    ]
+    assert times == [["4 min", "then 19 min"], ["9 min"]]
 
 
 def test_upcoming_hours_and_rain_heads_up():
