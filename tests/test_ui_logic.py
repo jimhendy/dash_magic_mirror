@@ -75,43 +75,6 @@ def test_market_day_change_uses_previous_session_not_chart_start():
     assert round(market["day_change_pct"], 2) == -1.0
 
 
-def test_coming_up_lists_new_events_once_and_skips_ongoing(monkeypatch):
-    import components.google_calendar.summary as cal
-    from components.google_calendar.data import CalendarEvent
-
-    tz = ZoneInfo("Europe/London")
-    today = datetime.date(2026, 10, 25)
-    monkeypatch.setattr(
-        cal,
-        "local_now",
-        lambda: datetime.datetime(2026, 10, 25, 9, 0, tzinfo=tz),
-    )
-
-    def event(eid, start, days):
-        begin = datetime.datetime.combine(
-            today + datetime.timedelta(days=start), datetime.time(), tz
-        )
-        return CalendarEvent(
-            id=eid,
-            title=eid,
-            start_datetime=begin,
-            end_datetime=begin + datetime.timedelta(days=days),
-            is_all_day=True,
-            is_multi_day=days > 1,
-            starts_before_today=start < 0,
-            ends_after_tomorrow=start + days > 2,
-            calendar_id="c",
-        )
-
-    column = cal._upcoming_column(
-        today + datetime.timedelta(days=1),
-        [event("half term", -1, 6), event("trip", 3, 3)],
-        {},
-    )
-    titles = [row.children[2].children for row in column.children[1].children]
-    assert titles == ["trip"]
-
-
 def test_disrupted_priority_line_gets_banner_and_good_service_a_tick():
     from components.tfl_arrivals.summary import render_tfl_badge
 

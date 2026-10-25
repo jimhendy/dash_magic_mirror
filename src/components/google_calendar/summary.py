@@ -12,8 +12,6 @@ from utils.ui import badge, icon
 from .data import CalendarEvent, get_events_for_date
 
 MAX_TIMED_PER_DAY = 6
-UPCOMING_DAYS = 7  # after tomorrow
-MAX_UPCOMING = 8
 
 
 def is_birthday(event: CalendarEvent) -> bool:
@@ -50,73 +48,8 @@ def render_calendar_summary(
         [
             _day_column("Today", today, events, colors),
             _day_column("Tomorrow", tomorrow, events, colors),
-            _upcoming_column(tomorrow, events, colors),
         ],
         className="cal-tile",
-    )
-
-
-def _upcoming_column(
-    tomorrow: datetime.date,
-    events: list[CalendarEvent],
-    colors: dict[str, str],
-) -> html.Div:
-    """The rest of the week at a glance: one line per event, listed on the
-    day it starts. Events already under way show under today/tomorrow."""
-    start = tomorrow + datetime.timedelta(days=1)
-    end = start + datetime.timedelta(days=UPCOMING_DAYS)
-    seen: set[str] = set()
-    items: list[tuple[datetime.date, CalendarEvent]] = []
-    day = start
-    while day < end:
-        for event in sorted(get_events_for_date(events, day), key=event_sort_key):
-            if event.id not in seen and event.start_datetime.date() >= start:
-                seen.add(event.id)
-                items.append((day, event))
-        day += datetime.timedelta(days=1)
-
-    rows = [
-        html.Div(
-            [
-                html.Span(className="ev__bar", style={"background": color}),
-                html.Span(
-                    [
-                        html.Span(f"{date:%a}", className="ev__day"),
-                        html.Span(
-                            "All day"
-                            if event.is_all_day
-                            else f"{event.start_datetime:%H:%M}",
-                            className="ev__sub",
-                        ),
-                    ],
-                    className="ev__when",
-                ),
-                html.Span(event.title, className="ev__title truncate"),
-            ],
-            className="ev ev--upcoming",
-        )
-        for date, event in items[:MAX_UPCOMING]
-        for color in [colors.get(event.calendar_id, "")]
-    ]
-    if len(items) > MAX_UPCOMING:
-        rows.append(html.Div(f"+{len(items) - MAX_UPCOMING} more", className="more"))
-    if not rows:
-        rows.append(html.Div("Nothing else this week", className="cal-empty"))
-    return html.Div(
-        [
-            html.Div(
-                [
-                    html.Span("Coming up", className="cal-col__label"),
-                    html.Span(
-                        f"{start:%a} – {end - datetime.timedelta(days=1):%a}",
-                        className="cal-col__date",
-                    ),
-                ],
-                className="cal-col__head",
-            ),
-            html.Div(rows, className="cal-col__body"),
-        ],
-        className="cal-col cal-col--upcoming",
     )
 
 

@@ -8,7 +8,6 @@ from utils.ui import icon
 
 from .constants import SUMMARY_DAYS
 from .data import change_pct, summary_series
-from .format import format_price
 
 
 def trend_color(pct: float) -> str:
@@ -21,7 +20,8 @@ def change_label(pct: float) -> str:
 
 
 def render_markets_summary(markets: list[dict[str, Any]]) -> html.Div:
-    """One row per index: name, last week's trend, level and today's move."""
+    """One row per index: its flag, last week's trend and today's move.
+    Names and levels are on the panel."""
     rows = []
     for market in markets:
         series = summary_series(market, SUMMARY_DAYS)
@@ -32,16 +32,11 @@ def render_markets_summary(markets: list[dict[str, Any]]) -> html.Div:
             html.Div(
                 [
                     icon(market.get("icon", "mdi:chart-line"), "mkt__flag"),
-                    html.Div(market["label"], className="mkt__label truncate"),
                     sparkline(
                         values,
                         color=trend_color(week_pct),
                         class_name="mkt__spark",
                         baseline=values[0],
-                    ),
-                    html.Div(
-                        format_price(market["price"], market["currency"]),
-                        className="mkt__price",
                     ),
                     html.Div(
                         change_label(day_pct),

@@ -20,8 +20,8 @@ def render_weather_summary(
     hourly_data: list[dict[str, Any]],
     daily_data: list[dict[str, Any]] | None = None,
 ) -> html.Div:
-    """Current conditions and the next few hours on top; underneath, the
-    next 48 hours as a temperature/rain chart beside the 3-day outlook.
+    """Current conditions beside a 48-hour temperature/rain chart; today
+    and tomorrow's forecast underneath.
     """
     current = weather_data.get("current", {})
     today = weather_data.get("today", {})
@@ -143,7 +143,8 @@ def _chart(hours: list[dict[str, Any]]) -> html.Div:
             style={"left": f"{i / (n - 1) * 100:.1f}%"},
         )
         for i, h in enumerate(hours)
-        if i and h["dt"].hour == 0
+        # Skip a midnight that would sit on top of the "Now" label.
+        if i / (n - 1) >= 0.15 and h["dt"].hour == 0
     ]
     wettest = max(hours, key=lambda h: h.get("rain_chance", 0) or 0)
     rain_note = (
@@ -176,23 +177,28 @@ def _chart(hours: list[dict[str, Any]]) -> html.Div:
 def _outlook(daily: list[dict[str, Any]]) -> html.Div:
     today = local_today()
     rows = []
-    for day in daily[:3]:
+    tomorrow = today + datetime.timedelta(days=1)
+    for day in daily[:2]:
         date = day.get("date")
-        if isinstance(date, datetime.date) and date == today:
-            label = "Today"
-        elif isinstance(date, datetime.date):
-            label = date.strftime("%a")
-        else:
-            label = ""
+        label = {today: "Today", tomorrow: "Tomorrow"}.get(date, "")
         rain = day.get("rain_chance", 0) or 0
         rows.append(
             html.Div(
                 [
-                    html.Span(label, className="wxt-day__label"),
                     icon(
                         day.get("icon", "mdi:weather-partly-cloudy"),
                         "wxt-day__icon",
                         day.get("icon_color"),
+                    ),
+                    html.Div(
+                        [
+                            html.Div(label, className="wxt-day__label"),
+                            html.Div(
+                                day.get("condition", ""),
+                                className="wxt-day__cond truncate",
+                            ),
+                        ],
+                        className="wxt-day__text",
                     ),
                     html.Span(
                         [icon("mdi:water", "wx-hour__drop"), f"{rain}%"],

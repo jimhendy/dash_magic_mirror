@@ -1,7 +1,7 @@
 """Google Calendar component for the Magic Mirror application.
 
-Tile: today, tomorrow and the rest of the week. Panel: a day-by-day agenda for the
-coming weeks. Uses the Google Calendar API for event data.
+Tile: today, tomorrow and the rest of the week. Panel: a calendar grid of the
+next 31 days. Uses the Google Calendar API for event data.
 """
 
 from loguru import logger
@@ -56,7 +56,7 @@ class GoogleCalendar(DataDrivenComponent):
         return ComponentPayload(
             summary=summary,
             detail=detail,
-            subtitle="Upcoming events",
+            subtitle="Next 31 days",
             badge=badge,
             raw={"events": events},
         )
