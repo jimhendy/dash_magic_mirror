@@ -888,7 +888,7 @@ img {
 
 .board__row {
     display: grid;
-    grid-template-columns: 7.5rem minmax(0, 1fr) auto;
+    grid-template-columns: 4.4rem minmax(0, 1fr) auto;
     align-items: center;
     gap: 0.85rem;
     padding: 0.42rem 0;
@@ -900,17 +900,27 @@ img {
     padding-top: 0.1rem;
 }
 
-.board__row .line {
-    justify-self: start;
+.board__clock {
+    font-size: 1.3rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-2);
 }
 
-/* The tile renders up to 7 rows; portrait has room for 5. */
+.board__swatch {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* The tile renders up to 6 trains; portrait has room for 4. */
 @media (orientation: portrait) {
-    .board__row:nth-of-type(n + 6) {
+    .board__row:nth-of-type(n + 5) {
         display: none;
     }
 
-    /* A status banner takes the room of a couple of rows. */
+    /* A status banner takes the room of a row. */
     .board-alert ~ .board__row:nth-of-type(n + 4) {
         display: none;
     }
@@ -948,37 +958,12 @@ img {
 
 @media (orientation: landscape) {
     .board__row {
-        grid-template-columns: 4.6rem minmax(0, 1fr) auto;
         gap: 0.65rem;
-    }
-
-    .board .line__icon {
-        display: none;
-    }
-
-    .board .line {
-        min-width: 0;
-        max-width: 100%;
-        padding: 0.3rem 0.45rem;
+        padding: 0.6rem 0;
     }
 
     .board__dest {
         font-size: 1.05rem;
-    }
-
-    .board__times {
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 0;
-    }
-
-    .board__next {
-        min-width: 0;
-    }
-
-    .board__later {
-        font-size: 0.75rem;
-        min-width: 0;
     }
 }
 
@@ -987,27 +972,21 @@ img {
 }
 
 .board__origin {
-    font-size: 0.78rem;
-    color: var(--text-3);
-    margin-top: 0.05rem;
-}
-
-.board__dest {
     display: flex;
     align-items: center;
     gap: 0.4rem;
+    font-size: 0.78rem;
+    color: var(--text-3);
+    margin-top: 0.05rem;
+    min-width: 0;
+}
+
+.board__dest {
     font-size: 1.15rem;
     font-weight: 500;
     min-width: 0;
 }
 
-
-.board__times {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    white-space: nowrap;
-}
 
 .board__next {
     font-size: 1.25rem;
@@ -1018,12 +997,6 @@ img {
 
 .board__next.is-urgent {
     color: var(--red);
-}
-
-.board__later {
-    font-size: 0.9rem;
-    color: var(--text-3);
-    min-width: 3.2rem;
 }
 
 /* ---------------------------------------------------------------------- */

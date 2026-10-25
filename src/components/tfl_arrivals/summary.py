@@ -8,9 +8,8 @@ from utils.ui import badge, empty_state, icon
 
 from .constants import MAX_ARRIVAL_WINDOW_MINUTES
 
-TILE_ROWS = 7
-PRIMARY_ROWS = 5  # keep in sync with .board__row:nth-child in main.css
-TIMES_PER_ROW = 5
+TILE_ROWS = 6
+PORTRAIT_ROWS = 4  # keep in sync with .board__row:nth-of-type in main.css
 
 
 def line_badge(arrival: dict, *, compact: bool = False) -> html.Span:
@@ -33,18 +32,6 @@ def format_minutes(minutes: int) -> str:
     return "Due" if minutes <= 0 else f"{minutes} min"
 
 
-def group_departures(arrivals: list[dict]) -> list[dict]:
-    """Collapse individual arrivals into one row per (line, destination),
-    each with its upcoming minute countdowns, soonest row first.
-    """
-    groups: dict[tuple[str, str], dict] = {}
-    for arrival in sorted(arrivals, key=lambda a: a["minutes"]):
-        key = (arrival.get("line_id", ""), arrival.get("destination", ""))
-        group = groups.setdefault(key, {"first": arrival, "minutes": []})
-        group["minutes"].append(arrival["minutes"])
-    return sorted(groups.values(), key=lambda g: g["minutes"][0])
-
-
 def disrupted_lines(line_status: dict, priority_line_ids: list[str]) -> list[dict]:
     """Statuses of the priority lines (`TFL_LINE_STATUS`) that are not
     running a good service, worst first.
@@ -60,38 +47,29 @@ def render_tfl_summary(
     priority_line_ids: list[str] | None = None,
     line_status: dict | None = None,
 ) -> html.Div:
-    """A compact departure board: one row per line + destination with the
-    next few countdowns. Rows for the configured priority lines
-    (`TFL_LINE_STATUS`) are always kept even when buses are sooner, and
-    any of those lines that is disrupted gets a banner above the board.
+    """The homepage board: just the lines the household cares about
+    (`TFL_LINE_STATUS`; every line if none are set), one row per train,
+    with a banner above for any of those lines that is disrupted. Buses
+    and everything else are on the detail panel.
     """
-    alerts = [
-        _status_alert(s)
-        for s in disrupted_lines(line_status or {}, priority_line_ids or [])
-    ]
-    groups = group_departures(arrivals)
-    if not groups:
+    priority = priority_line_ids or []
+    alerts = [_status_alert(s) for s in disrupted_lines(line_status or {}, priority)]
+    trains = sorted(
+        (a for a in arrivals if not priority or a.get("line_id") in priority),
+        key=lambda a: a["minutes"],
+    )[:TILE_ROWS]
+    if not trains:
         return html.Div(
             [
                 *alerts,
                 empty_state(
-                    f"No departures in the next {MAX_ARRIVAL_WINDOW_MINUTES} minutes",
+                    f"No trains in the next {MAX_ARRIVAL_WINDOW_MINUTES} minutes",
                     "mdi:sleep",
                 ),
             ],
             className="board",
         )
-
-    # The first PRIMARY_ROWS are what portrait shows (CSS hides the rest);
-    # priority-line rows are guaranteed a place among them.
-    priority = set(priority_line_ids or [])
-    primary = [g for g in groups if g["first"].get("line_id") in priority][:2]
-    primary += [g for g in groups if g not in primary][: PRIMARY_ROWS - len(primary)]
-    primary.sort(key=lambda g: g["minutes"][0])
-    extra = [g for g in groups if g not in primary][: TILE_ROWS - len(primary)]
-    chosen = primary + extra
-
-    return html.Div([*alerts, *(_row(g) for g in chosen)], className="board")
+    return html.Div([*alerts, *(_row(t) for t in trains)], className="board")
 
 
 def _status_alert(status: dict) -> html.Div:
@@ -124,48 +102,45 @@ def _status_alert(status: dict) -> html.Div:
     )
 
 
-def _origin(first: dict) -> str:
-    """'from <stop> · <clock time>' for a row's soonest departure."""
-    parts = []
-    if first.get("station_name"):
-        parts.append(f"from {first['station_name']}")
-    when = first.get("arrival_time")
-    if when is not None and hasattr(when, "astimezone"):
-        parts.append(when.astimezone(get_app_timezone()).strftime("%H:%M"))
-    return " · ".join(parts)
-
-
-def _row(group: dict) -> html.Div:
-    first = group["first"]
-    minutes = group["minutes"][:TIMES_PER_ROW]
-    soonest = minutes[0]
+def _row(train: dict) -> html.Div:
+    """Clock time | destination, line and stop | countdown."""
+    when = train.get("arrival_time")
+    clock = (
+        when.astimezone(get_app_timezone()).strftime("%H:%M")
+        if hasattr(when, "astimezone")
+        else ""
+    )
+    meta = " · ".join(
+        part for part in (train.get("line_name"), train.get("station_name")) if part
+    )
+    minutes = train["minutes"]
     return html.Div(
         [
-            line_badge(first),
+            html.Div(clock, className="board__clock"),
             html.Div(
                 [
                     html.Div(
-                        html.Span(first.get("destination", ""), className="truncate"),
-                        className="board__dest",
+                        train.get("destination", ""), className="board__dest truncate"
                     ),
-                    html.Div(_origin(first), className="board__origin truncate"),
+                    html.Div(
+                        [
+                            html.Span(
+                                className="board__swatch",
+                                style={
+                                    "background": train.get("line_color")
+                                    or COLORS["accent"]
+                                },
+                            ),
+                            html.Span(meta, className="truncate"),
+                        ],
+                        className="board__origin",
+                    ),
                 ],
                 className="board__text",
             ),
             html.Div(
-                [
-                    html.Span(
-                        format_minutes(soonest),
-                        className="board__next" + (" is-urgent" if soonest < 2 else ""),
-                    ),
-                    html.Span(
-                        ", ".join(str(m) for m in minutes[1:]) + " min",
-                        className="board__later",
-                    )
-                    if len(minutes) > 1
-                    else None,
-                ],
-                className="board__times",
+                format_minutes(minutes),
+                className="board__next" + (" is-urgent" if minutes < 2 else ""),
             ),
         ],
         className="board__row",

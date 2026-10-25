@@ -1,11 +1,7 @@
 import datetime
 from zoneinfo import ZoneInfo
 
-from components.tfl_arrivals.summary import (
-    PRIMARY_ROWS,
-    group_departures,
-    render_tfl_summary,
-)
+from components.tfl_arrivals.summary import render_tfl_summary
 from components.weather.data import first_rain_hour, upcoming_hours
 from utils.dates import datetime_from_str
 
@@ -21,26 +17,15 @@ def _arrival(line_id, destination, minutes, *, mode="bus"):
     }
 
 
-def test_group_departures_collapses_by_line_and_destination():
-    groups = group_departures(
-        [
-            _arrival("38", "Clapton Pond", 9),
-            _arrival("38", "Clapton Pond", 2),
-            _arrival("55", "Walthamstow", 5),
-        ],
-    )
-    assert [g["first"]["line_id"] for g in groups] == ["38", "55"]
-    assert groups[0]["minutes"] == [2, 9]
-
-
-def test_priority_line_always_in_visible_portrait_rows():
-    arrivals = [_arrival(str(n), f"Dest {n}", n) for n in range(1, 9)]
-    arrivals.append(_arrival("weaver", "Chingford", 25, mode="overground"))
+def test_homepage_board_shows_only_priority_line_one_row_per_train():
+    arrivals = [_arrival("275", "Barkingside", n) for n in (1, 6)]
+    arrivals += [
+        _arrival("weaver", "Liverpool Street", n, mode="overground") for n in (19, 4)
+    ]
 
     board = render_tfl_summary(arrivals, priority_line_ids=["weaver"])
-    visible = board.children[:PRIMARY_ROWS]
-    names = [row.children[0].children[1].children for row in visible]
-    assert "Weaver" in names
+    minutes = [row.children[2].children for row in board.children]
+    assert minutes == ["4 min", "19 min"]
 
 
 def test_upcoming_hours_and_rain_heads_up():
