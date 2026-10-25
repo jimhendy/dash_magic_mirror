@@ -380,9 +380,27 @@ img {
     min-width: 0;
 }
 
+/* The seconds hang off the right of HH:MM; an invisible spacer of the
+   same width on the left keeps HH:MM (and so its colon - hours and
+   minutes are equal width with tabular figures) on the centre line. */
 .hero__clock {
+    --seconds-size: 1.5rem;
     display: flex;
     align-items: baseline;
+}
+
+.hero__clock::before {
+    content: "";
+    width: 2.2ch;
+    padding-right: 0.35rem;
+    font-size: var(--seconds-size);
+    box-sizing: content-box; /* as .hero__seconds, so the widths match */
+    flex-shrink: 0;
+}
+
+/* Never let a tight header column squeeze one side more than the other. */
+.hero__clock > * {
+    flex-shrink: 0;
 }
 
 .hero .presence {
@@ -395,6 +413,7 @@ img {
     font-weight: 300;
     letter-spacing: -0.04em;
     line-height: 0.95;
+    font-variant-numeric: tabular-nums;
 }
 
 /* The seconds sit in a fixed-width slot, so the centred clock (time and
@@ -404,7 +423,7 @@ img {
     width: 2.2ch;
     padding-left: 0.35rem;
     box-sizing: content-box;
-    font-size: 1.5rem;
+    font-size: var(--seconds-size);
     font-weight: 400;
     color: var(--text-3);
     text-align: left;
@@ -1202,7 +1221,7 @@ img {
     width: 2rem;
     height: 2rem;
     border-radius: 50%;
-    background: rgba(245, 246, 248, 0.92);
+    background: rgba(245, 246, 248, 0.5);
     padding: 0.3rem;
     position: relative;
     flex-shrink: 0;
@@ -2402,8 +2421,8 @@ img {
         gap: 0.6rem;
     }
 
-    .hero__seconds {
-        font-size: 1.3rem;
+    .hero__clock {
+        --seconds-size: 1.3rem;
     }
 
     .hero__time {
