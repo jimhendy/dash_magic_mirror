@@ -10,7 +10,6 @@ from .data import (
     fetch_arrivals_for_stop,
     fetch_line_status,
     fetch_stoppoint_disruptions,
-    fetch_transfer_station_arrivals,
     process_arrivals_data,
     process_line_status_data,
     process_stoppoint_disruptions,
@@ -42,13 +41,11 @@ class TFLArrivals(DataDrivenComponent):
     def __init__(
         self,
         all_stop_ids: list[str],
-        transfer_station_id: str = "",
         summary_ignore_destination: str = "",
         line_status_ids: list[str] | None = None,
         **kwargs,
     ):
         self.all_stop_ids = all_stop_ids
-        self.transfer_station_id = transfer_station_id
         self.summary_ignore_destination = summary_ignore_destination
         self._line_status_ids = list(line_status_ids or [])
         if not self.all_stop_ids:
@@ -70,6 +67,7 @@ class TFLArrivals(DataDrivenComponent):
             summary = render_tfl_summary(
                 timeline_arrivals,
                 priority_line_ids=self._line_status_ids,
+                line_status=line_status,
             )
             detail = render_tfl_fullscreen(
                 arrivals_by_stop, line_status, stop_disruptions
@@ -100,9 +98,6 @@ class TFLArrivals(DataDrivenComponent):
         )
 
     def _get_arrivals_data(self):
-        transfer_station_arrivals = fetch_transfer_station_arrivals(
-            self.transfer_station_id,
-        )
         raw_by_stop = {
             stop_id: fetch_arrivals_for_stop(stop_id) for stop_id in self.all_stop_ids
         }
@@ -114,8 +109,6 @@ class TFLArrivals(DataDrivenComponent):
         for raw in raw_by_stop.values():
             processed = process_arrivals_data(
                 raw,
-                transfer_station_arrivals,
-                self.transfer_station_id,
                 self.summary_ignore_destination,
                 is_summary=True,
             )
@@ -129,8 +122,6 @@ class TFLArrivals(DataDrivenComponent):
         for stop_id, raw in raw_by_stop.items():
             processed = process_arrivals_data(
                 raw,
-                transfer_station_arrivals,
-                self.transfer_station_id,
                 self.summary_ignore_destination,
                 is_summary=False,
             )

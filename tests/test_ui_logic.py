@@ -120,3 +120,37 @@ def test_coming_up_lists_new_events_once_and_skips_ongoing(monkeypatch):
     )
     titles = [row.children[2].children for row in column.children[1].children]
     assert titles == ["trip"]
+
+
+def test_disrupted_priority_line_gets_banner_and_good_service_a_tick():
+    from components.tfl_arrivals.summary import render_tfl_badge
+
+    def status(color, text):
+        return {
+            "weaver": {
+                "line_name": "Weaver",
+                "status_text": text,
+                "status_color": color,
+                "reason": "WEAVER LINE: Severe delays due to a signal failure.",
+            },
+        }
+
+    bad = status("red", "Severe Delays")
+    board = render_tfl_summary(
+        [_arrival("weaver", "Chingford", 3, mode="overground")],
+        priority_line_ids=["weaver"],
+        line_status=bad,
+    )
+    title, reason = board.children[0].children[1].children
+    assert title.children == "Weaver: Severe Delays"
+    assert reason.children == "Severe delays due to a signal failure."
+    assert render_tfl_badge(bad, {}, ["weaver"]) is None
+
+    good = status("green", "Good Service")
+    board = render_tfl_summary(
+        [_arrival("weaver", "Chingford", 3, mode="overground")],
+        priority_line_ids=["weaver"],
+        line_status=good,
+    )
+    assert board.children[0].className == "board__row"
+    assert render_tfl_badge(good, {}, ["weaver"]).className == "status-ok"

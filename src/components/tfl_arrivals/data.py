@@ -14,7 +14,6 @@ from utils.file_cache import cache_json
 from .constants import (
     ARRIVALS_API_URL,
     BUS_FALLBACK_COLOR,
-    FORWARD_DELTA_SECONDS,
     LINE_COLORS,
     LINE_STATUS_API_URL,
     MAX_ARRIVAL_WINDOW_MINUTES,
@@ -174,13 +173,6 @@ def fetch_arrivals_for_stop(stop_id: str) -> list[dict]:
     return arrivals
 
 
-@cache_json(valid_lifetime=datetime.timedelta(seconds=60))
-def fetch_transfer_station_arrivals(transfer_station_id: str) -> list[dict]:
-    if not transfer_station_id:
-        return []
-    return fetch_arrivals_for_stop(transfer_station_id)
-
-
 @cache_json(valid_lifetime=datetime.timedelta(minutes=2))
 def fetch_line_status(line_ids: list[str]) -> list[dict]:
     if not line_ids:
@@ -205,12 +197,6 @@ async def async_fetch_arrivals_for_stop(stop_id: str) -> list[dict]:
     return await asyncio.to_thread(fetch_arrivals_for_stop, stop_id)
 
 
-async def async_fetch_transfer_station_arrivals(
-    transfer_station_id: str,
-) -> list[dict]:
-    return await asyncio.to_thread(fetch_transfer_station_arrivals, transfer_station_id)
-
-
 async def async_fetch_line_status(line_ids: list[str]) -> list[dict]:
     return await asyncio.to_thread(fetch_line_status, line_ids)
 
@@ -219,104 +205,11 @@ async def async_fetch_stoppoint_disruptions(stop_ids: list[str]) -> list[dict]:
     return await asyncio.to_thread(fetch_stoppoint_disruptions, stop_ids)
 
 
-# --- Transfer station matching ---------------------------------------------------------------
-
-
-def _normalise_destination(name: str) -> str:
-    if not name:
-        return ""
-    return clean_station_name(name).strip().lower()
-
-
-def build_transfer_station_index(transfer_station_arrivals: list[dict]) -> dict:
-    by_vehicle: dict[str, list] = {}
-    by_line_dest: dict[tuple[str, str], list] = {}
-    for arr in transfer_station_arrivals:
-        vehicle_id = arr.get("vehicleId") or ""
-        line_id = arr.get("lineId") or ""
-        dest_id = arr.get("destinationNaptanId") or ""
-        dest_name = arr.get("destinationName", "")
-        destination_key = dest_id or _normalise_destination(dest_name)
-        if vehicle_id:
-            by_vehicle.setdefault(vehicle_id, []).append(arr)
-        if line_id and destination_key:
-            by_line_dest.setdefault((line_id, destination_key), []).append(arr)
-    return {"by_vehicle": by_vehicle, "by_line_dest": by_line_dest}
-
-
-def _parse_expected(dt_str: str | None) -> datetime.datetime | None:
-    if not dt_str:
-        return None
-    try:
-        return datetime.datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-    except Exception:  # noqa: BLE001
-        return None
-
-
-def check_stops_at_transfer_station_indexed(
-    arrival: dict,
-    transfer_index: dict,
-    transfer_station_id: str,
-) -> bool:
-    """Optimized version using pre-built index (O(1) lookups)."""
-    if not transfer_index or not transfer_station_id:
-        return False
-    if arrival.get("naptanId") == transfer_station_id:
-        return False
-
-    vehicle_id = arrival.get("vehicleId") or ""
-    line_id = arrival.get("lineId") or ""
-    dest_id = arrival.get("destinationNaptanId") or ""
-    dest_name_norm = normalize_destination_name(arrival.get("destinationName", ""))
-
-    if not line_id:
-        return False
-
-    arrival_expected_dt = _parse_expected(arrival.get("expectedArrival"))
-    if not arrival_expected_dt:
-        return False
-
-    by_vehicle = transfer_index.get("by_vehicle", {})
-    by_line_dest = transfer_index.get("by_line_dest", {})
-
-    # Try vehicle ID match first (most reliable)
-    candidates = []
-    if vehicle_id and vehicle_id in by_vehicle:
-        candidates.extend(by_vehicle[vehicle_id])
-
-    # Fall back to line + destination match
-    if not candidates:
-        dest_key = dest_id or dest_name_norm
-        if (line_id, dest_key) in by_line_dest:
-            candidates.extend(by_line_dest[(line_id, dest_key)])
-
-    # Check timing for candidates
-    for ts_arr in candidates:
-        ts_expected_dt = _parse_expected(ts_arr.get("expectedArrival"))
-        if not ts_expected_dt:
-            continue
-        delta = (ts_expected_dt - arrival_expected_dt).total_seconds()
-        if delta > FORWARD_DELTA_SECONDS:
-            return True
-
-    return False
-
-
-@lru_cache(maxsize=256)
-def normalize_destination_name(name: str) -> str:
-    """Normalize destination name for matching (cached for performance)."""
-    if not name:
-        return ""
-    return clean_station_name(name).strip().lower()
-
-
 # --- Processing ------------------------------------------------------------------------------
 
 
 def process_arrivals_data(
     arrivals: list[dict],
-    transfer_station_arrivals: list[dict],
-    transfer_station_id: str,
     ignore_destination: str,
     is_summary: bool = False,
 ) -> dict[str, Any]:
@@ -330,13 +223,6 @@ def process_arrivals_data(
         set(arrival.get("lineId", "") for arrival in arrivals if arrival.get("lineId")),
     )
     station_name = arrivals[0].get("stationName", "Unknown Station")
-
-    # Build transfer station index once for all arrivals (optimization)
-    transfer_index = (
-        build_transfer_station_index(transfer_station_arrivals)
-        if transfer_station_arrivals
-        else {}
-    )
 
     processed_arrivals = []
     for arrival in arrivals:
@@ -374,14 +260,6 @@ def process_arrivals_data(
                     else "material-symbols:train-outline"
                 )
 
-                via_transfer = bool(
-                    transfer_index
-                ) and check_stops_at_transfer_station_indexed(
-                    arrival,
-                    transfer_index,
-                    transfer_station_id,
-                )
-
                 processed_arrival = {
                     "id": arrival.get("id", ""),
                     "minutes": minutes,
@@ -395,7 +273,6 @@ def process_arrivals_data(
                     "direction": arrival.get("direction", ""),
                     "mode": arrival.get("modeName", ""),
                     "station_name": clean_station_name(arrival.get("stationName", "")),
-                    "via_transfer": via_transfer,
                 }
                 processed_arrivals.append(processed_arrival)
             except (ValueError, TypeError) as e:

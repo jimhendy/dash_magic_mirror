@@ -97,15 +97,6 @@ def _stop_card(stop_id: str, stop: dict) -> html.Div:
                         html.Div(
                             [
                                 _platform_label(a),
-                                html.Span(
-                                    [
-                                        icon("mdi:swap-horizontal-circle", "ic"),
-                                        "Stops at interchange",
-                                    ],
-                                    className="dep__via",
-                                )
-                                if a.get("via_transfer")
-                                else None,
                             ],
                             className="dep__meta",
                         ),

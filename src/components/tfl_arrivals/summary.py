@@ -1,3 +1,5 @@
+import re
+
 from dash import html
 
 from utils.dates import get_app_timezone
@@ -38,26 +40,46 @@ def group_departures(arrivals: list[dict]) -> list[dict]:
     groups: dict[tuple[str, str], dict] = {}
     for arrival in sorted(arrivals, key=lambda a: a["minutes"]):
         key = (arrival.get("line_id", ""), arrival.get("destination", ""))
-        group = groups.setdefault(key, {"first": arrival, "minutes": [], "via": False})
+        group = groups.setdefault(key, {"first": arrival, "minutes": []})
         group["minutes"].append(arrival["minutes"])
-        group["via"] = group["via"] or bool(arrival.get("via_transfer"))
     return sorted(groups.values(), key=lambda g: g["minutes"][0])
+
+
+def disrupted_lines(line_status: dict, priority_line_ids: list[str]) -> list[dict]:
+    """Statuses of the priority lines (`TFL_LINE_STATUS`) that are not
+    running a good service, worst first.
+    """
+    statuses = [line_status[lid] for lid in priority_line_ids if lid in line_status]
+    bad = [s for s in statuses if s["status_color"] != "green"]
+    return sorted(bad, key=lambda s: 0 if s["status_color"] == "red" else 1)
 
 
 def render_tfl_summary(
     arrivals: list[dict],
     *,
     priority_line_ids: list[str] | None = None,
+    line_status: dict | None = None,
 ) -> html.Div:
     """A compact departure board: one row per line + destination with the
     next few countdowns. Rows for the configured priority lines
-    (`TFL_LINE_STATUS`) are always kept even when buses are sooner.
+    (`TFL_LINE_STATUS`) are always kept even when buses are sooner, and
+    any of those lines that is disrupted gets a banner above the board.
     """
+    alerts = [
+        _status_alert(s)
+        for s in disrupted_lines(line_status or {}, priority_line_ids or [])
+    ]
     groups = group_departures(arrivals)
     if not groups:
-        return empty_state(
-            f"No departures in the next {MAX_ARRIVAL_WINDOW_MINUTES} minutes",
-            "mdi:sleep",
+        return html.Div(
+            [
+                *alerts,
+                empty_state(
+                    f"No departures in the next {MAX_ARRIVAL_WINDOW_MINUTES} minutes",
+                    "mdi:sleep",
+                ),
+            ],
+            className="board",
         )
 
     # The first PRIMARY_ROWS are what portrait shows (CSS hides the rest);
@@ -69,7 +91,37 @@ def render_tfl_summary(
     extra = [g for g in groups if g not in primary][: TILE_ROWS - len(primary)]
     chosen = primary + extra
 
-    return html.Div([_row(g) for g in chosen], className="board")
+    return html.Div([*alerts, *(_row(g) for g in chosen)], className="board")
+
+
+def _status_alert(status: dict) -> html.Div:
+    """'<Line>: <status>' with TfL's reason underneath."""
+    tone = "bad" if status["status_color"] == "red" else "warn"
+    # TfL reasons usually repeat the line and status as a prefix
+    # ("WEAVER LINE: Severe delays due to ..."); drop it.
+    reason = (status.get("reason") or "").strip()
+    if ":" in reason[:40]:
+        reason = reason.split(":", 1)[1].strip()
+    reason = re.sub(r"(\s*\.)+$", ".", reason)
+    # A <section> so `.board__row:nth-of-type` (portrait row cap) skips it.
+    return html.Section(
+        [
+            icon("mdi:alert-circle", "board-alert__icon"),
+            html.Div(
+                [
+                    html.Div(
+                        f"{status['line_name']}: {status['status_text']}",
+                        className="board-alert__title",
+                    ),
+                    html.Div(reason, className="board-alert__reason")
+                    if reason
+                    else None,
+                ],
+                className="board-alert__text",
+            ),
+        ],
+        className=f"board-alert board-alert--{tone}",
+    )
 
 
 def _origin(first: dict) -> str:
@@ -93,14 +145,7 @@ def _row(group: dict) -> html.Div:
             html.Div(
                 [
                     html.Div(
-                        [
-                            html.Span(
-                                first.get("destination", ""), className="truncate"
-                            ),
-                            icon("mdi:swap-horizontal-circle", "board__via")
-                            if group["via"]
-                            else None,
-                        ],
+                        html.Span(first.get("destination", ""), className="truncate"),
                         className="board__dest",
                     ),
                     html.Div(_origin(first), className="board__origin truncate"),
@@ -132,27 +177,19 @@ def render_tfl_badge(
     stop_disruptions: dict,
     priority_line_ids: list[str],
 ):
-    """Service status for the lines the household actually cares about
-    (`TFL_LINE_STATUS`): worst status first, then stop disruptions, else
-    a reassuring "Good service".
+    """Tile header status for the lines the household cares about
+    (`TFL_LINE_STATUS`). A disruption is spelled out in a banner on the
+    board itself; otherwise the header shows a stop disruption, or just
+    a tick for good service.
     """
-    statuses = [
-        line_status[lid] for lid in priority_line_ids if lid in line_status
-    ] or list(
-        line_status.values(),
-    )
-    bad = [s for s in statuses if s["status_color"] != "green"]
-    if bad:
-        worst = min(bad, key=lambda s: 0 if s["status_color"] == "red" else 1)
-        tone = "bad" if worst["status_color"] == "red" else "warn"
-        return badge(
-            f"{worst['line_name']}: {worst['status_text']}",
-            tone,
-            "mdi:alert-circle-outline",
-        )
+    if disrupted_lines(line_status, priority_line_ids):
+        return None
     if stop_disruptions:
         return badge("Stop disruption", "warn", "mdi:alert-outline")
-    if statuses:
-        name = statuses[0]["line_name"] if len(statuses) == 1 else "Lines"
-        return badge(f"{name}: Good service", "good", "mdi:check-circle-outline")
+    if any(lid in line_status for lid in priority_line_ids):
+        return html.Span(
+            icon("mdi:check-circle", "status-ok__icon"),
+            className="status-ok",
+            title="Good service",
+        )
     return None

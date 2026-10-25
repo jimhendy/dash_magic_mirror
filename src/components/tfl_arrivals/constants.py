@@ -10,10 +10,6 @@ TIMETABLE_API_URL: str = (
     "https://api.tfl.gov.uk/Line/{line_id}/Timetable/{from_stop_id}/to/{to_stop_id}"
 )
 
-# Matching / timing
-FORWARD_DELTA_SECONDS: int = (
-    15  # Minimum forward delta to regard transfer station as ahead
-)
 # How far ahead arrivals are considered at all - drives both the raw
 # filtering in `process_arrivals_data` and the summary timeline's span.
 MAX_ARRIVAL_WINDOW_MINUTES: int = 60
