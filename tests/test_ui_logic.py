@@ -101,5 +101,7 @@ def test_disrupted_priority_line_gets_banner_and_good_service_a_tick():
         priority_line_ids=["weaver"],
         line_status=good,
     )
-    assert board.children[0].className == "board__row"
-    assert render_tfl_badge(good, {}, ["weaver"]).className == "status-ok"
+    row = board.children[0]
+    assert row.className == "board__row has-status"
+    assert row.children[0].className == "status-ok"
+    assert render_tfl_badge(good, {}, ["weaver"]) is None

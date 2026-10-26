@@ -48,11 +48,18 @@ def render_tfl_summary(
     """The homepage board: just the lines the household cares about
     (`TFL_LINE_STATUS`; every line if none are set), one row per
     destination with its next two trains, and a banner above for any of
-    those lines that is disrupted. Buses and everything else are on the
-    detail panel.
+    those lines that is disrupted (a tick at the start of the row if it's
+    running a good service). Buses and everything else are on the detail
+    panel.
     """
     priority = priority_line_ids or []
-    alerts = [_status_alert(s) for s in disrupted_lines(line_status or {}, priority)]
+    line_status = line_status or {}
+    alerts = [_status_alert(s) for s in disrupted_lines(line_status, priority)]
+    good = {
+        lid
+        for lid in priority
+        if line_status.get(lid, {}).get("status_color") == "green"
+    }
     groups = group_departures(
         [a for a in arrivals if not priority or a.get("line_id") in priority]
     )
@@ -67,7 +74,10 @@ def render_tfl_summary(
             ],
             className="board",
         )
-    return html.Div([*alerts, *(_row(g) for g in groups)], className="board")
+    return html.Div(
+        [*alerts, *(_row(g, good=g["first"].get("line_id") in good) for g in groups)],
+        className="board",
+    )
 
 
 def group_departures(arrivals: list[dict]) -> list[dict]:
@@ -112,12 +122,20 @@ def _status_alert(status: dict) -> html.Div:
     )
 
 
-def _row(group: dict) -> html.Div:
-    """Line | destination and stop | the next two trains' countdowns."""
+def _row(group: dict, *, good: bool = False) -> html.Div:
+    """[Good service tick] | line | destination and stop | the next two
+    trains' countdowns.
+    """
     first = group["first"]
     soonest, *later = group["minutes"][:TIMES_PER_ROW]
+    tick = html.Span(
+        icon("mdi:check-circle", "status-ok__icon"),
+        className="status-ok",
+        title="Good service",
+    )
     return html.Div(
         [
+            *([tick] if good else []),
             line_badge(first),
             html.Div(
                 [
@@ -146,7 +164,7 @@ def _row(group: dict) -> html.Div:
                 className="board__times",
             ),
         ],
-        className="board__row",
+        className="board__row" + (" has-status" if good else ""),
     )
 
 
@@ -155,19 +173,12 @@ def render_tfl_badge(
     stop_disruptions: dict,
     priority_line_ids: list[str],
 ):
-    """Tile status for the lines the household cares about
-    (`TFL_LINE_STATUS`). A disruption is spelled out in a banner on the
-    board itself; otherwise the tile shows a stop disruption, or just
-    a tick for good service.
+    """Tile alert for a stop disruption, above the board. Line status is
+    on the board itself: a banner for a disruption on the lines the
+    household cares about (`TFL_LINE_STATUS`), otherwise a tick on the row.
     """
     if disrupted_lines(line_status, priority_line_ids):
         return None
     if stop_disruptions:
         return badge("Stop disruption", "warn", "mdi:alert-outline")
-    if any(lid in line_status for lid in priority_line_ids):
-        return html.Span(
-            icon("mdi:check-circle", "status-ok__icon"),
-            className="status-ok",
-            title="Good service",
-        )
     return None

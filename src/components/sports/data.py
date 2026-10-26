@@ -279,10 +279,15 @@ def _create_fixture_dict(
             if home_lower == key or away_lower == key:
                 team_icon = value
                 break
-    # Sport-scoped crest lookup only
+    # Which side is ours (home if both are), so the tile can show just
+    # H/A and the opponent beside our crest.
+    followed = [t.lower() for t in sport.teams]
+    is_home = home.lower().strip() in followed or away.lower().strip() not in followed
+    ours, opponent = (home, away) if is_home else (away, home)
+    # Sport-scoped crest lookup only, preferring our side's crest
     crest_path = None
     crest_map = SPORT_TEAM_CRESTS.get(sport.url, {})
-    for team_name in (home.lower(), away.lower()):
+    for team_name in (ours.lower(), opponent.lower()):
         if team_name in crest_map:
             crest_path = crest_map[team_name]
             break
@@ -294,6 +299,8 @@ def _create_fixture_dict(
         "raw": raw_text,
         "home": home,
         "away": away,
+        "is_home": is_home,
+        "opponent": opponent,
         "time": time_str,
         "competition": competition,
         "channel": channel,

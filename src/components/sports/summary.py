@@ -61,8 +61,17 @@ def render_sports_summary(data: dict[str, Any]) -> html.Div:
                     html.Div(
                         [
                             html.Div(
-                                f"{fx.get('home', '')} v {fx.get('away', '')}",
-                                className="fx__teams truncate",
+                                [
+                                    html.Span(
+                                        "H" if fx.get("is_home", True) else "A",
+                                        className="fx__venue",
+                                    ),
+                                    html.Span(
+                                        fx.get("opponent") or fx.get("away", ""),
+                                        className="truncate",
+                                    ),
+                                ],
+                                className="fx__teams",
                             ),
                             html.Div(
                                 fx.get("competition") or fx.get("sport_name", ""),
