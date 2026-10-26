@@ -6,9 +6,9 @@ from dash import html
 
 from utils.dates import local_today
 from utils.styles import COLORS
-from utils.ui import badge, icon
+from utils.ui import icon
 
-from .data import first_rain_hour, upcoming_hours
+from .data import upcoming_hours
 
 # The tile renders 8 hourly cells; narrow layouts hide the last two (CSS).
 TILE_HOURS = 8
@@ -156,7 +156,6 @@ def _chart(hours: list[dict[str, Any]]) -> html.Div:
         [
             html.Div(
                 [
-                    html.Span("Next 48h", className="wxt-chart__title"),
                     html.Span(rain_note, className="wxt-chart__rain"),
                     html.Span(f"{lo}–{hi}°", className="wxt-chart__range"),
                 ],
@@ -239,15 +238,3 @@ def _hour_cell(hour: dict[str, Any], *, is_now: bool) -> html.Div:
         ],
         className="wx-hour" + (" is-now" if is_now else ""),
     )
-
-
-def render_weather_badge(location: str, hourly_data: list[dict[str, Any]]):
-    """A rain heads-up when it's likely in the next 12 hours - the one thing
-    worth knowing on the way out of the door - otherwise the location.
-    """
-    next_hours = upcoming_hours(hourly_data, 12)
-    rain = first_rain_hour(next_hours)
-    if rain is not None:
-        when = "now" if rain is next_hours[0] else rain["dt"].strftime("%H:%M")
-        return badge(f"Rain likely {when}", "info", "mdi:umbrella")
-    return badge(location, "neutral", "mdi:map-marker-outline") if location else None

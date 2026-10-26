@@ -66,27 +66,13 @@ class BaseComponent(ABC):
     # ------------------------------------------------------------------
     def tile_layout(self) -> Component:
         cid = self.component_id
-        head = html.Div(
-            [
-                html.Div(
-                    icon(self.icon, "tile__icon"),
-                    className="tile__icon-wrap",
-                    style={"--tile-accent": self.accent} if self.accent else None,
-                ),
-                html.Div(self.title, className="tile__title"),
-                html.Div(
-                    self._tile_badge(), id=f"{cid}-badge", className="tile__badge"
-                ),
-                icon("mdi:chevron-right", "tile__chevron")
-                if self.full_screen
-                else None,
-            ],
-            className="tile__head",
-        )
+        # No title bar - the contents say what each tile is. The badge slot
+        # is only there for an occasional alert and collapses when empty.
+        badge = html.Div(self._tile_badge(), id=f"{cid}-badge", className="tile__badge")
         attrs: dict[str, Any] = {"data-open": self.name} if self.full_screen else {}
         return html.Div(
             [
-                head,
+                badge,
                 html.Div(
                     self._summary_layout(), id=f"{cid}-summary", className="tile__body"
                 ),
@@ -104,7 +90,7 @@ class BaseComponent(ABC):
         """Initial tile body."""
 
     def _tile_badge(self) -> Any:
-        """Initial tile header badge (optional)."""
+        """Initial tile alert badge (optional)."""
         return None
 
     def _hidden_layout(self) -> list[Component]:

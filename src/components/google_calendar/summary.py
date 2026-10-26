@@ -7,7 +7,7 @@ from dash import html
 
 from utils.dates import local_now
 from utils.styles import with_alpha
-from utils.ui import badge, icon
+from utils.ui import icon
 
 from .data import CalendarEvent, get_events_for_date
 
@@ -112,22 +112,3 @@ def _timed_row(event: CalendarEvent, date: datetime.date, color: str) -> html.Di
         ],
         className="ev" + state,
     )
-
-
-def render_calendar_badge(events: list[CalendarEvent]):
-    """The next thing coming up today, if anything."""
-    now = local_now()
-    upcoming = sorted(
-        (
-            e
-            for e in events
-            if not e.is_all_day
-            and e.start_datetime > now
-            and e.start_datetime.date() == now.date()
-        ),
-        key=lambda e: e.start_datetime,
-    )
-    if upcoming:
-        nxt = upcoming[0]
-        return badge(f"Next {nxt.start_datetime:%H:%M}", "info", "mdi:clock-outline")
-    return None

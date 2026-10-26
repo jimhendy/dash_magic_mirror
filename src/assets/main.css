@@ -141,7 +141,10 @@ img {
     padding: calc(var(--gap) + env(safe-area-inset-top, 0px)) var(--gap) var(--gap);
     /* Portrait (the default): a tall single page, two columns wide. */
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    /* Every tile takes the height it needs - the calendar may shrink to
+       fit what's left - and any spare height is shared around them. */
+    grid-template-rows: auto auto auto minmax(0, auto) auto;
+    align-content: space-around;
     grid-template-areas:
         "header          header"
         "weather         weather"
@@ -157,6 +160,7 @@ img {
         /* Weather takes the height it needs with transport below it;
            sport gets the full height of the right-hand column. */
         grid-template-rows: auto auto minmax(0, 1fr);
+        align-content: normal;
         grid-template-areas:
             "header       header          header"
             "weather      google_calendar sports"
@@ -199,64 +203,17 @@ img {
     border-color: var(--line-strong);
 }
 
-.tile__head {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    margin-bottom: 0.55rem;
-    min-height: 1.75rem;
-    flex-shrink: 0;
-}
-
-.tile__icon-wrap {
-    display: grid;
-    place-items: center;
-    width: 1.75rem;
-    height: 1.75rem;
-    border-radius: 0.55rem;
-    color: var(--tile-accent);
-    background: color-mix(in srgb, var(--tile-accent) 16%, transparent);
-    flex-shrink: 0;
-}
-
-/* Fallback for WebViews without color-mix(). */
-@supports not (background: color-mix(in srgb, red 50%, transparent)) {
-    .tile__icon-wrap {
-        background: rgba(255, 255, 255, 0.07);
-    }
-}
-
-.tile__icon {
-    width: 1.15rem;
-    height: 1.15rem;
-}
-
-.tile__title {
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-2);
-    white-space: nowrap;
-}
-
+/* Only an occasional alert; takes no room when there isn't one. */
 .tile__badge {
-    margin-left: auto;
-    min-width: 0;
     display: flex;
     justify-content: flex-end;
-}
-
-.tile__chevron {
-    width: 1.4rem;
-    height: 1.4rem;
-    color: var(--text-3);
+    min-width: 0;
+    margin-bottom: 0.55rem;
     flex-shrink: 0;
-    margin-right: -0.3rem;
 }
 
-.tile__badge:empty + .tile__chevron {
-    margin-left: auto;
+.tile__badge:empty {
+    display: none;
 }
 
 .tile__body {
@@ -264,13 +221,6 @@ img {
     min-height: 0;
     overflow: hidden;
     animation: fade-in 0.3s var(--ease);
-}
-
-/* Long lists fade out at the bottom rather than being hard-clipped. */
-.tile--google_calendar .tile__body,
-.tile--tfl_arrivals .tile__body {
-    -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 1.5rem), transparent);
-    mask-image: linear-gradient(180deg, #000 calc(100% - 1.5rem), transparent);
 }
 
 @keyframes fade-in {
@@ -429,22 +379,8 @@ img {
     text-align: left;
 }
 
-.hero__meta {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-    margin-top: 0.45rem;
-}
-
-.hero__greeting {
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--accent);
-}
-
 .hero__date {
+    margin-top: 0.45rem;
     font-size: 1.35rem;
     font-weight: 500;
     color: var(--text-2);
@@ -554,12 +490,6 @@ img {
     font-size: 0.75rem;
     color: var(--text-3);
     white-space: nowrap;
-}
-
-.wxt-chart__title {
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
 }
 
 .wxt-chart__rain {
@@ -801,7 +731,6 @@ img {
         height: 4.2rem;
     }
 
-    .wxt-chart__title,
     .wxt-chart__range {
         display: none;
     }
@@ -916,7 +845,7 @@ img {
     border-top: 0;
 }
 
-/* Good service on the priority lines: just a tick in the tile header. */
+/* Good service on the priority lines: just a tick above the board. */
 .status-ok {
     display: inline-flex;
     color: var(--green);
@@ -1360,11 +1289,6 @@ img {
     z-index: 1;
 }
 
-/* The flags say what it is; no title bar, so it's no taller than the clock. */
-.tile--markets .tile__head {
-    display: none;
-}
-
 /* Flag, week sparkline, today's move - names and levels are on the panel. */
 .tile--markets .mkt {
     grid-template-columns: 1.7rem minmax(0, 1fr) auto;
@@ -1397,7 +1321,7 @@ img {
         font-size: 4.8rem;
     }
 
-    .hero__meta {
+    .hero__date {
         margin-top: 0.2rem;
     }
 }
@@ -2430,11 +2354,8 @@ img {
     }
 
     .hero__date {
-        font-size: 1.15rem;
-    }
-
-    .hero__meta {
         margin-top: 0.3rem;
+        font-size: 1.15rem;
     }
 
     .wx-hour {

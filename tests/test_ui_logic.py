@@ -2,7 +2,7 @@ import datetime
 from zoneinfo import ZoneInfo
 
 from components.tfl_arrivals.summary import render_tfl_summary
-from components.weather.data import first_rain_hour, upcoming_hours
+from components.weather.data import upcoming_hours
 from utils.dates import datetime_from_str
 
 
@@ -33,16 +33,12 @@ def test_homepage_board_one_row_per_destination_with_next_two_trains():
     assert times == [["4 min", "then 19 min"], ["9 min"]]
 
 
-def test_upcoming_hours_and_rain_heads_up():
+def test_upcoming_hours():
     tz = ZoneInfo("Europe/London")
     now = datetime.datetime(2026, 10, 25, 14, 20, tzinfo=tz)
-    hourly = [
-        {"time": f"2026-10-25 {h:02d}:00", "rain_chance": 70 if h == 17 else 10}
-        for h in range(24)
-    ]
+    hourly = [{"time": f"2026-10-25 {h:02d}:00", "rain_chance": 10} for h in range(24)]
     hours = upcoming_hours(hourly, 6, now=now)
     assert [h["dt"].hour for h in hours] == [14, 15, 16, 17, 18, 19]
-    assert first_rain_hour(hours)["dt"].hour == 17
 
 
 def test_timed_events_are_shown_in_local_time(monkeypatch):

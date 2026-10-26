@@ -10,7 +10,7 @@ from .data import (
     process_weather_data,
 )
 from .full_screen import render_weather_fullscreen
-from .summary import render_weather_badge, render_weather_summary
+from .summary import render_weather_summary
 
 
 class Weather(DataDrivenComponent):
@@ -53,7 +53,6 @@ class Weather(DataDrivenComponent):
                 summary_data, hourly, detailed_data.get("daily", [])
             )
             detail = render_weather_fullscreen(detailed_data)
-            badge = render_weather_badge(summary_data.get("location", ""), hourly)
         except Exception:  # noqa: BLE001
             logger.exception("Error rendering weather payload")
             return None
@@ -63,6 +62,5 @@ class Weather(DataDrivenComponent):
             summary=summary,
             detail=detail,
             subtitle=f"{summary_data.get('location', '')} · {current.get('condition', '')}",
-            badge=badge,
             raw={"summary": summary_data, "detailed": detailed_data},
         )

@@ -208,13 +208,3 @@ def upcoming_hours(
             upcoming.append({**hour, "dt": dt})
     upcoming.sort(key=lambda h: h["dt"])
     return upcoming[:hours]
-
-
-def first_rain_hour(
-    hours: list[dict[str, Any]],
-    threshold: int = 50,
-) -> dict[str, Any] | None:
-    """The first of `hours` (as returned by `upcoming_hours`) whose chance of
-    rain reaches `threshold` percent, if any.
-    """
-    return next((h for h in hours if h.get("rain_chance", 0) >= threshold), None)

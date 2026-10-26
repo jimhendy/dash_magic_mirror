@@ -4,7 +4,7 @@ from typing import Any
 from dash import html
 
 from utils.dates import local_today
-from utils.ui import badge, empty_state, icon
+from utils.ui import empty_state, icon
 
 TILE_FIXTURES = 8
 WINDOW_DAYS = 7
@@ -88,19 +88,3 @@ def render_sports_summary(data: dict[str, Any]) -> html.Div:
             ),
         )
     return html.Div(rows, className="fxs")
-
-
-def render_sports_badge(data: dict[str, Any]):
-    from .data import get_summary_fixtures
-
-    today = local_today()
-    todays = [
-        fx
-        for fx in get_summary_fixtures(data, limit=10, days_ahead=0)
-        if fixture_date(fx) == today
-    ]
-    if todays:
-        return badge(
-            f"Today {todays[0].get('time', '')}".strip(), "good", "mdi:television-play"
-        )
-    return None

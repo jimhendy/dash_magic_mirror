@@ -6,7 +6,7 @@ from utils.styles import COLORS
 
 from .data import async_process_sports_data
 from .full_screen import render_sports_fullscreen
-from .summary import render_sports_badge, render_sports_summary
+from .summary import render_sports_summary
 
 
 class Sports(DataDrivenComponent):
@@ -33,7 +33,6 @@ class Sports(DataDrivenComponent):
         try:
             summary = render_sports_summary(data)
             detail = render_sports_fullscreen(data)
-            badge = render_sports_badge(data)
         except Exception:  # noqa: BLE001
             logger.exception("Error rendering sports payload")
             return None
@@ -42,6 +41,5 @@ class Sports(DataDrivenComponent):
             summary=summary,
             detail=detail,
             subtitle="Upcoming fixtures and where to watch",
-            badge=badge,
             raw=data,
         )

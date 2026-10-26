@@ -114,20 +114,10 @@ class Header(BaseComponent):
                             ],
                             className="hero__clock",
                         ),
-                        html.Div(
-                            [
-                                html.Span(
-                                    _greeting(now.hour),
-                                    className="hero__greeting",
-                                    **{"data-clock": "greeting"},
-                                ),
-                                html.Span(
-                                    f"{now:%A} {now.day} {now:%B}",
-                                    className="hero__date",
-                                    **{"data-clock": "date"},
-                                ),
-                            ],
-                            className="hero__meta",
+                        html.Span(
+                            f"{now:%A} {now.day} {now:%B}",
+                            className="hero__date",
+                            **{"data-clock": "date"},
                         ),
                     ],
                     className="hero__center",
@@ -161,13 +151,3 @@ class Header(BaseComponent):
             # Purely a re-render of the latest background-scanned state;
             # does not itself trigger any ping/ARP network activity.
             return render_presence_badges(self.people)
-
-
-def _greeting(hour: int) -> str:
-    if hour < 5:
-        return "Good night"
-    if hour < 12:
-        return "Good morning"
-    if hour < 18:
-        return "Good afternoon"
-    return "Good evening"

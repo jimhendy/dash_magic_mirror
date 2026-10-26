@@ -12,7 +12,7 @@ from utils.styles import CALENDAR_PALETTE, COLORS
 
 from .data import async_fetch_calendar_events, process_calendar_events
 from .full_screen import render_calendar_fullscreen
-from .summary import render_calendar_badge, render_calendar_summary
+from .summary import render_calendar_summary
 
 
 class GoogleCalendar(DataDrivenComponent):
@@ -48,7 +48,6 @@ class GoogleCalendar(DataDrivenComponent):
         try:
             summary = render_calendar_summary(events, self.colors)
             detail = render_calendar_fullscreen(events, self.colors)
-            badge = render_calendar_badge(events)
         except Exception:  # noqa: BLE001
             logger.exception("Error rendering calendar payload")
             return None
@@ -57,6 +56,5 @@ class GoogleCalendar(DataDrivenComponent):
             summary=summary,
             detail=detail,
             subtitle="Next 31 days",
-            badge=badge,
             raw={"events": events},
         )

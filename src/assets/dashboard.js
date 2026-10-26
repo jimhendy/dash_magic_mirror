@@ -4,7 +4,7 @@
 //
 //  - Tap a tile ([data-open]) -> show its pre-mounted detail panel.
 //  - [data-close] / inactivity countdown -> back to the dashboard.
-//  - Clock / greeting ticking ([data-clock]).
+//  - Clock ticking ([data-clock]).
 //  - Filter chips ([data-filter-group] / [data-filter-key]).
 //  - Headline rotation ([data-rotate]).
 //
@@ -272,13 +272,6 @@
         return n < 10 ? "0" + n : String(n);
     }
 
-    function greeting(hour) {
-        if (hour < 5) { return "Good night"; }
-        if (hour < 12) { return "Good morning"; }
-        if (hour < 18) { return "Good afternoon"; }
-        return "Good evening";
-    }
-
     function setText(selector, text) {
         var els = document.querySelectorAll(selector);
         for (var i = 0; i < els.length; i++) {
@@ -293,7 +286,6 @@
         setText('[data-clock="time"]', pad(now.getHours()) + ":" + pad(now.getMinutes()));
         setText('[data-clock="seconds"]', pad(now.getSeconds()));
         setText('[data-clock="date"]', DAYS[now.getDay()] + " " + now.getDate() + " " + MONTHS[now.getMonth()]);
-        setText('[data-clock="greeting"]', greeting(now.getHours()));
 
         if (openPanelName) {
             if (Date.now() - lastActivity < 1500) {

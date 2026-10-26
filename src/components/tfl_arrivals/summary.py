@@ -155,9 +155,9 @@ def render_tfl_badge(
     stop_disruptions: dict,
     priority_line_ids: list[str],
 ):
-    """Tile header status for the lines the household cares about
+    """Tile status for the lines the household cares about
     (`TFL_LINE_STATUS`). A disruption is spelled out in a banner on the
-    board itself; otherwise the header shows a stop disruption, or just
+    board itself; otherwise the tile shows a stop disruption, or just
     a tick for good service.
     """
     if disrupted_lines(line_status, priority_line_ids):
