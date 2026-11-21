@@ -37,6 +37,8 @@ class TFLArrivals(DataDrivenComponent):
     jitter_seconds = 10
     placeholder_error = "Transport data unavailable"
     placeholder_loading = "Loading departures…"
+    # Departure times are misleading once old; show "unavailable" instead
+    max_age_seconds = 3 * 60
 
     def __init__(
         self,

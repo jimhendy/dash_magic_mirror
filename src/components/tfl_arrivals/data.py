@@ -31,6 +31,10 @@ def _empty_for(expected_type: str) -> list | dict:  # helper to supply empty pla
     return [] if expected_type == "list" else {}
 
 
+class TFLFetchError(RuntimeError):
+    """Raised when a TFL API request fails after retries."""
+
+
 def _http_get_json(
     url: str,
     *,
@@ -40,6 +44,9 @@ def _http_get_json(
     retry_backoff_base: float = 0.25,
 ) -> Any:
     """HTTP GET + robust JSON parsing with limited retries.
+
+    Raises ``TFLFetchError`` once retries are exhausted so failures are never
+    cached as "no arrivals" and the repository keeps the last good payload.
 
     Handles intermittent TFL API issues where multiple JSON payloads or partial content
     cause json.JSONDecodeError (e.g. 'Extra data: line ...'). Attempts a truncation based
@@ -58,8 +65,8 @@ def _http_get_json(
                 time.sleep(sleep_for)
                 attempt += 1
                 continue
-            logger.error(f"Failed to fetch {url}: {e}")
-            return _empty_for(expected_type)
+            msg = f"Failed to fetch {url}: {e}"
+            raise TFLFetchError(msg) from e
 
         status = response.status_code
         if status >= 500 and attempt < max_retries:
@@ -71,15 +78,13 @@ def _http_get_json(
             attempt += 1
             continue
         if not response.is_success:
-            logger.error(f"Non-success status {status} fetching {url}")
-            return _empty_for(expected_type)
+            msg = f"Non-success status {status} fetching {url}"
+            raise TFLFetchError(msg)
 
         # Size guard
         if len(response.content) > _MAX_RESPONSE_BYTES:
-            logger.error(
-                f"Aborting parse for {url} - response too large ({len(response.content)} bytes)",
-            )
-            return _empty_for(expected_type)
+            msg = f"Aborting parse for {url} - response too large ({len(response.content)} bytes)"
+            raise TFLFetchError(msg)
 
         # Fast path
         try:
@@ -132,15 +137,14 @@ def _http_get_json(
                 attempt += 1
                 continue
             snippet = raw_text[:300].replace("\n", " ")
-            logger.error(
-                f"Failed to parse JSON for {url} after {attempt + 1} attempts. Snippet: {snippet}",
-            )
-            return _empty_for(expected_type)
+            msg = f"Failed to parse JSON for {url} after {attempt + 1} attempts. Snippet: {snippet}"
+            raise TFLFetchError(msg) from e
         except Exception as e:  # noqa: BLE001 - unexpected parsing path
-            logger.error(f"Unexpected error parsing JSON for {url}: {e}")
-            return _empty_for(expected_type)
+            msg = f"Unexpected error parsing JSON for {url}: {e}"
+            raise TFLFetchError(msg) from e
 
-    return _empty_for(expected_type)
+    msg = f"Exhausted retries fetching {url}"
+    raise TFLFetchError(msg)
 
 
 # --- Data fetch functions (parameterised, no env reads) ----------------------------------------

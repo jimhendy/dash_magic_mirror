@@ -281,8 +281,41 @@
         }
     }
 
+    // "updated X ago" labels (utils/ui.py): hidden while fresh, amber once
+    // older than data-stale-after seconds, red at 3x.
+    function agoText(seconds) {
+        var m = Math.floor(seconds / 60);
+        if (m < 60) {
+            return "updated " + Math.max(1, m) + "m ago";
+        }
+        var h = Math.floor(m / 60);
+        if (h < 24) {
+            return "updated " + h + "h ago";
+        }
+        return "updated " + Math.floor(h / 24) + "d ago";
+    }
+
+    function updateFreshness(nowMs) {
+        var labels = document.querySelectorAll(".updated-ago[data-updated-at]");
+        for (var i = 0; i < labels.length; i++) {
+            var el = labels[i];
+            var age = Math.max(0, (nowMs - Number(el.getAttribute("data-updated-at"))) / 1000);
+            var staleAfter = Number(el.getAttribute("data-stale-after")) || Infinity;
+            var stale = age >= staleAfter;
+            el.classList.toggle("is-stale", stale);
+            el.classList.toggle("is-very-stale", age >= 3 * staleAfter);
+            if (stale) {
+                var text = agoText(age);
+                if (el.textContent !== text) {
+                    el.textContent = text;
+                }
+            }
+        }
+    }
+
     function tick() {
         var now = new Date();
+        updateFreshness(now.getTime());
         setText('[data-clock="time"]', pad(now.getHours()) + ":" + pad(now.getMinutes()));
         setText('[data-clock="seconds"]', pad(now.getSeconds()));
         setText('[data-clock="date"]', DAYS[now.getDay()] + " " + now.getDate() + " " + MONTHS[now.getMonth()]);

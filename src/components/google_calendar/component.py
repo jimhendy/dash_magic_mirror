@@ -10,7 +10,11 @@ from components.base import DataDrivenComponent
 from utils.data_repository import ComponentPayload
 from utils.styles import CALENDAR_PALETTE, COLORS
 
-from .data import async_fetch_calendar_events, process_calendar_events
+from .data import (
+    CalendarAuthError,
+    async_fetch_calendar_events,
+    process_calendar_events,
+)
 from .full_screen import render_calendar_fullscreen
 from .summary import render_calendar_summary
 
@@ -42,7 +46,15 @@ class GoogleCalendar(DataDrivenComponent):
         super().__init__(name="google_calendar", **kwargs)
 
     async def _build_payload(self) -> ComponentPayload | None:
-        raw_events = await async_fetch_calendar_events(self.calendar_ids)
+        try:
+            raw_events = await async_fetch_calendar_events(self.calendar_ids)
+        except CalendarAuthError as exc:
+            # Won't recover on its own, so replace any stale events with a prompt.
+            logger.error(str(exc))
+            message = self._build_placeholder(
+                "Calendar needs re-authorising: run `just auth-calendar`",
+            )
+            return ComponentPayload(summary=message, detail=message, is_error=True)
         events = process_calendar_events(raw_events, truncate_to_tomorrow=False)
 
         try:

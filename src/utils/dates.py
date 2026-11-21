@@ -1,15 +1,35 @@
 import datetime
+import functools
 import os
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from loguru import logger
+
+
+DEFAULT_TIMEZONE = "Europe/London"
+
+
+@functools.cache
+def _zone(tz_name: str) -> datetime.tzinfo:
+    try:
+        return ZoneInfo(tz_name)
+    except (ZoneInfoNotFoundError, ValueError):
+        logger.warning(f"Unknown timezone {tz_name!r}; using {DEFAULT_TIMEZONE}")
+        return ZoneInfo(DEFAULT_TIMEZONE)
 
 
 def get_app_timezone() -> datetime.tzinfo:
     """Return the application's timezone loaded from env.
 
-    Env vars checked: APP_TIMEZONE, then TZ. Defaults to UTC.
+    Env vars checked: APP_TIMEZONE, then TZ. Defaults to Europe/London so that
+    "today"/"tomorrow" boundaries are right during BST when neither is set.
     """
-    tz_name = os.environ.get("APP_TIMEZONE", "UTC")
-    return ZoneInfo(tz_name)  # type: ignore[return-value]
+    tz_name = (
+        os.environ.get("APP_TIMEZONE")
+        or os.environ.get("TZ", "").lstrip(":")
+        or DEFAULT_TIMEZONE
+    )
+    return _zone(tz_name)
 
 
 def local_now() -> datetime.datetime:

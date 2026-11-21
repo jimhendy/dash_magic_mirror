@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -59,6 +60,44 @@ def _load_client_config() -> dict[str, Any]:
         return config
 
 
+class CalendarAuthError(RuntimeError):
+    """No usable Google token; needs `just auth-calendar`."""
+
+
+def load_credentials() -> Credentials:
+    """Load (and refresh if needed) stored Google credentials.
+
+    Never starts an interactive OAuth flow: inside the server that would block
+    forever waiting for a browser. Run ``just auth-calendar`` instead.
+    """
+    if not TOKEN_FILE.exists():
+        msg = f"No Google Calendar token at {TOKEN_FILE}"
+        raise CalendarAuthError(msg)
+
+    creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+    if creds.valid:
+        return creds
+    if not (creds.expired and creds.refresh_token):
+        msg = "Google Calendar token is invalid and cannot be refreshed"
+        raise CalendarAuthError(msg)
+    try:
+        creds.refresh(Request())
+    except RefreshError as exc:
+        # Revoked/expired refresh token (e.g. 7-day expiry for "Testing" OAuth apps)
+        msg = f"Google Calendar token refresh failed: {exc}"
+        raise CalendarAuthError(msg) from exc
+    TOKEN_FILE.write_text(creds.to_json())
+    return creds
+
+
+def run_interactive_auth() -> None:
+    """Run the browser OAuth flow and store the token (CLI use only)."""
+    client_config = _load_client_config()
+    flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
+    creds = flow.run_local_server(port=0)
+    TOKEN_FILE.write_text(creds.to_json())
+
+
 @cache_json(valid_lifetime=datetime.timedelta(minutes=5))
 def fetch_calendar_events(
     calendar_ids: list[str],
@@ -72,24 +111,7 @@ def fetch_calendar_events(
         List of raw event dictionaries from the Google Calendar API
 
     """
-    creds = None
-    if TOKEN_FILE.exists():
-        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
-
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            try:
-                client_config = _load_client_config()
-            except (FileNotFoundError, ValueError) as exc:
-                logger.error(str(exc))
-                return []
-            flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-            creds = flow.run_local_server(port=0)
-
-        with open(TOKEN_FILE, "w") as token:
-            token.write(creds.to_json())
+    creds = load_credentials()
 
     try:
         service = build("calendar", "v3", credentials=creds)
@@ -123,9 +145,9 @@ def fetch_calendar_events(
 
         return events
 
-    except HttpError as error:
-        logger.error(f"Google Calendar API error: {error}")
-        return []
+    except HttpError:
+        logger.exception("Google Calendar API error")
+        raise
 
 
 async def async_fetch_calendar_events(

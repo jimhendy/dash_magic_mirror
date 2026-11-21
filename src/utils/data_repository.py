@@ -11,6 +11,11 @@ from typing import Any
 
 from loguru import logger
 
+# First retry delay after a failed refresh (doubles per failure, capped at interval)
+RETRY_BASE_SECONDS = 30.0
+# Browser poll interval while a component has no payload yet
+LOADING_POLL_MS = 2_000
+
 
 @dataclass(slots=True)
 class ComponentPayload:
@@ -26,6 +31,8 @@ class ComponentPayload:
     subtitle: Any | None = None
     badge: Any | None = None
     raw: Any | None = None
+    # Placeholder/error payloads (e.g. "needs re-auth") get no "updated" label
+    is_error: bool = False
     updated_at: datetime = field(
         default_factory=lambda: datetime.now(UTC),
     )
@@ -78,12 +85,24 @@ class DataRepository:
                 jitter=jitter_seconds,
             )
 
-    def refresh_now_sync(self, key: str) -> ComponentPayload | None:
-        """Synchronously invoke the refresher for a component."""
+    def _get_refresher(self, key: str) -> _Refresher:
         refresher = self._refreshers.get(key)
         if refresher is None:
             msg = f"No refresher registered for '{key}'"
             raise KeyError(msg)
+        return refresher
+
+    async def refresh_now(self, key: str) -> ComponentPayload | None:
+        """Invoke the refresher for a component from async code (e.g. callbacks)."""
+        return await self._execute_refresh(self._get_refresher(key))
+
+    def refresh_now_sync(self, key: str) -> ComponentPayload | None:
+        """Synchronously invoke the refresher for a component.
+
+        Must not be called from a thread with a running event loop (use
+        `refresh_now`, or `asyncio.to_thread(refresh_now_sync, ...)`).
+        """
+        refresher = self._get_refresher(key)
 
         loop = asyncio.new_event_loop()
         try:
@@ -158,16 +177,27 @@ class DataRepository:
 
     async def _refresh_loop(self, refresher: _Refresher) -> None:
         # Run once immediately to keep data warm
-        await self._execute_refresh(refresher)
+        failures = 0 if await self._execute_refresh(refresher) else 1
         while not self._stop_event.is_set():
-            sleep_for = refresher.interval
-            if refresher.jitter:
-                jitter = random.uniform(-refresher.jitter, refresher.jitter)
-                sleep_for = max(1.0, refresher.interval + jitter)
+            if failures:
+                # The previous payload (if any) is kept; retry sooner than the
+                # normal interval with exponential backoff, capped at the interval.
+                sleep_for = min(
+                    refresher.interval,
+                    RETRY_BASE_SECONDS * (2 ** (failures - 1)),
+                )
+            else:
+                sleep_for = refresher.interval
+                if refresher.jitter:
+                    jitter = random.uniform(-refresher.jitter, refresher.jitter)
+                    sleep_for = max(1.0, refresher.interval + jitter)
             await self._sleep_with_stop(sleep_for)
             if self._stop_event.is_set():
                 break
-            await self._execute_refresh(refresher)
+            if await self._execute_refresh(refresher):
+                failures = 0
+            else:
+                failures += 1
 
     async def _sleep_with_stop(self, duration: float) -> None:
         end = time.monotonic() + duration

@@ -6,6 +6,7 @@ These only assemble class names - the look itself is defined in
 
 from __future__ import annotations
 
+import datetime
 from typing import Any
 
 from dash import html
@@ -92,4 +93,23 @@ def filter_chips(group: str, options: list[tuple[str, str]]) -> html.Div:
         ],
         className="chips",
         **{"data-filter-group": group},
+    )
+
+
+def updated_ago_label(
+    updated_at: datetime.datetime,
+    stale_after_seconds: float,
+) -> html.Span:
+    """ "updated X ago" freshness label, filled in and shown by `dashboard.js`.
+
+    Hidden while the data is fresh; amber once older than `stale_after_seconds`,
+    red at 3x. The server only renders the timestamp, so it keeps ticking in
+    the browser without any callbacks.
+    """
+    return html.Span(
+        className="updated-ago",
+        **{
+            "data-updated-at": int(updated_at.timestamp() * 1000),
+            "data-stale-after": int(stale_after_seconds),
+        },
     )

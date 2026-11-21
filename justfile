@@ -7,6 +7,10 @@ _default:
 run:
     cd src && uv run python -m app.main
 
+# Authorise Google Calendar (opens a browser; run on a machine with one)
+auth-calendar:
+    cd src && uv run python -m components.google_calendar.auth
+
 # Install dependencies
 install:
     uv sync

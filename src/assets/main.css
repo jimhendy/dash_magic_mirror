@@ -168,6 +168,39 @@ img {
     }
 }
 
+/* While something is playing, the music tile gets a slot: under transport in
+   portrait, under sport (which has spare height) in landscape. Otherwise the
+   tile is display:none and the grid is exactly as above. */
+.tile.tile--music {
+    display: none;
+}
+
+.tile.tile--music.is-playing {
+    display: flex;
+}
+
+.dashboard:has(> .tile--music.is-playing) {
+    grid-template-rows: auto auto auto auto minmax(0, auto) auto;
+    grid-template-areas:
+        "header          header"
+        "weather         weather"
+        "tfl_arrivals    tfl_arrivals"
+        "music           music"
+        "google_calendar google_calendar"
+        "sports          sports";
+}
+
+@media (orientation: landscape) {
+    .dashboard:has(> .tile--music.is-playing) {
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        grid-template-areas:
+            "header       header          header"
+            "weather      google_calendar sports"
+            "tfl_arrivals google_calendar sports"
+            "tfl_arrivals google_calendar music";
+    }
+}
+
 /* Subtle recede while a panel is open (transform/opacity only: cheap). */
 .has-panel .dashboard {
     transform: scale(0.97);
@@ -221,6 +254,30 @@ img {
     min-height: 0;
     overflow: hidden;
     animation: fade-in 0.3s var(--ease);
+}
+
+/* "updated X ago": only shown (by dashboard.js) once a tile's data is overdue */
+/* Overlaid in the tile's bottom padding so it never takes layout space. */
+.tile__updated {
+    position: absolute;
+    right: var(--pad);
+    bottom: 0.2rem;
+    pointer-events: none;
+}
+
+.updated-ago {
+    display: none;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--gold);
+}
+
+.updated-ago.is-stale {
+    display: inline;
+}
+
+.updated-ago.is-very-stale {
+    color: var(--red);
 }
 
 @keyframes fade-in {
@@ -2388,5 +2445,111 @@ img {
     *::after {
         animation: none !important;
         transition: none !important;
+    }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Music (now playing + Pause all) - only shown while something plays     */
+/* ---------------------------------------------------------------------- */
+.music {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    min-width: 0;
+}
+
+.music__rows {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.music__row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.music__art {
+    width: 3.1rem;
+    height: 3.1rem;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--surface-3);
+}
+
+.music__art.is-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-3);
+    font-size: 1.4rem;
+}
+
+.music__text {
+    min-width: 0;
+}
+
+.music__title {
+    font-size: 1.15rem;
+    font-weight: 500;
+}
+
+.music__meta {
+    font-size: 0.82rem;
+    color: var(--text-3);
+    margin-top: 0.1rem;
+}
+
+.music__error {
+    color: var(--red);
+    font-size: 0.95rem;
+}
+
+.music__pause {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+    min-height: 3.6rem;
+    padding: 0 1.15rem;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: var(--red);
+    color: #fff;
+    font: inherit;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.music__pause:active {
+    transform: scale(0.97);
+    filter: brightness(0.9);
+}
+
+.music__pause .ic {
+    font-size: 1.4rem;
+}
+
+/* Narrow slot (e.g. the landscape sport column): button on its own row. */
+.tile--music {
+    container-type: inline-size;
+}
+
+@container (max-width: 30rem) {
+    .music {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .music__pause {
+        justify-content: center;
+        min-height: 3.2rem;
     }
 }

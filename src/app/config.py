@@ -7,6 +7,7 @@ from components.google_calendar import GoogleCalendar
 from components.header import Header
 from components.header.component import PersonPresence, _norm
 from components.markets import Markets
+from components.music import Music
 from components.sports import Sports
 from components.tfl_arrivals import TFLArrivals
 from components.weather import Weather
@@ -65,14 +66,40 @@ TFL_LINE_STATUS_IDS = [
 # component's name) and the portrait/landscape `grid-template-areas` in
 # assets/main.css - not by the order here. The order only decides the
 # order of the detail panels in the DOM.
+HEADER = Header(
+    people=people,
+    grace_seconds=PRESENCE_GRACE_SECONDS,
+    arp_timeout=PRESENCE_ARP_TIMEOUT,
+    ping_attempts=PRESENCE_PING_ATTEMPTS,
+    ping_wait=PRESENCE_PING_WAIT,
+)
+
+# Home Assistant "now playing" tile (only when a token is configured)
+HOME_ASSISTANT_URL = os.environ.get("HOME_ASSISTANT_URL", "").strip()
+HOME_ASSISTANT_TOKEN = os.environ.get("HOME_ASSISTANT_TOKEN", "").strip()
+MUSIC_PLAYER_ENTITIES = [
+    value.strip()
+    for value in os.environ.get("MUSIC_PLAYER_ENTITIES", "").split(",")
+    if value.strip()
+]
+MUSIC_AUTO_PAUSE_WHEN_AWAY = os.environ.get(
+    "MUSIC_AUTO_PAUSE_WHEN_AWAY", ""
+).strip().lower() in {"1", "true", "yes", "on"}
+
+MUSIC = (
+    Music(
+        base_url=HOME_ASSISTANT_URL,
+        token=HOME_ASSISTANT_TOKEN,
+        entity_ids=MUSIC_PLAYER_ENTITIES,
+    )
+    if HOME_ASSISTANT_URL and HOME_ASSISTANT_TOKEN
+    else None
+)
+if MUSIC and MUSIC_AUTO_PAUSE_WHEN_AWAY:
+    HEADER.on_everyone_left = MUSIC.pause_all_safe
+
 COMPONENTS = [
-    Header(
-        people=people,
-        grace_seconds=PRESENCE_GRACE_SECONDS,
-        arp_timeout=PRESENCE_ARP_TIMEOUT,
-        ping_attempts=PRESENCE_PING_ATTEMPTS,
-        ping_wait=PRESENCE_PING_WAIT,
-    ),
+    HEADER,
     Weather(
         postcode=os.environ.get("WEATHER_POSTCODE", "SW1A 1AA"),
         api_key=os.environ.get("WEATHER_API_KEY", ""),
@@ -91,4 +118,5 @@ COMPONENTS = [
     ),
     Sports(),
     Markets(),
+    *([MUSIC] if MUSIC else []),
 ]

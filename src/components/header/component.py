@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 import time
 
 from dash import Input, Output, dcc, html
@@ -38,6 +39,7 @@ class Header(BaseComponent):
         ping_attempts: int = DEFAULT_PING_ATTEMPTS,
         ping_wait: float = DEFAULT_PING_WAIT,
         scan_interval_seconds: float = DEFAULT_PRESENCE_SCAN_INTERVAL_SECONDS,
+        on_everyone_left: Callable[[], None] | None = None,
         **kwargs,
     ):
         super().__init__(name="header", full_screen=False, **kwargs)
@@ -46,6 +48,8 @@ class Header(BaseComponent):
         self.arp_timeout = arp_timeout
         self.ping_attempts = ping_attempts
         self.ping_wait = ping_wait
+        # Called once when presence goes from "someone home" to "nobody home"
+        self.on_everyone_left = on_everyone_left
         for p in self.people:
             p.last_seen = 0  # type: ignore[attr-defined]
 
@@ -61,7 +65,8 @@ class Header(BaseComponent):
                 refresh_coro=self._scan_presence,
                 interval_seconds=scan_interval_seconds,
             )
-            self._repository.refresh_now_sync(self._presence_data_key)
+            # First scan runs in the background loop (it can take ~10s per
+            # absent person), so it doesn't hold up server startup.
         except ValueError:
             # Already registered (e.g. hot reload) - background loop already running.
             pass
@@ -69,6 +74,7 @@ class Header(BaseComponent):
     async def _scan_presence(self) -> ComponentPayload:
         """Background refresher: scan presence for every configured person once."""
         start = time.time()
+        anyone_home_before = any(p.is_home for p in self.people)
         await asyncio.to_thread(
             update_people_presence_by_ip,
             self.people,
@@ -84,6 +90,12 @@ class Header(BaseComponent):
             logger.debug(
                 f"Presence {person.name} mac={_norm(person.mac)} ip={person.ip} home={person.is_home}",
             )
+        # Only on a real transition, so a broken presence setup (everyone
+        # always "away") never fires it.
+        anyone_home_now = any(p.is_home for p in self.people)
+        if anyone_home_before and not anyone_home_now and self.on_everyone_left:
+            logger.info("Everyone has left; running on_everyone_left hook")
+            await asyncio.to_thread(self.on_everyone_left)
         # Only the side effect on `self.people` matters; the payload itself
         # is just a marker so the repository has something to store.
         return ComponentPayload(summary=None)

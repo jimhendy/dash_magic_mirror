@@ -1,13 +1,14 @@
 import asyncio
 from abc import ABC, abstractmethod
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
 from dash.development.base_component import Component
 
-from utils.data_repository import ComponentPayload, get_repository
-from utils.ui import icon, placeholder
+from utils.data_repository import LOADING_POLL_MS, ComponentPayload, get_repository
+from utils.ui import icon, placeholder, updated_ago_label
 
 _COMPONENT_COUNT = 0
 
@@ -92,6 +93,10 @@ class BaseComponent(ABC):
     def _tile_badge(self) -> Any:
         """Initial tile alert badge (optional)."""
         return None
+
+    def _stamp(self, payload: ComponentPayload) -> str:
+        stamp = payload.updated_at.isoformat()
+        return f"too-old:{stamp}" if self._too_old(payload) else stamp
 
     def _hidden_layout(self) -> list[Component]:
         """Intervals / stores this component needs mounted with its tile."""
@@ -207,6 +212,12 @@ class DataDrivenComponent(BaseComponent, ABC):
     placeholder_loading = "Loading..."
     placeholder_error = "Unavailable"
     refreshable = True
+    # "updated X ago" appears (amber) once data is older than this; red at 3x.
+    # None -> 3x refresh_seconds, at least 2 minutes.
+    stale_after_seconds: float | None = None
+    # If set, data older than this is replaced by `placeholder_error` (for data
+    # that's misleading when old, e.g. departure times).
+    max_age_seconds: float | None = None
 
     def __init__(self, name: str, **kwargs):
         super().__init__(name=name, **kwargs)
@@ -219,7 +230,10 @@ class DataDrivenComponent(BaseComponent, ABC):
                 interval_seconds=self.refresh_seconds,
                 jitter_seconds=self.jitter_seconds,
             )
-            self._initial_payload = self._repository.refresh_now_sync(self._data_key)
+            # The first fetch runs in the background repository loop, so startup
+            # never blocks on (or hangs in) a network call; tiles show their
+            # loading placeholder and poll quickly until data arrives.
+            self._initial_payload = None
         except ValueError:
             # Already registered (e.g. hot reload) - reuse the existing snapshot.
             self._initial_payload = self._repository.get_payload_snapshot(
@@ -241,12 +255,16 @@ class DataDrivenComponent(BaseComponent, ABC):
 
     def _summary_layout(self):
         payload = self._latest_payload()
+        if payload and self._too_old(payload):
+            return self._build_placeholder(self.placeholder_error)
         if payload and payload.summary is not None:
             return payload.summary
         return self._build_placeholder(self.placeholder_loading)
 
     def _detail_layout(self):
         payload = self._latest_payload()
+        if payload and self._too_old(payload):
+            return self._build_placeholder(self.placeholder_error)
         if payload and payload.detail is not None:
             return payload.detail
         return self._build_placeholder(self.placeholder_loading)
@@ -259,17 +277,42 @@ class DataDrivenComponent(BaseComponent, ABC):
         payload = self._latest_payload()
         return payload.badge if payload else None
 
+    def _poll_ms(self, payload: ComponentPayload | None) -> int:
+        """Poll quickly until there's data, then at the refresh interval."""
+        return int(self.refresh_seconds * 1000) if payload else LOADING_POLL_MS
+
+    def _stale_after(self) -> float:
+        if self.stale_after_seconds is not None:
+            return self.stale_after_seconds
+        return max(3 * self.refresh_seconds, 120)
+
+    def _updated_label(self, payload: ComponentPayload | None) -> Any:
+        if payload is None or payload.is_error:
+            return None
+        return updated_ago_label(payload.updated_at, self._stale_after())
+
+    def _too_old(self, payload: ComponentPayload) -> bool:
+        if self.max_age_seconds is None:
+            return False
+        age = (datetime.now(UTC) - payload.updated_at).total_seconds()
+        return age > self.max_age_seconds
+
     def _hidden_layout(self) -> list[Component]:
         payload = self._latest_payload()
         return [
+            html.Div(
+                self._updated_label(payload),
+                id=f"{self.component_id}-updated",
+                className="tile__updated",
+            ),
             dcc.Interval(
                 id=f"{self.component_id}-interval",
-                interval=int(self.refresh_seconds * 1000),
+                interval=self._poll_ms(payload),
                 n_intervals=0,
             ),
             dcc.Store(
                 id=f"{self.component_id}-stamp",
-                data=payload.updated_at.isoformat() if payload else None,
+                data=self._stamp(payload) if payload else None,
             ),
         ]
 
@@ -284,6 +327,8 @@ class DataDrivenComponent(BaseComponent, ABC):
             Output(f"{cid}-subtitle", "children"),
             Output(f"{cid}-badge", "children"),
             Output(f"{cid}-stamp", "data"),
+            Output(f"{cid}-updated", "children"),
+            Output(f"{cid}-interval", "interval"),
             Input(f"{cid}-interval", "n_intervals"),
             Input(f"{cid}-refresh", "n_clicks"),
             State(f"{cid}-stamp", "data"),
@@ -306,16 +351,35 @@ class DataDrivenComponent(BaseComponent, ABC):
                 self._initial_payload = payload
 
             if payload is None:
-                error = self._build_placeholder(self.placeholder_error)
-                return error, error, no_update, no_update, no_update
+                # Nothing fetched yet: keep the loading placeholder, poll fast.
+                return (no_update,) * 6 + (LOADING_POLL_MS,)
 
+            poll_ms = self._poll_ms(payload)
             new_stamp = payload.updated_at.isoformat()
+            if self._too_old(payload):
+                # Refreshes have been failing for a while; don't show old data.
+                new_stamp = f"too-old:{new_stamp}"
+                if new_stamp == stamp:
+                    return (no_update,) * 6 + (poll_ms,)
+                error = self._build_placeholder(self.placeholder_error)
+                return (
+                    error,
+                    error,
+                    no_update,
+                    no_update,
+                    new_stamp,
+                    self._updated_label(payload),
+                    poll_ms,
+                )
+
             if new_stamp == stamp and not forced:
-                return no_update, no_update, no_update, no_update, no_update
+                return (no_update,) * 6 + (poll_ms,)
             return (
                 payload.summary,
                 payload.detail,
                 payload.subtitle,
                 payload.badge,
                 new_stamp,
+                self._updated_label(payload),
+                poll_ms,
             )

@@ -3,7 +3,6 @@ import datetime
 from typing import Any
 
 import httpx
-from loguru import logger
 
 from utils.file_cache import cache_json
 
@@ -13,26 +12,28 @@ from .icons import get_weather_icon
 
 @cache_json(valid_lifetime=datetime.timedelta(minutes=15))
 def fetch_weather_data(api_key: str, postcode: str) -> dict[str, Any]:
-    """Fetch weather data from WeatherAPI.com."""
-    try:
-        # Get current weather and multi-day forecast in one call
-        forecast_url = f"{BASE_URL}/forecast.json"
-        params = {
-            "key": api_key,
-            "q": postcode,
-            "days": FORECAST_DAYS,
-            "aqi": "no",
-            "alerts": "no",
-        }
+    """Fetch weather data from WeatherAPI.com.
 
-        response = httpx.get(forecast_url, params=params, timeout=HTTP_TIMEOUT)
-        response.raise_for_status()
+    Raises on failure so the error is never written to the cache and the
+    repository keeps showing the last good payload.
+    """
+    # Get current weather and multi-day forecast in one call
+    forecast_url = f"{BASE_URL}/forecast.json"
+    params = {
+        "key": api_key,
+        "q": postcode,
+        "days": FORECAST_DAYS,
+        "aqi": "no",
+        "alerts": "no",
+    }
 
-        return response.json()
-
-    except Exception as e:  # noqa: BLE001
-        logger.error(f"Failed to fetch weather data: {e}")
-        return {}
+    response = httpx.get(forecast_url, params=params, timeout=HTTP_TIMEOUT)
+    response.raise_for_status()
+    data = response.json()
+    if not isinstance(data, dict) or not data:
+        msg = "Weather API returned an empty or invalid payload"
+        raise ValueError(msg)
+    return data
 
 
 async def async_fetch_weather_data(api_key: str, postcode: str) -> dict[str, Any]:

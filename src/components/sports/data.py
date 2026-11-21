@@ -103,13 +103,10 @@ def fetch_raw_html_for_sport(sport: Sport) -> str:
         f"?showdatestart={_date_str(start)}&showdateend={_date_str(end)}"
     )
     logger.info(f"Fetching raw HTML for sport={sport.url} url={url}")
-    try:
-        resp = httpx.get(url, headers={"User-Agent": USER_AGENT}, timeout=HTTP_TIMEOUT)
-        resp.raise_for_status()
-        return resp.text
-    except Exception as e:
-        logger.error(f"Failed to fetch {url}: {e}")
-        return ""
+    # Raise on failure so an empty page is never cached for 36h
+    resp = httpx.get(url, headers={"User-Agent": USER_AGENT}, timeout=HTTP_TIMEOUT)
+    resp.raise_for_status()
+    return resp.text
 
 
 # -------- Pagination helpers --------
@@ -430,14 +427,12 @@ def fetch_paginated_html_for_sport(sport: Sport) -> list[str]:
 
     # First page (GET) - must be synchronous to get total pages
     logger.info(f"Fetching page 0 for sport={sport.url} url={first_url}")
-    try:
-        with httpx.Client(timeout=HTTP_TIMEOUT, headers=headers_base) as client:
-            r0 = client.get(first_url)
-            r0.raise_for_status()
-            html0 = r0.text
-    except Exception as e:
-        logger.error(f"Failed to fetch first page for {sport.url}: {e}")
-        html0 = ""
+    # Failures raise so partial/empty results are never written to the 36h cache;
+    # the data repository keeps the previous payload and retries with backoff.
+    with httpx.Client(timeout=HTTP_TIMEOUT, headers=headers_base) as client:
+        r0 = client.get(first_url)
+        r0.raise_for_status()
+        html0 = r0.text
     pages_html.append(html0)
 
     total_pages = _pager_total_pages_from_html(html0)
@@ -445,8 +440,6 @@ def fetch_paginated_html_for_sport(sport: Sport) -> list[str]:
         return pages_html
 
     # Fetch remaining pages in parallel using asyncio
-    import asyncio
-
     async def _fetch_page_async(
         page_index: int,
         session: httpx.AsyncClient,
@@ -480,15 +473,14 @@ def fetch_paginated_html_for_sport(sport: Sport) -> list[str]:
             except Exception as e:
                 attempt += 1
                 if attempt > MAX_RETRIES_PER_PAGE:
-                    logger.error(
-                        f"Failed to fetch page {page_index} for {sport.url}: {e}",
-                    )
-                    return (page_index, "")
+                    msg = f"Failed to fetch page {page_index} for {sport.url}: {e}"
+                    raise RuntimeError(msg) from e
                 # Backoff before retry
                 await asyncio.sleep(
                     random.uniform(REQUEST_JITTER_MIN, REQUEST_JITTER_MAX),
                 )
-        return (page_index, "")
+        msg = f"Exhausted retries for page {page_index} of {sport.url}"
+        raise RuntimeError(msg)
 
     async def _fetch_all_pages() -> list[tuple[int, str]]:
         """Fetch all remaining pages in parallel."""
@@ -499,19 +491,12 @@ def fetch_paginated_html_for_sport(sport: Sport) -> list[str]:
             ]
             return await asyncio.gather(*tasks)
 
-    # Run async fetching
-    try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        results = loop.run_until_complete(_fetch_all_pages())
-        loop.close()
+    # Run async fetching (we're in a worker thread with no running loop)
+    results = asyncio.run(_fetch_all_pages())
 
-        # Sort by page index and extract HTML
-        results.sort(key=lambda x: x[0])
-        pages_html.extend([html for _, html in results])
-    except Exception as e:
-        logger.error(f"Error during parallel page fetching for {sport.url}: {e}")
-
+    # Sort by page index and extract HTML
+    results.sort(key=lambda x: x[0])
+    pages_html.extend([html for _, html in results])
     return pages_html
 
 
