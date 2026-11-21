@@ -3,6 +3,7 @@
 Uses the HA REST API with a long-lived access token:
   GET  /api/states                              -> media_player entities
   POST /api/services/media_player/media_pause   -> pause entities
+  POST /api/services/media_player/media_play    -> resume entities
 
 Music Assistant players appear in HA as media_player entities, so this covers
 them as well as any other speakers or TVs HA knows about.
@@ -108,14 +109,25 @@ def group_now_playing(players: list[PlayerState]) -> list[NowPlaying]:
     ]
 
 
-def pause_players(base_url: str, token: str, entity_ids: list[str]) -> None:
-    """Pause the given media players. Raises on HTTP failure."""
+def _call_service(
+    base_url: str, token: str, service: str, entity_ids: list[str]
+) -> None:
     if not entity_ids:
         return
     resp = httpx.post(
-        f"{base_url}/api/services/media_player/media_pause",
+        f"{base_url}/api/services/media_player/{service}",
         headers=_headers(token),
         json={"entity_id": entity_ids},
         timeout=HTTP_TIMEOUT,
     )
     resp.raise_for_status()
+
+
+def pause_players(base_url: str, token: str, entity_ids: list[str]) -> None:
+    """Pause the given media players. Raises on HTTP failure."""
+    _call_service(base_url, token, "media_pause", entity_ids)
+
+
+def play_players(base_url: str, token: str, entity_ids: list[str]) -> None:
+    """Resume the given media players. Raises on HTTP failure."""
+    _call_service(base_url, token, "media_play", entity_ids)

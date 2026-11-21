@@ -313,9 +313,24 @@
         }
     }
 
+    // Give the music tile a grid slot only while it's active (main.css): a
+    // class on the grid rather than :has(), which the wall tablet lacks.
+    function updateMusicSlot() {
+        var grid = document.getElementById("dashboard");
+        if (!grid) {
+            return;
+        }
+        var active = !!grid.querySelector(".tile--music.is-active");
+        if (grid.classList.contains("has-music") !== active) {
+            grid.classList.toggle("has-music", active);
+            fireResize();
+        }
+    }
+
     function tick() {
         var now = new Date();
         updateFreshness(now.getTime());
+        updateMusicSlot();
         setText('[data-clock="time"]', pad(now.getHours()) + ":" + pad(now.getMinutes()));
         setText('[data-clock="seconds"]', pad(now.getSeconds()));
         setText('[data-clock="date"]', DAYS[now.getDay()] + " " + now.getDate() + " " + MONTHS[now.getMonth()]);
